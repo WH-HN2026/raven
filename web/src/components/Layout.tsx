@@ -82,7 +82,7 @@ function TopBar({
           ))}
         </nav>
         <div className="flex flex-wrap items-center gap-3.5 py-3">
-          <NavLink to="/account" className="text-sm text-white no-underline hover:text-on-dark-muted">
+          <NavLink to="/account" title="Profile" className="text-sm text-white no-underline hover:text-on-dark-muted">
             {user.username}
           </NavLink>
           <span className="bg-red px-2 py-1 text-[11px] font-medium tracking-[0.08em] text-white uppercase">
@@ -125,7 +125,7 @@ export function Guard({ route }: { route: AppRoute }) {
   if (route.perm && !me?.permissions.includes(route.perm)) {
     return (
       <>
-        <PageHeader title={route.nav?.label ?? 'No access'} crumbs={[{ label: route.nav?.label ?? 'No access' }]} />
+        <PageHeader title={route.nav?.label ?? 'No access'} />
         <Section>
           <p className="m-0 font-medium text-red">No access.</p>
         </Section>

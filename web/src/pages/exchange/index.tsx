@@ -9,7 +9,7 @@ export function ExchangePage() {
   const canImport = useCan('import')
   return (
     <>
-      <PageHeader title="Import / Export" crumbs={[{ label: 'Import / Export' }]} />
+      <PageHeader title="Import / Export" />
       {canImport && (
         <Section className="flex flex-col gap-5">
           <SectionHeading>Import scan results</SectionHeading>

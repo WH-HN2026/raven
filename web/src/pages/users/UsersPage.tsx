@@ -38,7 +38,7 @@ export function UsersPage() {
   const total = q.data?.total
   return (
     <>
-      <PageHeader title="Users" crumbs={[{ label: 'Users' }]} meta={total !== undefined ? `${total} users` : undefined} />
+      <PageHeader title="Users" meta={total !== undefined ? `${total} users` : undefined} />
       <Section>
         <CreateUserForm />
       </Section>
