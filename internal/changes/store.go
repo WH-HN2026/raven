@@ -14,6 +14,7 @@ import (
 
 	"github.com/WH-HN2026/raven/internal/db"
 	"github.com/WH-HN2026/raven/internal/db/gen"
+	"github.com/WH-HN2026/raven/internal/pipeline"
 	"github.com/WH-HN2026/raven/internal/scanner"
 	"github.com/WH-HN2026/raven/internal/scanner/nmap"
 )
@@ -32,6 +33,7 @@ type RunRef struct {
 	Status     string     `json:"status"`
 	StartedAt  *time.Time `json:"started_at"`
 	FinishedAt *time.Time `json:"finished_at"`
+	Stages     []string   `json:"stages,omitempty"`
 }
 
 // Summary has the full counts, also when the lists are capped.
@@ -69,11 +71,12 @@ func CompareSorted(ctx context.Context, q *gen.Queries, from, to *int64, limit i
 	if err != nil {
 		return nil, err
 	}
-	a, err := LoadSnapshot(ctx, q, f.ID)
+	shared := pipeline.SharedStages(f.Stages, t.Stages)
+	a, err := loadSnapshot(ctx, q, f.ID, f.Stages, shared)
 	if err != nil {
 		return nil, err
 	}
-	b, err := LoadSnapshot(ctx, q, t.ID)
+	b, err := loadSnapshot(ctx, q, t.ID, t.Stages, shared)
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +163,9 @@ func getRun(ctx context.Context, q *gen.Queries, id int64) (RunRef, error) {
 	if err != nil {
 		return RunRef{}, fmt.Errorf("get run %d: %w", id, err)
 	}
-	return RunRef(r), nil
+	ref := RunRef(r)
+	ref.Stages = pipeline.EffectiveStages(ref.Stages)
+	return ref, nil
 }
 
 // one converts a LatestDoneRun / PreviousDoneRun result.
@@ -171,7 +176,9 @@ func one[T gen.LatestDoneRunRow | gen.PreviousDoneRunRow](r T, err error) (RunRe
 	if err != nil {
 		return RunRef{}, fmt.Errorf("find run: %w", err)
 	}
-	return RunRef(r), nil
+	ref := RunRef(r)
+	ref.Stages = pipeline.EffectiveStages(ref.Stages)
+	return ref, nil
 }
 
 // LoadSnapshot reads one run's state (see the package doc for the sources).
@@ -179,6 +186,10 @@ func one[T gen.LatestDoneRunRow | gen.PreviousDoneRunRow](r T, err error) (RunRe
 // skips decrypting and XML-parsing the run's nmap artifacts; otherwise it
 // falls back to parsing artifacts for legacy/seeded runs.
 func LoadSnapshot(ctx context.Context, q *gen.Queries, runID int64) (Snapshot, error) {
+	return loadSnapshot(ctx, q, runID, nil, pipeline.DefaultStages())
+}
+
+func loadSnapshot(ctx context.Context, q *gen.Queries, runID int64, runStages, shared []string) (Snapshot, error) {
 	rows, err := q.ListRunObservations(ctx, runID)
 	if err != nil {
 		return Snapshot{}, fmt.Errorf("run %d observations: %w", runID, err)
@@ -216,15 +227,99 @@ func LoadSnapshot(ctx context.Context, q *gen.Queries, runID int64) (Snapshot, e
 			nmapObs = append(nmapObs, res.Observations...)
 		}
 	}
-	hrows, err := q.ListRunHTTPObservations(ctx, &runID)
+	effStages := pipeline.EffectiveStages(runStages)
+	var http []HTTPRow
+	if pipeline.HasStage(shared, pipeline.StageHTTPX) {
+		hrows, err := q.ListRunHTTPObservations(ctx, &runID)
+		if err != nil {
+			return Snapshot{}, fmt.Errorf("run %d http observations: %w", runID, err)
+		}
+		var excludeTech map[SvcKey]map[string]bool
+		if !pipeline.HasStage(shared, pipeline.StageNuclei) && pipeline.HasStage(effStages, pipeline.StageNuclei) {
+			excludeTech, err = loadNucleiTechExclusions(ctx, q, runID)
+			if err != nil {
+				return Snapshot{}, err
+			}
+		}
+		http = make([]HTTPRow, len(hrows))
+		for i, h := range hrows {
+			techs := h.Technologies
+			if excl := excludeTech[SvcKey{h.Ip.Unmap(), uint16(h.Port)}]; len(excl) > 0 {
+				filtered := make([]string, 0, len(techs))
+				for _, t := range techs {
+					if !excl[t] {
+						filtered = append(filtered, t)
+					}
+				}
+				techs = filtered
+			}
+			http[i] = HTTPRow{IP: h.Ip, Port: uint16(h.Port), Title: h.Title, Technologies: techs}
+		}
+	}
+	s := BuildSnapshot(obs, nmapObs, http)
+	s.Stages = effStages
+	return s, nil
+}
+
+func loadNucleiTechExclusions(ctx context.Context, q *gen.Queries, runID int64) (map[SvcKey]map[string]bool, error) {
+	rows, err := q.ListRunNucleiMatches(ctx, runID)
 	if err != nil {
-		return Snapshot{}, fmt.Errorf("run %d http observations: %w", runID, err)
+		return nil, fmt.Errorf("run %d nuclei matches: %w", runID, err)
 	}
-	http := make([]HTTPRow, len(hrows))
-	for i, h := range hrows {
-		http[i] = HTTPRow{IP: h.Ip, Port: uint16(h.Port), Title: h.Title, Technologies: h.Technologies}
+	out := make(map[SvcKey]map[string]bool)
+	for _, r := range rows {
+		var matches []struct {
+			Kind    string `json:"kind"`
+			Name    string `json:"name"`
+			Matcher string `json:"matcher"`
+			Tech    string `json:"tech"`
+			CPE     string `json:"cpe"`
+		}
+		if err := json.Unmarshal(r.NucleiMatches, &matches); err != nil {
+			continue
+		}
+		key := SvcKey{r.Ip.Unmap(), uint16(r.Port)}
+		for _, m := range matches {
+			if m.Kind != string(scanner.ObsTech) {
+				continue
+			}
+			tech := m.Tech
+			if tech == "" {
+				// Backwards compatibility for runs recorded before nucleiMatch.Tech existed.
+				if _, prod, ok := cutCPE(m.CPE); ok {
+					tech = prod
+				} else if m.Matcher != "" {
+					tech = m.Matcher
+				} else {
+					tech = m.Name
+				}
+			}
+			if tech == "" {
+				continue
+			}
+			if out[key] == nil {
+				out[key] = make(map[string]bool)
+			}
+			out[key][tech] = true
+		}
 	}
-	return BuildSnapshot(obs, nmapObs, http), nil
+	return out, nil
+}
+
+func cutCPE(cpe string) (vendor, product string, ok bool) {
+	for i := 0; i < len(cpe); i++ {
+		if cpe[i] == ':' {
+			rest := cpe[i+1:]
+			for j := 0; j < len(rest); j++ {
+				if rest[j] == ':' {
+					rest = rest[:j]
+					break
+				}
+			}
+			return cpe[:i], rest, i > 0 && len(rest) > 0
+		}
+	}
+	return "", "", false
 }
 
 // TimelineRun is a host's state in one run.
@@ -254,7 +349,7 @@ func HostTimeline(ctx context.Context, q *gen.Queries, ip netip.Addr, n int32) (
 	for i, r := range rows {
 		ids[i], idx[r.ID] = r.ID, i
 		tl.Runs[i] = TimelineRun{
-			Run: RunRef{ID: r.ID, ProfileID: r.ProfileID, Status: r.Status, StartedAt: r.StartedAt, FinishedAt: r.FinishedAt},
+			Run: RunRef{ID: r.ID, ProfileID: r.ProfileID, Status: r.Status, StartedAt: r.StartedAt, FinishedAt: r.FinishedAt, Stages: pipeline.EffectiveStages(r.Stages)},
 			Up:  r.Up, ObservedAt: r.ObservedAt, OpenPorts: []int32{},
 		}
 	}
