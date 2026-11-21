@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
-import { useLocation, useParams } from 'react-router'
+import { Link, useLocation, useParams } from 'react-router'
 import { ApiError, api, type Schemas } from '../../api/client'
 import { PageHeader } from '../../components/PageHeader'
 import {
@@ -17,6 +17,7 @@ import {
   Th,
   THeadRow,
   Tr,
+  buttonClass,
 } from '../../components/ui'
 import { fmtTime, hostsKey, stateTone } from './ui'
 
@@ -70,6 +71,9 @@ export function HostDetailPage() {
             {t}
           </Chip>
         ))}
+        <Link className={buttonClass('secondary', 'sm', true)} to={`/changes/hosts/${h.ip}`}>
+          Timeline
+        </Link>
       </PageHeader>
 
       <div className="mx-auto flex max-w-[1440px] flex-wrap items-start gap-12 px-10 pt-12 pb-16">
