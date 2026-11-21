@@ -6,7 +6,7 @@ SQLC := go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1
 GO_PKGS := ./cmd/... ./internal/... ./web
 INFRA_SERVICES := raven-db nginx uwsgi celeryworker celerybeat initializer postgres valkey
 
-.PHONY: dev check check-go check-web gen build infra-up infra-down db-new test-integration lab-up lab-down cve-db
+.PHONY: dev check check-go check-web gen build infra-up infra-down db-new test-integration test-scale lab-up lab-down cve-db
 
 ## dev: Go server (rebuilt on change) + Vite dev server, using .env.local (run scripts/wt-env.sh first)
 dev: web/node_modules
@@ -55,6 +55,10 @@ db-new:
 ## test-integration: DB/Dojo tests; needs `make infra-up` and .env.local (scripts/wt-env.sh)
 test-integration:
 	set -a; [ -f .env.local ] && . ./.env.local; set +a; go test -count=1 -tags integration $(GO_PKGS)
+
+## test-scale: 16k and 65k host fake-scanner load test; needs `make infra-up` and .env.local (scripts/wt-env.sh)
+test-scale:
+	set -a; [ -f .env.local ] && . ./.env.local; set +a; go test -v -count=1 -timeout 30m -tags scaletest ./internal/scaletest
 
 ## cve-db: regenerate internal/cve/data/cve.json.gz from NVD (products.txt), CISA KEV and EPSS.
 ## Dev machine only (≈15 min without NVD_API_KEY); commit the output. Build and runtime never download.
