@@ -12,6 +12,7 @@ import (
 
 	"github.com/WH-HN2026/zadanie-agh-asi/internal/auth"
 	"github.com/WH-HN2026/zadanie-agh-asi/internal/db/gen"
+	"github.com/WH-HN2026/zadanie-agh-asi/internal/dojo"
 	"github.com/WH-HN2026/zadanie-agh-asi/internal/httpx"
 	"github.com/WH-HN2026/zadanie-agh-asi/internal/pipeline"
 )
@@ -24,6 +25,7 @@ type Deps struct {
 	CookieSecure  bool
 	DojoPublicURL string            // browser base URL of Dojo, for finding links
 	Pipeline      *pipeline.Service // nil = runs API answers 503
+	Dojo          *dojo.Lazy        // write-through client; unset = finding edits answer 503
 }
 
 type api struct{ Deps }

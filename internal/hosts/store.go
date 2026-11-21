@@ -93,6 +93,18 @@ type Detail struct {
 	Timeline []Observation     `json:"timeline"`
 }
 
+// serviceFromRow applies the overrides to one services row.
+func serviceFromRow(s gen.ListHostServicesRow) Service {
+	scan := ServiceFields{Name: s.Name, Product: s.Product, Version: s.Version}
+	eff, over := applyServiceOverrides(scan, s.Overrides)
+	return Service{
+		ID: s.ID, IP: s.Ip, Port: s.Port, Proto: s.Proto,
+		Name: eff.Name, Product: eff.Product, Version: eff.Version, CPE: s.Cpe, Scan: scan, Overridden: over,
+		Banner: s.Banner, State: s.State, FirstSeen: s.FirstSeen, LastSeen: s.LastSeen,
+		Overrides: objectOrEmpty(s.Overrides),
+	}
+}
+
 // List reads one page of hosts matching f, and the total.
 func List(ctx context.Context, pool *pgxpool.Pool, f Filter) ([]Host, int64, error) {
 	list, count, args := buildList(f)
@@ -150,14 +162,7 @@ func Get(ctx context.Context, pool *pgxpool.Pool, ip netip.Addr) (*Detail, error
 	}
 	d.Services = make([]Service, 0, len(svcs))
 	for _, s := range svcs {
-		scan := ServiceFields{Name: s.Name, Product: s.Product, Version: s.Version}
-		eff, over := applyServiceOverrides(scan, s.Overrides)
-		d.Services = append(d.Services, Service{
-			ID: s.ID, IP: s.Ip, Port: s.Port, Proto: s.Proto,
-			Name: eff.Name, Product: eff.Product, Version: eff.Version, CPE: s.Cpe, Scan: scan, Overridden: over,
-			Banner: s.Banner, State: s.State, FirstSeen: s.FirstSeen, LastSeen: s.LastSeen,
-			Overrides: objectOrEmpty(s.Overrides),
-		})
+		d.Services = append(d.Services, serviceFromRow(s))
 		if s.State == "open" {
 			d.OpenServices++
 			if n := len(d.OpenPorts); n == 0 || d.OpenPorts[n-1] != s.Port {

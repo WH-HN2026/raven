@@ -381,7 +381,12 @@ paths:
     patch:
       tags: [hosts]
       operationId: updateHost
-      description: stub. Edits user-owned fields only (hosts:edit).
+      description: |
+        Edits user-owned fields only (owner, criticality, notes, user_tags; absent = unchanged).
+        notes are stored encrypted. The result is then written to the IP's Dojo asset: description
+        (owner, criticality, notes) and tags (user tags as `user:<tag>`; all other tags are kept).
+        `dojo_sync` reports that write: synced, pending (no asset yet or Dojo not ready), failed.
+        400 for invalid values, 404 for an unknown host.
       parameters: [{ $ref: "#/components/parameters/CSRF" }]
       requestBody:
         required: true
@@ -393,7 +398,7 @@ paths:
           description: Updated host.
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/Host" }
+              schema: { $ref: "#/components/schemas/HostEditResult" }
         default: { $ref: "#/components/responses/Error" }
   /services:
     get:
@@ -418,7 +423,9 @@ paths:
     patch:
       tags: [hosts]
       operationId: updateService
-      description: stub. Writes `overrides` only (hosts:edit).
+      description: |
+        Writes `overrides` only, merged into the stored ones: keys name, product, version; a string
+        sets the key, null clears it, absent keys are unchanged. 400 for other keys or values.
       parameters: [{ $ref: "#/components/parameters/CSRF" }]
       requestBody:
         required: true
@@ -427,7 +434,13 @@ paths:
             schema:
               type: object
               properties:
-                overrides: { type: object, additionalProperties: true }
+                overrides:
+                  type: object
+                  properties:
+                    name: { type: [string, "null"] }
+                    product: { type: [string, "null"] }
+                    version: { type: [string, "null"] }
+                  additionalProperties: false
       responses:
         "200":
           description: Updated service.
@@ -469,7 +482,12 @@ paths:
     patch:
       tags: [findings]
       operationId: updateFinding
-      description: stub. Write-through to Dojo (findings:edit).
+      description: |
+        Write-through: PATCHes the finding in Dojo, then updates the mirror row from Dojo's answer.
+        Only findings in the mirror can be edited (404 otherwise). Implied changes are added so Dojo
+        accepts the patch: active=true clears false_p/risk_accepted/is_mitigated; false_p=true clears
+        active and verified; risk_accepted=true or is_mitigated=true clears active. Contradictions
+        are 400; 503 while Dojo is not ready; 502 if Dojo fails.
       parameters: [{ $ref: "#/components/parameters/CSRF" }]
       requestBody:
         required: true
@@ -488,7 +506,7 @@ paths:
     post:
       tags: [findings]
       operationId: addFindingNote
-      description: stub
+      description: Adds a note to the finding in Dojo (notes are not mirrored). 404 if not in the mirror, 503 while Dojo is not ready.
       parameters: [{ $ref: "#/components/parameters/CSRF" }]
       requestBody:
         required: true
@@ -1217,8 +1235,7 @@ components:
         owner: { type: string }
         criticality: { type: string, enum: ["", low, medium, high, critical] }
         notes: { type: string }
-        user_tags: { type: array, items: { type: string } }
-        overrides: { type: object, additionalProperties: true }
+        user_tags: { type: array, items: { type: string }, description: "lowercase a-z 0-9 . _ / -; deduped and sorted" }
     HostDetail:
       allOf:
         - $ref: "#/components/schemas/Host"
@@ -1229,6 +1246,13 @@ components:
             services: { type: array, items: { $ref: "#/components/schemas/Service" } }
             http: { type: array, items: { $ref: "#/components/schemas/HttpObservation" }, description: "latest per (service, URL); empty until nuclei (S4) runs" }
             timeline: { type: array, items: { $ref: "#/components/schemas/HostObservation" }, description: "newest first" }
+    HostEditResult:
+      allOf:
+        - $ref: "#/components/schemas/HostDetail"
+        - type: object
+          required: [dojo_sync]
+          properties:
+            dojo_sync: { type: string, enum: [synced, pending, failed] }
     HostObservation:
       type: object
       required: [run_id, up, observed_at]
@@ -1326,6 +1350,7 @@ components:
         verified: { type: boolean }
         false_p: { type: boolean }
         risk_accepted: { type: boolean }
+        is_mitigated: { type: boolean }
     FindingList:
       type: object
       required: [items, total]

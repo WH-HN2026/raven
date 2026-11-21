@@ -323,7 +323,13 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** @description stub. Edits user-owned fields only (hosts:edit). */
+        /**
+         * @description Edits user-owned fields only (owner, criticality, notes, user_tags; absent = unchanged).
+         *     notes are stored encrypted. The result is then written to the IP's Dojo asset: description
+         *     (owner, criticality, notes) and tags (user tags as `user:<tag>`; all other tags are kept).
+         *     `dojo_sync` reports that write: synced, pending (no asset yet or Dojo not ready), failed.
+         *     400 for invalid values, 404 for an unknown host.
+         */
         patch: operations["updateHost"];
         trace?: never;
     };
@@ -359,7 +365,10 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** @description stub. Writes `overrides` only (hosts:edit). */
+        /**
+         * @description Writes `overrides` only, merged into the stored ones: keys name, product, version; a string
+         *     sets the key, null clears it, absent keys are unchanged. 400 for other keys or values.
+         */
         patch: operations["updateService"];
         trace?: never;
     };
@@ -395,7 +404,13 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** @description stub. Write-through to Dojo (findings:edit). */
+        /**
+         * @description Write-through: PATCHes the finding in Dojo, then updates the mirror row from Dojo's answer.
+         *     Only findings in the mirror can be edited (404 otherwise). Implied changes are added so Dojo
+         *     accepts the patch: active=true clears false_p/risk_accepted/is_mitigated; false_p=true clears
+         *     active and verified; risk_accepted=true or is_mitigated=true clears active. Contradictions
+         *     are 400; 503 while Dojo is not ready; 502 if Dojo fails.
+         */
         patch: operations["updateFinding"];
         trace?: never;
     };
@@ -410,7 +425,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description stub */
+        /** @description Adds a note to the finding in Dojo (notes are not mirrored). 404 if not in the mirror, 503 while Dojo is not ready. */
         post: operations["addFindingNote"];
         delete?: never;
         options?: never;
@@ -935,10 +950,8 @@ export interface components {
             /** @enum {string} */
             criticality?: "" | "low" | "medium" | "high" | "critical";
             notes?: string;
+            /** @description lowercase a-z 0-9 . _ / -; deduped and sorted */
             user_tags?: string[];
-            overrides?: {
-                [key: string]: unknown;
-            };
         };
         HostDetail: components["schemas"]["Host"] & {
             /** @description decrypted */
@@ -948,6 +961,10 @@ export interface components {
             http: components["schemas"]["HttpObservation"][];
             /** @description newest first */
             timeline: components["schemas"]["HostObservation"][];
+        };
+        HostEditResult: components["schemas"]["HostDetail"] & {
+            /** @enum {string} */
+            dojo_sync: "synced" | "pending" | "failed";
         };
         HostObservation: {
             /** Format: int64 */
@@ -1054,6 +1071,7 @@ export interface components {
             verified?: boolean;
             false_p?: boolean;
             risk_accepted?: boolean;
+            is_mitigated?: boolean;
         };
         FindingList: {
             items: components["schemas"]["Finding"][];
@@ -1805,7 +1823,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Host"];
+                    "application/json": components["schemas"]["HostEditResult"];
                 };
             };
             default: components["responses"]["Error"];
@@ -1854,7 +1872,9 @@ export interface operations {
             content: {
                 "application/json": {
                     overrides?: {
-                        [key: string]: unknown;
+                        name?: string | null;
+                        product?: string | null;
+                        version?: string | null;
                     };
                 };
             };
