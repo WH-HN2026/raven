@@ -335,7 +335,7 @@ function CVESection({ d }: { d: Dashboard }) {
         </thead>
         <tbody>
           {d.cve_matches.map((m) => (
-            <Tr key={`${m.ip}-${m.port}-${m.proto}`}>
+            <Tr key={`${m.ip}-${m.port}-${m.proto}-${m.product}`}>
               <Td>
                 <SeverityLabel severity={m.severity.toLowerCase() as SeverityKey} />
               </Td>

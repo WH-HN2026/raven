@@ -92,9 +92,30 @@ const servicesCTE = `WITH latest_http AS (
 	GROUP BY lh.service_id
 )`
 
-const servicesFrom = ` FROM services s
+const servicesBaseFrom = ` FROM services s
 JOIN hosts h ON h.ip = s.ip
-LEFT JOIN svc_tech st ON st.service_id = s.id
+LEFT JOIN svc_tech st ON st.service_id = s.id`
+
+// servicesFrom aggregates the per-product cve_matches rows of a port into one
+// row per service (a port can carry several products, e.g. nmap + httpx).
+const servicesFrom = servicesBaseFrom + `
+LEFT JOIN LATERAL (
+	SELECT ARRAY(
+		SELECT DISTINCT id FROM cve_matches m, unnest(m.cve_ids) AS id
+		WHERE m.ip = s.ip AND m.port = s.port AND m.proto = s.proto ORDER BY id
+	) AS cve_ids,
+	(
+		SELECT m.severity FROM cve_matches m
+		WHERE m.ip = s.ip AND m.port = s.port AND m.proto = s.proto
+		ORDER BY CASE m.severity WHEN 'Critical' THEN 5 WHEN 'High' THEN 4 WHEN 'Medium' THEN 3
+			WHEN 'Low' THEN 2 WHEN 'Info' THEN 1 ELSE 0 END DESC
+		LIMIT 1
+	) AS severity
+) cm ON true`
+
+// techFrom keeps one row per (service, CVE-matched product) so ListTechnologies
+// can attribute each match to the technology it belongs to.
+const techFrom = servicesBaseFrom + `
 LEFT JOIN cve_matches cm ON cm.ip = s.ip AND cm.port = s.port AND cm.proto = s.proto`
 
 func buildServiceWhere(f ServiceFilter) (string, []any) {
@@ -297,6 +318,8 @@ type techRow struct {
 	version     string
 	techs       []string
 	cveCPE      string
+	cveProduct  string
+	serviceCPE  string
 	cveIDs      []string
 	cveSeverity string
 }
@@ -319,15 +342,16 @@ func ListTechnologies(ctx context.Context, pool *pgxpool.Pool, f TechnologyFilte
 	}
 	q := servicesCTE + ` SELECT s.id, s.ip, ` + effProductExpr + `, ` + effVersionExpr + `,
 		COALESCE(st.technologies, '{}')::text[],
-		COALESCE(cm.cpe, '')::text, COALESCE(cm.cve_ids, '{}')::text[], COALESCE(cm.severity, '')::text` +
-		servicesFrom + where
+		COALESCE(cm.cpe, '')::text, COALESCE(cm.product, '')::text, s.cpe,
+		COALESCE(cm.cve_ids, '{}')::text[], COALESCE(cm.severity, '')::text` +
+		techFrom + where
 	rows, err := pool.Query(ctx, q, args...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list technologies: %w", err)
 	}
 	raw, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (techRow, error) {
 		var tr techRow
-		err := r.Scan(&tr.serviceID, &tr.ip, &tr.product, &tr.version, &tr.techs, &tr.cveCPE, &tr.cveIDs, &tr.cveSeverity)
+		err := r.Scan(&tr.serviceID, &tr.ip, &tr.product, &tr.version, &tr.techs, &tr.cveCPE, &tr.cveProduct, &tr.serviceCPE, &tr.cveIDs, &tr.cveSeverity)
 		return tr, err
 	})
 	if err != nil {
@@ -382,6 +406,10 @@ func ListTechnologies(ctx context.Context, pool *pgxpool.Pool, f TechnologyFilte
 	for _, r := range raw {
 		seenNorm := map[string]bool{}
 		prodCPE, _, prodHasCPE := cve.CPEForTech(r.product)
+		// A port can carry several CVE-matched products (one row each); a row's
+		// CVEs belong only to the technology or product it was matched for.
+		prodMatches := r.cveCPE != "" && ((prodHasCPE && prodCPE == r.cveCPE) ||
+			vendorProduct(r.serviceCPE) == r.cveCPE || normTechKey(r.cveProduct) == normTechKey(r.product))
 		for _, rawTech := range r.techs {
 			name, ver := SplitTechVersion(rawTech)
 			if name == "" {
@@ -398,12 +426,13 @@ func ListTechnologies(ctx context.Context, pool *pgxpool.Pool, f TechnologyFilte
 			if techHasCPE {
 				seenNorm["cpe:"+techCPE] = true
 			}
-			matchCVE := len(r.cveIDs) > 0 && (sameAsProd || (techHasCPE && techCPE == r.cveCPE))
+			matchCVE := r.cveCPE != "" && ((techHasCPE && techCPE == r.cveCPE) ||
+				normTechKey(name) == normTechKey(r.cveProduct) || (sameAsProd && prodMatches))
 			add(name, ver, r, matchCVE)
 		}
 		if r.product != "" {
 			if !seenNorm[normTechKey(r.product)] && !(prodHasCPE && seenNorm["cpe:"+prodCPE]) {
-				add(r.product, r.version, r, len(r.cveIDs) > 0)
+				add(r.product, r.version, r, prodMatches)
 			}
 		}
 	}
@@ -481,4 +510,13 @@ func ListTechnologies(ctx context.Context, pool *pgxpool.Pool, f TechnologyFilte
 		end = start + int(f.Limit)
 	}
 	return all[start:end], total, nil
+}
+
+// vendorProduct returns the "vendor:product" part of a "vendor:product[:version]" CPE.
+func vendorProduct(cpe string) string {
+	parts := strings.SplitN(cpe, ":", 3)
+	if len(parts) < 2 {
+		return ""
+	}
+	return parts[0] + ":" + parts[1]
 }

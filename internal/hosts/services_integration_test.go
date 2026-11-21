@@ -111,6 +111,36 @@ func TestListServicesAndTechnologies(t *testing.T) {
 	if err != nil || filteredTotal != 1 || filteredTechs[0].Technology != "WordPress" {
 		t.Fatalf("q=word = %+v total=%d err=%v", filteredTechs, filteredTotal, err)
 	}
+
+	// Q3: one port can carry several CVE-matched products (httpx WordPress + PHP on :80).
+	// The service stays one row with the union of CVEs; each technology gets only its own.
+	if _, err := pool.Exec(ctx, `INSERT INTO cve_matches (ip, port, proto, product, cpe, version, cve_ids, hits, max_cvss, kev, distro, confidence, severity, matched_at, updated_at) VALUES
+		('10.10.0.2', 80, 'tcp', 'WordPress', 'wordpress:wordpress', '6.4.1', '{CVE-2024-1001,CVE-2024-1002}', '[]', 8.8, 0, false, 'high', 'High', now(), now()),
+		('10.10.0.2', 80, 'tcp', 'PHP', 'php:php', '8.1.2', '{CVE-2024-2001}', '[]', 9.8, 1, false, 'high', 'Critical', now(), now())`); err != nil {
+		t.Fatal(err)
+	}
+	items, total, err = ListServices(ctx, pool, ServiceFilter{Limit: 50})
+	if err != nil || total != 5 || len(items) != 5 {
+		t.Fatalf("multi-match services = %d items, total %d, err %v", len(items), total, err)
+	}
+	for _, it := range items {
+		if it.IP.String() == "10.10.0.2" && it.Port == 80 && (it.CVECount != 3 || it.CVESeverity != "Critical") {
+			t.Fatalf("10.10.0.2:80 multi-match = %+v", it)
+		}
+	}
+	techs, _, err = ListTechnologies(ctx, pool, TechnologyFilter{Limit: 50})
+	if err != nil {
+		t.Fatal(err)
+	}
+	techMap = map[string]TechnologySummary{}
+	for _, ts := range techs {
+		techMap[ts.Technology+"|"+ts.Version] = ts
+	}
+	for key, want := range map[string]int{"WordPress|": 2, "PHP|": 1, "OpenResty|1.25.3": 0, "Nginx|": 0} {
+		if ts, ok := techMap[key]; !ok || ts.CVECount != want || ts.ServiceCount != 1 {
+			t.Fatalf("%s = %+v ok=%v, want %d CVEs (all=%+v)", key, ts, ok, want, techs)
+		}
+	}
 }
 
 func TestHostLastEditedBy(t *testing.T) {
