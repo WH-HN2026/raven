@@ -198,7 +198,7 @@ describe('ChangesPage', () => {
     await waitFor(() => expect(values(from)).toEqual(['1', '4']))
     expect(values(to)).toEqual(['2'])
     fireEvent.change(from, { target: { value: '4' } })
-    expect(screen.getByTestId('location').textContent).toBe('/changes?from=4&to=2')
+    await waitFor(() => expect(screen.getByTestId('location').textContent).toBe('/changes?from=4&to=2'))
     await waitFor(() => expect(values(to)).toEqual(['2', '1']))
   })
 
@@ -206,7 +206,7 @@ describe('ChangesPage', () => {
     const fetch = mockApi(() => json({ ...diff, from: run(4), to: run(2) }))
     renderAt('/changes?from=2&to=4')
     await screen.findByRole('heading', { name: /Run #4 → run #2/ })
-    expect(screen.getByTestId('location').textContent).toBe('/changes?from=4&to=2')
+    await waitFor(() => expect(screen.getByTestId('location').textContent).toBe('/changes?from=4&to=2'))
     const diffRequests = fetch.mock.calls.map(([url]) => String(url)).filter((url) => url.startsWith('/api/changes'))
     expect(diffRequests).toEqual(['/api/changes?from=4&to=2'])
   })
