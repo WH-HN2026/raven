@@ -141,7 +141,7 @@ func (s *Service) ImportResults(ctx context.Context, u *auth.User, in ImportInpu
 		}
 		if len(allowedIPs) == 0 {
 			extra := map[string]any{"reason": "empty import: no hosts in scope for this profile"}
-			if err := finishRun(ctx, q, run.ID, "done", extra); err != nil {
+			if err := s.finishBatchRun(ctx, tx, q, run.ID, "done", extra, nil); err != nil {
 				return err
 			}
 			return audit.Log(ctx, q, userID(u), "import.results", "run", strconv.FormatInt(run.ID, 10), map[string]any{
@@ -192,7 +192,7 @@ func (s *Service) ImportResults(ctx context.Context, u *auth.User, in ImportInpu
 		}); err != nil {
 			return fmt.Errorf("finish import batch %d: %w", batchID, err)
 		}
-		if err := finishRun(ctx, q, run.ID, "done", nil); err != nil {
+		if err := s.finishBatchRun(ctx, tx, q, run.ID, "done", nil, nil); err != nil {
 			return err
 		}
 		return audit.Log(ctx, q, userID(u), "import.results", "run", strconv.FormatInt(run.ID, 10), map[string]any{
