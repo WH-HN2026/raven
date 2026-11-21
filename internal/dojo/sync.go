@@ -223,6 +223,8 @@ func ScannerFromScanType(t string) string {
 		return "wpscan"
 	case "ZAP Scan":
 		return "zap"
+	case "Nikto Scan":
+		return "nikto"
 	}
 	return strings.ToLower(strings.TrimSuffix(strings.TrimSpace(t), " Scan"))
 }

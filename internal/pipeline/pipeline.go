@@ -26,6 +26,7 @@ import (
 	"github.com/WH-HN2026/raven/internal/db/gen"
 	"github.com/WH-HN2026/raven/internal/scanner"
 	"github.com/WH-HN2026/raven/internal/scanner/httpx"
+	"github.com/WH-HN2026/raven/internal/scanner/nikto"
 	"github.com/WH-HN2026/raven/internal/targets"
 )
 
@@ -71,6 +72,7 @@ type Config struct {
 	NucleiActive scanner.Scanner  // nil = ProjectDiscovery nuclei aggressive mode
 	WPScan       scanner.Scanner  // nil = wpscan from PATH
 	ZAP          scanner.Scanner  // nil = ZAP stage unconfigured
+	Nikto        scanner.Scanner  // nil = nikto from PATH
 	Resolver     targets.Resolver // net.DefaultResolver in production
 	Hook         BatchHook        // nil = no-op
 	BatchSize    int              // 0 = adaptive sizing (S5); > 0 = fixed batch size
@@ -96,6 +98,9 @@ func New(pool *pgxpool.Pool, cfg Config) (*Service, error) {
 	}
 	if cfg.WPScan == nil {
 		cfg.WPScan = defaultWPScan()
+	}
+	if cfg.Nikto == nil {
+		cfg.Nikto = &nikto.Scanner{}
 	}
 	if cfg.Hook == nil {
 		cfg.Hook = nopHook{}

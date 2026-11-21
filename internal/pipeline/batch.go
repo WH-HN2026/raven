@@ -147,11 +147,16 @@ func (s *Service) runBatch(ctx context.Context, a BatchArgs, jobID int64, attemp
 	if err == nil && HasStage(stages, StageZAP) {
 		zapRes, err = s.scanZAP(ctx, b, prof, web)
 	}
+	var nk *niktoStageResult
+	if err == nil && HasStage(stages, StageNikto) {
+		nk, err = s.scanNikto(ctx, b, prof, web)
+	}
 	if err == nil {
 		var plan Plan
 		plan, err = s.ingestBatch(ctx, b, prof, hostnames, res, web, detection, wp, start,
 			append(extraIngests,
-				func(ctx context.Context, q *gen.Queries) error { return s.ingestZAP(ctx, q, b, zapRes) })...)
+				func(ctx context.Context, q *gen.Queries) error { return s.ingestZAP(ctx, q, b, zapRes) },
+				func(ctx context.Context, q *gen.Queries) error { return s.ingestNikto(ctx, q, b, nk) })...)
 		if err == nil {
 			s.afterBatch(jobCtx, b, prof, stages, plan, res)
 			return nil

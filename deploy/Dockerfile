@@ -1,5 +1,5 @@
 # RAVEN image (architecture §10): web build → Go build → runtime with nmap,
-# httpx and nuclei (pinned releases) and nuclei-templates (pinned tag, baked in).
+# httpx, nuclei, wpscan and nikto (pinned releases) and nuclei-templates (pinned tag, baked in).
 # Build from the repo root: docker compose build raven
 
 # ── 1. web ──
@@ -67,14 +67,40 @@ RUN mkdir -p /opt/wpscan-db /tmp/wpscan-home \
  && date -u +%Y-%m-%dT%H:%M:%SZ > /opt/wpscan-db/wpscan/db/DB_DATE \
  && (cd /opt/wpscan-db/wpscan/db && sha256sum metadata.json wp_fingerprints.json timthumbs-v3.txt config_backups.txt db_exports.txt backup_folders.txt dynamic_finders.yml LICENSE sponsor.txt > CHECKSUMS.sha256)
 
+# ── 3c. nikto (pinned release, checksum-verified, offline config) ──
+FROM alpine:3.24.4 AS nikto
+ARG NIKTO_VERSION=2.6.1
+ARG NIKTO_SHA256=d1ca1acb05d81a5a6f374c0afdd76b33afa0089278631a20673c0210a71d992f
+RUN apk add --no-cache curl \
+ && curl -fsSL -o /tmp/nikto.tar.gz "https://github.com/sullo/nikto/archive/refs/tags/${NIKTO_VERSION}.tar.gz" \
+ && echo "${NIKTO_SHA256}  /tmp/nikto.tar.gz" | sha256sum -c - \
+ && mkdir -p /opt/nikto \
+ && tar -xzf /tmp/nikto.tar.gz -C /tmp \
+ && cp -a "/tmp/nikto-${NIKTO_VERSION}/program/." /opt/nikto/ \
+ && cp /opt/nikto/nikto.conf.default /opt/nikto/nikto.conf \
+ && sed -i \
+    -e 's|^UPDATES=.*|UPDATES=no|' \
+    -e 's|^#PROMPTS=.*|PROMPTS=no|' \
+    -e 's|^CIRT=.*|CIRT=|' \
+    -e 's|^VERSION_API=.*|VERSION_API=|' \
+    -e 's|^CHECK6HOST=.*|CHECK6HOST=|' \
+    -e 's|^# EXECDIR=.*|EXECDIR=/opt/nikto|' \
+    -e 's|^@@EXTRAS=.*|@@EXTRAS=dictionary;siebel;auth;put_del_test;shellshock;ms10_070;apacheusers;optionsbleed|' \
+    /opt/nikto/nikto.conf \
+ && chmod 0755 /opt/nikto/nikto.pl \
+ && rm -rf /tmp/nikto.tar.gz "/tmp/nikto-${NIKTO_VERSION}"
+
 # ── 4. runtime ──
 FROM alpine:3.24.4
-RUN apk add --no-cache ca-certificates tzdata nmap nmap-scripts ruby libcurl sqlite-libs procps
+RUN apk add --no-cache ca-certificates tzdata nmap nmap-scripts ruby libcurl sqlite-libs procps \
+    perl perl-net-ssleay perl-io-socket-ssl perl-xml-writer
 COPY --from=scanners /usr/local/bin/httpx /usr/local/bin/httpx
 COPY --from=scanners /usr/local/bin/nuclei /usr/local/bin/nuclei
 COPY --from=scanners /opt/nuclei-templates /opt/nuclei-templates
 COPY --from=wpscan /opt/wpscan-gems /opt/wpscan-gems
 COPY --from=wpscan /opt/wpscan-db /opt/wpscan-db
+COPY --from=nikto /opt/nikto /opt/nikto
+RUN ln -s /opt/nikto/nikto.pl /usr/local/bin/nikto
 RUN printf '#!/bin/sh\nunset WPSCAN_API_TOKEN WPSCAN_ENTERPRISE_DB_TOKEN\nexport GEM_HOME=/opt/wpscan-gems\nexport GEM_PATH=/opt/wpscan-gems\nexec /opt/wpscan-gems/bin/wpscan "$@"\n' > /usr/local/bin/wpscan \
  && chmod 0755 /usr/local/bin/wpscan
 COPY --from=go /out/raven /usr/local/bin/raven

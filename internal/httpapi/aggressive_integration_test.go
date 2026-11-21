@@ -112,12 +112,11 @@ func TestAggressiveGatingIntegration(t *testing.T) {
 		if !st.Aggressive || st.Available {
 			continue
 		}
-		stage := st.Name
 		for _, role := range []auth.Role{admin, editor} {
 			body := request(400, role, http.MethodPost, "/profiles",
-				fmt.Sprintf(`{"name":"unavail-%s","ports":"80","stages":["nmap","httpx","%s"]}`, stage, stage))
+				fmt.Sprintf(`{"name":"unavail-%s","ports":"80","stages":["nmap","httpx","%s"]}`, st.Name, st.Name))
 			if !strings.Contains(string(body), "not available") {
-				t.Fatalf("expected 'not available' for stage %s as %s, got %s", stage, role, body)
+				t.Fatalf("expected 'not available' for stage %s as %s, got %s", st.Name, role, body)
 			}
 		}
 	}
