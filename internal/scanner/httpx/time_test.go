@@ -49,7 +49,7 @@ func TestParseResponseTime(t *testing.T) {
 		"testdata/nginx.jsonl": {
 			"http://172.21.0.2:80": 1, "http://172.21.0.3:80": 1, "https://raven-s7-nginx:443": 4,
 		},
-		"testdata/toxic-latency.jsonl": {"http://10.77.2.10:80": 3010, "http://10.77.2.11:8666": 3010},
+		"testdata/toxic-latency.jsonl": {"http://10.77.2.10:80": 3043, "http://10.77.2.11:8666": 3043},
 	} {
 		raw, err := os.ReadFile(file)
 		if err != nil {

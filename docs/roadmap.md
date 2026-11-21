@@ -159,7 +159,7 @@ M0 is sequential and blocking. Do it in **one** worktree, as fast as possible, t
 - [ ] **V4 Scale layer + real-scan measurements.** One multi-address container serving up to 4,096 persona hosts in `10.77.64.0/18`, deterministic churn with expected counts, `scripts/vlab-scale.sh`; real two-run scans at 256 and 1,024 hosts measured into `docs/scale.md`. (needs V1)
 - [x] **V5 One-command demo.** `make demo` / `scripts/demo.sh`: gen-env if missing, RAVEN + Dojo + vuln lab up and attached, wait for Dojo, seed blacklist/targets/profiles/demo users through the API, Run 1; `make demo-down`, `make demo-reset`; README Demo section. (needs V1; uses V4's script when present)
 - [ ] **V6 Acceptance pass on the vuln lab.** Fresh clone, `make demo`, every scenario step as the jury would, expected-vs-actual tables in `docs/vuln-lab.md`, follow-ups. (needs V2, V3, V4, V5)
-- [ ] **V7 Response time and slow hosts.** httpx response time stored per HTTP observation and shown; "slow" and "HTTP unresponsive" services in run stats and Changes (organizers' Toxiproxy scenario). (needs V1)
+- [x] **V7 Response time and slow hosts.** httpx response time stored per HTTP observation and shown; "slow" and "HTTP unresponsive" services in run stats and Changes (organizers' Toxiproxy scenario). (needs V1)
 - [ ] **V8 Aggressive stages on the vuln lab.** Admin-made aggressive profile limited to WordPress 4.7.5 and DVWA; nuclei-active/nikto/wpscan/ZAP results documented. (needs V2, AG2–AG5)
 
 ## M4 — MCP (last)

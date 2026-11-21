@@ -485,6 +485,13 @@ Shared contract (every task):
   - a lab run with `toxic latency 3000` shows ~3000 ms and "slow" on `10.77.2.10:80`, and `toxic timeout` shows `http_unresponsive` on `10.77.2.11:8666`;
   - viewer/admin UI check;
   - `make check` is green.
+- **As built:**
+  - `http_observations.response_ms` (ms, rounded; NULL when unknown); httpx runs with `-timeout 10`;
+  - slow = at least **2000 ms**, or at least **3×** the previous observation's and at least 500 ms (`httpx.Slow`);
+  - `GET /api/hosts/{ip}` → `http[].response_ms`, `http[].slow` (against the URL's previous observation); `GET /api/services` → `response_ms`, `slow` (slowest URL of the service's latest HTTP run); the host page shows "Response time" and a SLOW badge;
+  - run stats `http_slow` and `http_unresponsive` (open port that answered HTTP in the profile's previous finished run and not in this one); Changes fields `slow` (became slow) and `http_unresponsive`, counted in `summary.services_slow` / `summary.services_http_unresponsive`;
+  - lab results (profile with `10.77.2.0/24`, ports `80,8080,8474,8666`): baseline 32–40 ms on 10.77.2.10:80; `latency 3000` → 3033 ms, `slow` on 10.77.2.10:80 and 10.77.2.11:8666, run stats `http_slow: 2`, run 47 s → 69 s; `timeout` → 10.77.2.11:8666 `http_unresponsive` (port open), run 125 s; clear → 40 ms, nothing slow;
+  - deviation from §4 step 7: under `timeout`, nmap's probes to Traefik :80 hang, so nmap names it `https` and httpx probes `https://10.77.2.10:80` (Traefik 404 in 3 ms) instead of getting the 502; Changes shows name/product/version/title/technologies changed there, not `http_unresponsive`.
 
 ### V8 — Aggressive stages on the vuln lab
 

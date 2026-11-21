@@ -85,7 +85,7 @@ const (
 
 // servicesCTE joins services with latest HTTP observation technologies per service.
 const servicesCTE = `WITH latest_http AS (
-	SELECT DISTINCT ON (o.service_id, o.url) o.id, o.service_id, o.url, o.observed_at, o.technologies, o.response_ms
+	SELECT DISTINCT ON (o.service_id, o.url) o.id, o.service_id, o.url, o.observed_at, o.run_id, o.technologies, o.response_ms
 	FROM http_observations o
 	ORDER BY o.service_id, o.url, o.observed_at DESC, o.id DESC
 ), svc_tech AS (
@@ -94,13 +94,17 @@ const servicesCTE = `WITH latest_http AS (
 	CROSS JOIN LATERAL unnest(lh.technologies) AS t
 	GROUP BY lh.service_id
 ), svc_resp AS (
-	-- V7: the slowest latest URL of each service and that URL's previous response time.
+	-- V7: the slowest URL of each service in its latest HTTP run (URLs not probed
+	-- in that run are stale) and that URL's previous response time.
 	SELECT DISTINCT ON (lh.service_id) lh.service_id, lh.response_ms,
 		(SELECT p.response_ms FROM http_observations p
 		 WHERE p.service_id = lh.service_id AND p.url = lh.url AND (p.observed_at, p.id) < (lh.observed_at, lh.id)
 		 ORDER BY p.observed_at DESC, p.id DESC LIMIT 1) AS prev_response_ms
-	FROM latest_http lh
-	WHERE lh.response_ms IS NOT NULL
+	FROM (
+		SELECT l.*, first_value(l.run_id) OVER (PARTITION BY l.service_id ORDER BY l.observed_at DESC, l.id DESC) AS last_run
+		FROM latest_http l
+	) lh
+	WHERE lh.response_ms IS NOT NULL AND lh.run_id IS NOT DISTINCT FROM lh.last_run
 	ORDER BY lh.service_id, lh.response_ms DESC
 )`
 
