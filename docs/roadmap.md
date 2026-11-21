@@ -89,7 +89,7 @@ M0 is sequential and blocking. Do it in **one** worktree, as fast as possible, t
 - [ ] **P4 Encryption audit.** Every sensitive field uses `_enc` + helpers; a test proves the ciphertext in the DB is not plaintext; docs section.
 
 **Track C — Changes & fingerprinting**
-- [ ] **C1 Run diff.** `internal/changes`: compare two runs → new / gone / changed hosts and services (a changed product/version/title/tech counts as changed); API `GET /api/changes?from=&to=`.
+- [x] **C1 Run diff.** `internal/changes`: compare two runs → new / gone / changed hosts and services (a changed product/version/title/tech counts as changed); API `GET /api/changes?from=&to=`.
 - [ ] **C2 Signature validator + built-in pack.** Safe-subset validator (architecture §9) and an API to CRUD, validate and test signatures. A built-in pack of **about 30–40 nuclei templates** in `signatures/`, each with a lab fixture or a recorded response proving it matches:
   - headers: version leaks (`Server`, `X-Powered-By`, `X-AspNet-Version`), `X-Environment`/debug headers, missing HSTS/CSP/X-Frame-Options;
   - cookies: known session cookies (`PHPSESSID`, `JSESSIONID`, `ASP.NET_SessionId`, `laravel_session`, `wordpress_*`), missing Secure/HttpOnly;
