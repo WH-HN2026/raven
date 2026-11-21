@@ -43,6 +43,9 @@ type Summary struct {
 	ServicesNew     int `json:"services_new"`
 	ServicesGone    int `json:"services_gone"`
 	ServicesChanged int `json:"services_changed"`
+	// Subsets of ServicesChanged by field (V7).
+	ServicesSlow             int `json:"services_slow"`
+	ServicesHTTPUnresponsive int `json:"services_http_unresponsive"`
 }
 
 // Changes is the API view of a diff (GET /api/changes).
@@ -87,6 +90,8 @@ func CompareSorted(ctx context.Context, q *gen.Queries, from, to *int64, limit i
 		Summary: Summary{
 			HostsNew: len(r.HostsNew), HostsGone: len(r.HostsGone), ServicesNew: len(r.ServicesNew),
 			ServicesGone: len(r.ServicesGone), ServicesChanged: len(r.ServicesChanged),
+			ServicesSlow:             countField(r.ServicesChanged, FieldSlow),
+			ServicesHTTPUnresponsive: countField(r.ServicesChanged, FieldHTTPUnresponsive),
 		},
 	}
 	c.HostsNew = capList(r.HostsNew, limit, &c.Truncated)
@@ -95,6 +100,16 @@ func CompareSorted(ctx context.Context, q *gen.Queries, from, to *int64, limit i
 	c.ServicesGone = capList(r.ServicesGone, limit, &c.Truncated)
 	c.ServicesChanged = capList(r.ServicesChanged, limit, &c.Truncated)
 	return c, nil
+}
+
+func countField(list []ServiceChange, field string) int {
+	n := 0
+	for _, c := range list {
+		if slices.Contains(c.Fields, field) {
+			n++
+		}
+	}
+	return n
 }
 
 func capList[T any](s []T, limit int, truncated *bool) []T {
@@ -254,6 +269,10 @@ func loadSnapshot(ctx context.Context, q *gen.Queries, runID int64, runStages, s
 				techs = filtered
 			}
 			http[i] = HTTPRow{IP: h.Ip, Port: uint16(h.Port), Title: h.Title, Technologies: techs}
+			if h.ResponseMs.Valid {
+				v := int(h.ResponseMs.Int32)
+				http[i].ResponseMS = &v
+			}
 		}
 	}
 	s := BuildSnapshot(obs, nmapObs, http)

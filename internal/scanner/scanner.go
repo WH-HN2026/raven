@@ -87,4 +87,5 @@ type HTTPInfo struct {
 	Redirects    []string
 	FaviconHash  string
 	Technologies []string
+	ResponseMS   *int // httpx response time in ms; nil = unknown
 }

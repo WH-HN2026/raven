@@ -6,7 +6,7 @@ export type DiffRun = Schemas['DiffRun']
 export type HostChange = Schemas['HostChange']
 export type ServiceChange = Schemas['ServiceChange']
 export type Fingerprint = Schemas['ServiceFingerprint']
-export type FingerprintField = keyof Fingerprint
+export type FingerprintField = Exclude<keyof Fingerprint, 'response_ms'>
 
 export const changesKey = ['changes'] as const
 

@@ -51,6 +51,8 @@ const svcItems: Schemas['ServiceItem'][] = [
     technologies: ['WordPress:6.4', 'PHP:8.2'],
     cve_count: 0,
     cve_severity: '',
+    response_ms: null,
+    slow: false,
   },
   {
     id: 11,
@@ -71,6 +73,8 @@ const svcItems: Schemas['ServiceItem'][] = [
     technologies: [],
     cve_count: 3,
     cve_severity: 'High',
+    response_ms: null,
+    slow: false,
   },
 ]
 

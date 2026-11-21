@@ -84,6 +84,8 @@ export function changeText(r: DiffRow): string {
   if (r.kind === 'gone') return fpText(s.before) || 'Port closed'
   return s.fields
     .map((f) => {
+      if (f === 'slow') return `slow: ${s.before?.response_ms ?? '—'} → ${s.after?.response_ms ?? '—'} ms`
+      if (f === 'http_unresponsive') return 'no HTTP answer'
       const b = s.before?.[f]
       const a = s.after?.[f]
       const t = (v: unknown) => (Array.isArray(v) ? v.join(', ') : String(v ?? '')) || '—'

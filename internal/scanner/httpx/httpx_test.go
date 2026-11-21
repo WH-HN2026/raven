@@ -26,7 +26,7 @@ func TestBuildArgs(t *testing.T) {
 			want: []string{
 				"-silent", "-json", "-title", "-sc", "-irh", "-tls-grab", "-favicon", "-td",
 				"-fhr", "-include-chain", "-nfs", "-disable-update-check", "-auth=false", "-cdn=false",
-				"-rl", "17", "-allow", "192.0.2.1,192.0.2.2",
+				"-rl", "17", "-timeout", "10", "-allow", "192.0.2.1,192.0.2.2",
 				"-r", "127.0.0.11:53",
 			},
 		},

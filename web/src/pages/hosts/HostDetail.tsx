@@ -200,10 +200,17 @@ function HttpSection({ http, services }: { http: HttpObservation[]; services: Se
             <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
               <span className="font-mono font-medium break-all">{o.url}</span>
               <span className="text-[13px] text-muted">{port.get(o.service_id)}</span>
+              {o.slow && <Badge tone="red">slow</Badge>}
             </div>
             <KeyNumbers>
               <KeyNumber size="sm" label="Status" value={o.status ?? '—'} />
               <KeyNumber size="sm" label="Title" value={o.title || '—'} />
+              <KeyNumber
+                size="sm"
+                label="Response time"
+                edge={o.slow ? 'rose' : 'red'}
+                value={o.response_ms != null ? `${o.response_ms} ms` : '—'}
+              />
               {o.favicon_hash && (
                 <KeyNumber size="sm" label="Favicon (mmh3)" value={<span className="font-mono">{o.favicon_hash}</span>} />
               )}

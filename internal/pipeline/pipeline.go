@@ -446,6 +446,9 @@ func finishRun(ctx context.Context, q *gen.Queries, runID int64, status string, 
 		"duration_ms_max": bs.DurationMsMax,
 		"services_open":   observations.ServicesOpen,
 	}
+	if err := httpRunStats(ctx, q, runID, stats); err != nil {
+		return err
+	}
 	for k, v := range extra {
 		stats[k] = v
 	}

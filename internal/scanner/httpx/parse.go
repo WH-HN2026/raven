@@ -34,6 +34,7 @@ type record struct {
 	Location    string   `json:"location"`
 	FaviconHash string   `json:"favicon"`
 	Tech        []string `json:"tech"`
+	Time        string   `json:"time"` // response time as a Go duration, e.g. "3.004s"
 }
 
 // Parse normalizes httpx JSON lines and indexes the original records by IP.
@@ -91,7 +92,7 @@ func parse(raw []byte, accept func(*url.URL, netip.Addr) bool) (*scanner.Result,
 func (r record) httpInfo(u *url.URL) *scanner.HTTPInfo {
 	info := &scanner.HTTPInfo{
 		Status: r.Status, Title: r.Title, FaviconHash: r.FaviconHash,
-		Headers: make(map[string]string, len(r.Headers)),
+		Headers: make(map[string]string, len(r.Headers)), ResponseMS: responseMS(r.Time),
 	}
 	for k, v := range r.Headers {
 		info.Headers[http.CanonicalHeaderKey(strings.ReplaceAll(k, "_", "-"))] = v
@@ -140,4 +141,15 @@ func splitCookies(header string) []string {
 		start = match[0] + 1
 	}
 	return append(cookies, strings.TrimSpace(header[start:]))
+}
+
+// responseMS converts httpx's `time` to whole milliseconds, rounded; nil when
+// it is missing or invalid.
+func responseMS(s string) *int {
+	d, err := time.ParseDuration(s)
+	if err != nil || d < 0 {
+		return nil
+	}
+	ms := int(d.Round(time.Millisecond) / time.Millisecond)
+	return &ms
 }

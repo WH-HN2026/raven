@@ -242,6 +242,8 @@ describe('HostDetailPage', () => {
           favicon_hash: '-1234',
           run_id: 7,
           observed_at: '2026-11-21T10:00:00Z',
+          response_ms: 3012,
+          slow: true,
         },
       ],
       timeline: [],
@@ -254,6 +256,8 @@ describe('HostDetailPage', () => {
     expect(screen.getByText('staging')).toBeInTheDocument()
     expect(screen.getByText('wp_session=abc; HttpOnly')).toBeInTheDocument()
     expect(screen.getByText('-1234')).toBeInTheDocument()
+    expect(screen.getByText('3012 ms')).toBeInTheDocument()
+    expect(screen.getByText('slow')).toBeInTheDocument()
     expect(screen.getByText('No run observations.')).toBeInTheDocument()
   })
 
