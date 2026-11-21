@@ -181,7 +181,7 @@ func NormalizePatch(cur FindingState, p FindingPatch) (FindingPatch, error) {
 
 func isTrue(b *bool) bool { return b != nil && *b }
 
-func mirrorRow(r gen.GetDojoFindingRow, dojoPublicURL string) *MirrorFinding {
+func mirrorFromRow(r gen.GetDojoFindingRow, dojoPublicURL string) *MirrorFinding {
 	m := &MirrorFinding{
 		ID: r.ID, AssetID: r.AssetID, IP: r.Ip, Title: r.Title, Severity: r.Severity, Active: r.Active,
 		Verified: r.Verified, FalseP: r.FalseP, RiskAccepted: r.RiskAccepted, IsMitigated: r.IsMitigated,
@@ -215,7 +215,7 @@ func getMirror(ctx context.Context, q *gen.Queries, id int64, dojoPublicURL stri
 	if err != nil {
 		return nil, fmt.Errorf("get mirror finding %d: %w", id, err)
 	}
-	return mirrorRow(r, dojoPublicURL), nil
+	return mirrorFromRow(r, dojoPublicURL), nil
 }
 
 // EditFinding applies a triage patch to a mirrored finding: validate against
