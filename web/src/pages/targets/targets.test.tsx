@@ -107,7 +107,7 @@ describe('UploadPanel', () => {
         { kind: 'cidr', value: '10.0.0.0/24', tags: ['lab'], note: 'main' },
         { kind: 'domain', value: 'wordpress.lab', tags: [] },
       ],
-      errors: [{ line: 4, message: 'loopback addresses are not allowed' }],
+      errors: [{ line: 4, message: 'IPv6 targets are not supported' }],
       source: 'csv',
     }
     const fetchMock = vi
@@ -116,13 +116,13 @@ describe('UploadPanel', () => {
       .mockResolvedValueOnce(json({ ...parsed, dry_run: false, created: 2 }))
     wrap(<UploadPanel />)
 
-    const file = new File(['value,tags\n10.0.0.0/24,lab\nwordpress.lab\n127.0.0.1\n'], 'targets.csv', {
+    const file = new File(['value,tags\n10.0.0.0/24,lab\nwordpress.lab\n2001:db8::1\n'], 'targets.csv', {
       type: 'text/csv',
     })
     fireEvent.change(screen.getByLabelText('File'), { target: { files: [file] } })
 
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('Line 4: loopback addresses are not allowed')
+    expect(alert).toHaveTextContent('Line 4: IPv6 targets are not supported')
     const table = screen.getByRole('table')
     expect(within(table).getByText('10.0.0.0/24')).toBeInTheDocument()
     expect(within(table).getByText('wordpress.lab')).toBeInTheDocument()

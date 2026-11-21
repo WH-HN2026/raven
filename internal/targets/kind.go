@@ -79,8 +79,9 @@ func normalizeDomain(v string) (string, error) {
 }
 
 // checkTarget applies the target-only rules on top of Classify: IPv4 only
-// (the scanner runs IPv4 nmap), no loopback/multicast/unspecified/link-local
-// addresses (never scan the host itself), CIDRs within the size cap.
+// (the scanner runs IPv4 nmap) and CIDRs within the size cap. No address
+// range is special: which networks may be scanned is an operating rule
+// (architecture §9), enforced through profile scope and the global blacklist.
 func checkTarget(kind Kind, value string, maxHostBits int) error {
 	var a netip.Addr
 	switch kind {
@@ -99,11 +100,8 @@ func checkTarget(kind Kind, value string, maxHostBits int) error {
 }
 
 func checkAddr(a netip.Addr) error {
-	switch {
-	case !a.Is4():
+	if !a.Is4() {
 		return fmt.Errorf("%s: IPv6 targets are not supported", a)
-	case a.IsUnspecified(), a.IsLoopback(), a.IsMulticast(), a.IsLinkLocalUnicast(), a == netip.AddrFrom4([4]byte{255, 255, 255, 255}):
-		return fmt.Errorf("%s: loopback, link-local, multicast and unspecified addresses are not scannable", a)
 	}
 	return nil
 }

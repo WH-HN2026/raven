@@ -54,11 +54,14 @@ func TestNewEntryTargetRules(t *testing.T) {
 		{"10.1.0.0/16", "", ""},
 		{"10.0.0.0/15", "", "limit is 2^16"},
 		{"10.0.0.0/8", "", "limit is 2^16"},
-		{"127.0.0.1", "", "loopback"},
-		{"0.0.0.0", "", "unspecified"},
-		{"224.0.0.1", "", "multicast"},
-		{"169.254.1.1", "", "link-local"},
+		{"127.0.0.1", "", ""},
+		{"0.0.0.0", "", ""},
+		{"224.0.0.1", "", ""},
+		{"169.254.1.1", "", ""},
+		{"255.255.255.255", "", ""},
+		{"127.0.0.0/30", "", ""},
 		{"2001:db8::1", "", "IPv6"},
+		{"2001:db8::/120", "", "IPv6"},
 		{"10.0.0.1", KindDomain, "is a ip, not a domain"},
 		{"10.0.0.1", KindIP, ""},
 	}
@@ -275,9 +278,21 @@ func TestExpand(t *testing.T) {
 			want:    "", stats: [4]int{1, 0, 1, 0}, warnHas: "gone.example",
 		},
 		{
-			name:    "IPv6-only and loopback resolutions are not scanned",
+			name:    "IPv6-only resolution is dropped, loopback resolution is kept",
 			targets: []string{"v6only.lab", "loop.lab"},
-			want:    "", stats: [4]int{1, 0, 0, 1}, warnHas: "v6only.lab",
+			want:    "127.0.0.1", stats: [4]int{1, 0, 0, 0}, warnHas: "v6only.lab",
+		},
+		{
+			name:    "special IPv4 ranges are plain targets; IPv6 target is dropped",
+			targets: []string{"127.0.0.0/30", "169.254.1.1", "224.0.0.1", "0.0.0.0", "255.255.255.255", "2001:db8::1"},
+			want:    "0.0.0.0 127.0.0.0 127.0.0.1 127.0.0.2 127.0.0.3 169.254.1.1 224.0.0.1 255.255.255.255",
+			stats:   [4]int{9, 0, 0, 1}, warnHas: "dropped 1 IPv6 addresses",
+		},
+		{
+			name:    "blacklist still excludes loopback",
+			targets: []string{"127.0.0.1", "10.0.0.1"},
+			scope:   Scope{Exclude: rules("127.0.0.0/8")},
+			want:    "10.0.0.1", stats: [4]int{2, 0, 1, 0},
 		},
 	}
 	for _, tt := range tests {

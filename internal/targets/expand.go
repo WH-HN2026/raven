@@ -53,7 +53,7 @@ type ScanList struct {
 		Candidates  int // unique IPs from the targets
 		NotIncluded int // dropped: matched no include rule
 		Excluded    int // dropped: matched an exclude rule
-		Rejected    int // dropped: loopback/multicast/… (see checkAddr)
+		Rejected    int // dropped: IPv6 (see checkAddr)
 	}
 }
 
@@ -162,7 +162,7 @@ func Expand(ctx context.Context, targets []Entry, scope Scope, r Resolver, lim L
 	}
 	slices.SortFunc(sl.IPs, netip.Addr.Compare)
 	if sl.Stats.Rejected > 0 {
-		sl.Warnings = append(sl.Warnings, fmt.Sprintf("dropped %d loopback/link-local/multicast/IPv6 addresses", sl.Stats.Rejected))
+		sl.Warnings = append(sl.Warnings, fmt.Sprintf("dropped %d IPv6 addresses", sl.Stats.Rejected))
 	}
 	return sl, nil
 }
