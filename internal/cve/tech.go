@@ -103,13 +103,16 @@ func techTable() map[string]string {
 // CPEForTech maps a technology or product name to a normalized
 // "vendor:product" CPE of products.txt, for parsers whose tool doesn't emit
 // CPEs. It accepts httpx -td / Wappalyzer names with an optional
-// ":version" ("Nginx:1.19.0", "Apache HTTP Server:2.4.49", "WordPress"),
-// nmap product names ("Apache httpd", "OpenSSH", "Exim smtpd") and nuclei
-// tech names ("nginx", "apache-detect"). version is the part after ":" if
-// any. ok is false for names we don't track.
+// ":version" or "/version" ("Nginx:1.19.0", "Apache HTTP Server:2.4.49",
+// "Apache Tomcat/9.0.50", "WordPress"), nmap product names ("Apache httpd",
+// "OpenSSH", "Exim smtpd") and nuclei tech names ("nginx", "apache-detect").
+// version is the part after ":" or "/" if any. ok is false for names we
+// don't track.
 func CPEForTech(name string) (cpe, version string, ok bool) {
 	name = strings.TrimSpace(name)
 	if i := strings.LastIndex(name, ":"); i > 0 && i+1 < len(name) && name[i+1] >= '0' && name[i+1] <= '9' {
+		name, version = name[:i], name[i+1:]
+	} else if i := strings.LastIndex(name, "/"); i > 0 && i+1 < len(name) && name[i+1] >= '0' && name[i+1] <= '9' {
 		name, version = name[:i], name[i+1:]
 	}
 	key := strings.TrimSuffix(normName(name), "detect")
@@ -117,4 +120,14 @@ func CPEForTech(name string) (cpe, version string, ok bool) {
 		return cpe, version, true
 	}
 	return "", "", false
+}
+
+// FormatCPE formats a normalized "vendor:product" CPE with an optional version.
+func FormatCPE(cpe, version string) string {
+	cpe = strings.TrimSpace(cpe)
+	version = strings.TrimSpace(version)
+	if cpe == "" || version == "" {
+		return cpe
+	}
+	return cpe + ":" + version
 }

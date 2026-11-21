@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/WH-HN2026/raven/internal/cve"
 	"github.com/WH-HN2026/raven/internal/scanner"
 )
 
@@ -129,6 +130,17 @@ func (r record) observation() (scanner.Observation, bool) {
 			o.Tech = o.Product
 		} else if r.Matcher != "" {
 			o.Tech = r.Matcher
+		}
+	}
+	if o.CPE == "" {
+		for _, cand := range []string{o.Tech, r.TemplateID, r.Info.Name} {
+			if c, v, ok := cve.CPEForTech(cand); ok {
+				o.CPE = c
+				if o.Version == "" && v != "" {
+					o.Version = v
+				}
+				break
+			}
 		}
 	}
 	return o, true

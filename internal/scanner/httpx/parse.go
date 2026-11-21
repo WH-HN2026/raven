@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/WH-HN2026/raven/internal/cve"
 	"github.com/WH-HN2026/raven/internal/scanner"
 )
 
@@ -72,10 +73,15 @@ func parse(raw []byte, accept func(*url.URL, netip.Addr) bool) (*scanner.Result,
 		}
 		res.Observations = append(res.Observations, obs)
 		for _, technology := range obs.HTTP.Technologies {
-			res.Observations = append(res.Observations, scanner.Observation{
+			to := scanner.Observation{
 				Kind: scanner.ObsTech, IP: ip, Hostname: obs.Hostname, At: r.At,
 				Port: port, Proto: "tcp", URL: obs.URL, Tech: technology,
-			})
+			}
+			if c, v, ok := cve.CPEForTech(technology); ok {
+				to.CPE = cve.FormatCPE(c, v)
+				to.Version = v
+			}
+			res.Observations = append(res.Observations, to)
 		}
 	}
 	res.PerIP = func(ip netip.Addr) []byte { return bytes.Join(lines[ip.Unmap()], nil) }

@@ -34,13 +34,29 @@ func RunPass(ctx context.Context, pool *pgxpool.Pool, m *Matcher, now time.Time)
 		if err != nil {
 			return fmt.Errorf("list cve candidates: %w", err)
 		}
+		httpRows, err := q.ListHTTPTechCVECandidates(ctx)
+		if err != nil {
+			return fmt.Errorf("list http tech cve candidates: %w", err)
+		}
+		nucleiRows, err := q.ListNucleiCVECandidates(ctx)
+		if err != nil {
+			return fmt.Errorf("list nuclei cve candidates: %w", err)
+		}
 		res.Services = len(rows)
+		instances := make([]Instance, 0, len(rows)+len(httpRows)+len(nucleiRows))
 		for _, r := range rows {
-			mt := m.Match(Instance{IP: r.Ip, Port: r.Port, Proto: r.Proto, CPE: r.Cpe,
-				Product: r.Product, Version: r.Version, Banner: r.Banner})
-			if mt == nil {
-				continue
-			}
+			instances = append(instances, Instance{
+				IP: r.Ip, Port: r.Port, Proto: r.Proto, CPE: r.Cpe,
+				Product: r.Product, Version: r.Version, Banner: r.Banner,
+			})
+		}
+		for _, r := range httpRows {
+			instances = append(instances, InstancesFromHTTPTech(r.Ip, r.Port, r.Proto, r.Cpes, r.Technologies)...)
+		}
+		for _, r := range nucleiRows {
+			instances = append(instances, InstancesFromNucleiJSON(r.Ip, r.Port, r.Proto, r.NucleiMatches)...)
+		}
+		for _, mt := range m.MatchAll(instances) {
 			hits, err := json.Marshal(mt.Hits)
 			if err != nil {
 				return err

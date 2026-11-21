@@ -142,6 +142,9 @@ func TestCPEForTech(t *testing.T) {
 		{"PHP:8.1.2", "php:php", "8.1.2", true},
 		{"Exim smtpd", "exim:exim", "", true},
 		{"Apache Tomcat", "apache:tomcat", "", true},
+		{"Apache Tomcat:9.0.10", "apache:tomcat", "9.0.10", true},
+		{"Apache Tomcat/9.0.10", "apache:tomcat", "9.0.10", true},
+		{"WordPress:6.4.1", "wordpress:wordpress", "6.4.1", true},
 		{"jQuery UI", "", "", false},
 		{"Bootstrap", "", "", false},
 	}
@@ -322,5 +325,26 @@ func TestReport(t *testing.T) {
 	}
 	if empty, _ := Report(nil, time.Now()); string(empty) != `{"findings":[]}` {
 		t.Errorf("empty report = %s", empty)
+	}
+}
+
+func TestMatchAllDedupAndMultiProduct(t *testing.T) {
+	m := NewMatcher(testDB(), Products())
+	ip := netip.MustParseAddr("172.30.0.25")
+	// Alias CPE from nmap + canonical tech from httpx on the same port → 1 match,
+	// with distro detection preserved even if httpx came first.
+	got := m.MatchAll([]Instance{
+		{IP: ip, Port: 80, Proto: "tcp", Product: "Apache HTTP Server:2.4.49"},
+		{IP: ip, Port: 80, Proto: "tcp", CPE: "apache:httpd:2.4.49", Product: "Apache httpd", Version: "2.4.49", Banner: "Apache/2.4.49 (Debian)"},
+		{IP: ip, Port: 22, Proto: "tcp", CPE: "openbsd:openssh:7.4", Product: "OpenSSH", Version: "7.4"},
+	})
+	if len(got) != 2 {
+		t.Fatalf("got %d matches, want 2: %+v", len(got), got)
+	}
+	if got[0].CPE != "apache:http_server" || got[0].UID() != "172.30.0.25:80:apache:http_server:2.4.49" {
+		t.Errorf("canonical CPE/UID = %q / %q", got[0].CPE, got[0].UID())
+	}
+	if !got[0].Distro || got[0].Severity != "Low" {
+		t.Errorf("distro cap not preserved across dedup: %+v", got[0])
 	}
 }
