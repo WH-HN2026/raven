@@ -140,6 +140,7 @@ M0 is sequential and blocking. Do it in **one** worktree, as fast as possible, t
 - [x] **U4 Behaviour fixes.** One Dojo finding per matched CVE; adding an existing target shows "Target already exists"; run comparison only older → newer.
 - [x] **U2 Naming & navigation fixes.** User profile page, flat breadcrumbs, clearer labels (intermittent hosts, exclude, signature status, type, profile enabled, batch duration).
 - [x] **U1 Sortable columns + instant filters.** Every list view has asc/desc sort on its column headers; filters apply immediately (no Apply button).
+- [x] **U5 UI copy & findings pagination fixes.** Top + bottom pagination on Findings, remove "Shown once" token badge, drop "Always on" stage note, rename Intermittent → Unstable.
 
 **Track WF — Workflows & aggressive preset**
 - [x] **WF0 Workflow & aggressive guardrails.** Docs: architecture workflows section and §9 split (always / default / aggressive), AGENTS.md safety rules, roadmap track WF, jury note.
