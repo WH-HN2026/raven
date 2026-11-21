@@ -79,3 +79,56 @@ make infra-up
 scripts/wt-env.sh
 make test-scale
 ```
+
+## Real scan: vuln lab scale layer
+
+Real end-to-end scans (`nmap` → `httpx` → `nuclei` → real DefectDojo 3.5) against the vuln lab scale layer ([`vuln-lab.md`](vuln-lab.md) §5): `compose.vlab-scale.yml` (`scripts/vlab-scale.sh`) serving deterministic persona hosts inside `10.77.64.0/18` (16,384 addresses, ~98.4% empty address space at 256 hosts) on the internal `raven_vlab` bridge.
+
+Measured on the local dev machine (8 vCPU, 16 GB RAM, Postgres 18 + DefectDojo 3.5.202 in Docker, `RAVEN_MAX_WORKERS=2`, `vuln-lab-scale` profile: ports `21,22,80,443,8080,8443,9100`, `nmap_max_rate=1000` → 500 pps/worker, `nuclei_tags=[tech,panel,ssl,waf,favicon]`, `miss_threshold=2`, `target_batch_seconds=600`, global blacklist `10.77.0.1` + `10.77.254.0/23`, dedicated Dojo org deleted afterwards).
+
+### 256 hosts in `10.77.64.0/18` (two runs with `churn` in between)
+
+| Metric | Run 1 (epoch 0) | Run 2 (epoch 1, after `churn`) |
+|---|---:|---:|
+| Scanned / occupied / found hosts | 16,384 / 256 / **256** (exact) | 16,384 / 256 / **256** (exact) |
+| Expected / found open services | 337 / **337** (exact) | 334 / **334** (exact) |
+| HTTP/HTTPS observations | 237 / **237** | 239 / **239** |
+| Plan time (`POST /api/runs`) | 31.8 ms | ~30 ms |
+| Batch sizing (S5) | `default`: 64 × 256 IPs | `adaptive`: 4 × 3,616 + 1,920 IPs (5 batches) |
+| Batch duration (min / avg / max) | 9.3 s / 44.4 s / 70.4 s | 170.6 s / 254.3 s / 342.1 s |
+| Scan wall time | **24 m 01 s** (1,441 s) | **12 m 01 s** (721 s, **2.0× faster**) |
+| Re-probe / lifecycle | 0 reprobed | 8 reprobed → 8 `unstable`, 0 `inactive` |
+| DefectDojo push (`ok` / `failed`) | 256 / 0 | 256 / 0 |
+| DefectDojo post-scan drain time | **3.4 s** | **15.6 s** |
+| DB size after run (total after Run 2) | — | **33 MB** |
+| Peak RAVEN CPU / RAM | 114% / 423 MiB | (same run pair) |
+| Swarm container RAM / startup | 18 MiB / 51 ms (11 ms `ip -batch`) | 18 MiB |
+| Swarm `eth0` packet rate (sampled 532 s of Run 1) | 42,883 RX pkts (~81 pps avg) | well under `nmap_max_rate=1000` |
+| Kernel neighbour table (`gc_thresh3=1024`) | `0` overflow lines (`table_fulls=0`) | `0` overflow lines (`table_fulls=0`) |
+
+**API latencies after Run 2** (median of 5 requests after 1 warmup):
+
+| Endpoint | Median |
+|---|---:|
+| `GET /api/dashboard` | **18.5 ms** |
+| `GET /api/hosts?limit=50&offset=0` | **2.6 ms** |
+| `GET /api/hosts?limit=50&offset=200` | **1.9 ms** |
+| `GET /api/changes?from=1&to=2` | **13.7 ms** |
+
+**Changes vs `scripts/vlab-scale.sh expect` (Run 1 → Run 2):**
+- `hosts_new`: **8** (expected **8**)
+- `hosts_gone`: **8** (expected **8**)
+- `services_new`: **0** (expected **0**)
+- `services_gone`: **0** (expected **0**)
+- `services_changed`: **22** vs expected **13** when measured at `nuclei_rate=25` (`-rl 12` per worker) — see the nuclei rate-limit finding below.
+
+### Findings from real-scan testing
+
+1. **Adaptive batching halves wall time on sparse `/18` networks:** Run 1 used 64 × 256-IP batches (24 m 01 s) because each small batch paid per-batch nmap startup and ARP timeout overhead on empty addresses. Once S5 had batch history, Run 2 adapted to 3,616 IPs/batch (5 batches) and finished in 12 m 01 s (**2.0× faster**).
+2. **DefectDojo push overlaps with scanning:** Pushing per-IP nmap/httpx/nuclei/lifecycle reports runs asynchronously on the `dojo` River queue while subsequent scan batches execute, so post-scan Dojo drain at 256 hosts was only **3.4 s** (Run 1) and **15.6 s** (Run 2) with 0 failed pushes (`assets=259`, `findings=8,976` synced in 19.4 s).
+3. **Nuclei `-rl` starvation under default concurrency (`-c 25 -bs 25`) on large batches:** When `vuln-lab-scale` was run with `nuclei_rate=25` split across 2 workers (`effective_nuclei_rate=12`), Run 1 (4 hosts/batch) matched 100% of custom signatures, but Run 2 (50–67 hosts/batch) silently dropped hosts (`rc=0`, no stderr error) past nuclei's default 10 s request timeout as goroutines queued behind `-rl 12`. That closed their nuclei findings and removed `ASP.NET session cookie` / `Java servlet session cookie` from `http_observations.technologies`, producing 9 spurious `services_changed` diffs (22 observed vs 13 expected). Direct verification of the full built-in signature pack against 66 swarm URLs (59 unique hosts) confirmed the threshold:
+   - `-rl 50`: **59/59** hosts matched in 40.5 s;
+   - `-rl 25` (the `vuln-lab-scale` default when `nuclei_rate=50` across 2 workers, as seeded by `scripts/demo.sh`): **59/59** hosts matched in 81.5 s;
+   - `-rl 12` (`nuclei_rate=25` across 2 workers): only **3/59** hosts matched in 170.5 s.
+   Keep `nuclei_rate >= 50` (≥ 25 req/s per worker) on large-batch scale profiles, or cap nuclei `-c`/`-bs` in a follow-up.
+4. **1,024- and 4,096-host real runs:** Deferred for the upcoming test refactor. At 256 hosts, Run 1 + Run 2 took 36 min total and stayed well below `gc_thresh3=1024` (`0` neighbour table overflows); at ≥ 1,024 active hosts on one bridge, raising `net.ipv4.neigh.default.gc_thresh3=16384` on the host is still recommended if `dmesg` reports `neighbour table overflow`.

@@ -274,6 +274,13 @@ Design:
 
 **Laptop budget:** the swarm costs about 10–30 MB at 4,096 hosts, so RAVEN, Postgres and Dojo set the limit. 256 hosts is the default for `make demo --scale`; 1,024 and 4,096 are for the measurement.
 
+### 5.1 Deviations from §5 (V4)
+
+- **Swarm container address:** `compose.vlab-scale.yml` assigns the container's own interface IP to `10.77.254.30` (inside the blacklisted `10.77.254.0/23` tooling range) rather than `10.77.64.1`, so the container's Docker-assigned IP is never scanned as a phantom host and only the `VLAB_SCALE_HOSTS` pseudo-random addresses in `10.77.64.0/18` answer.
+- **Address prefix & capabilities:** scale addresses are installed with `ip -batch` as `/32` host addresses (`address replace <ip>/32 dev eth0`) rather than `/16`, keeping one `/16` route on `eth0`. Capabilities are tightened to `cap_drop: [ALL]` with `cap_add: [NET_ADMIN, NET_BIND_SERVICE]`.
+- **Swarm HTTP timeouts:** `ReadHeaderTimeout: 30s` and `IdleTimeout: 120s` (raised from 5 s so rate-limited nuclei passes over large batches do not race keep-alive expiry).
+- **Measurements scope:** `docs/scale.md` records the full two-run 256-host real-scan measurements and the nuclei `-rl` concurrency threshold study; 1,024- and 4,096-host real runs were deferred for the upcoming test refactor.
+
 ## 6. One-command demo (V5)
 
 ```sh
