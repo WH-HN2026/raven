@@ -10,7 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/db/gen"
+	"github.com/WH-HN2026/raven/internal/db/gen"
 )
 
 type ScheduleInput struct {

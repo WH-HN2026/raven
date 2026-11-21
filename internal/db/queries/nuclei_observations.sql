@@ -1,7 +1,7 @@
 -- name: RecordNucleiMatches :execrows
 UPDATE run_observations
 SET nuclei_matches = @matches::jsonb,
-    nuclei_evidence_enc = asi_enc(@evidence::text)
+    nuclei_evidence_enc = raven_enc(@evidence::text)
 WHERE run_id = @run_id AND ip = @ip AND port = @port AND up;
 
 -- name: MergeNucleiTechnologies :execrows

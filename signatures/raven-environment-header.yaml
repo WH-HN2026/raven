@@ -1,0 +1,22 @@
+id: raven-environment-header
+info:
+  name: Non-production environment header
+  author: raven
+  severity: low
+  description: A response header such as X-Environment marks the host as development, test or staging.
+  tags: raven,headers,staging
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}"
+    matchers:
+      - type: regex
+        part: header
+        regex:
+          - '(?mi)^x-(environment|env|app-env|stage):[ \t]*(dev|development|staging|stage|test|testing|qa|uat|preprod)\b'
+    extractors:
+      - type: regex
+        part: header
+        group: 1
+        regex:
+          - '(?mi)^x-(?:environment|env|app-env|stage):[ \t]*([^\r\n]+)'

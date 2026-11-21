@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner"
+	"github.com/WH-HN2026/raven/internal/scanner"
 )
 
 // AllowedScripts are the only NSE scripts we ever run (architecture §9).

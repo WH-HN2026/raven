@@ -6,8 +6,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner/nuclei"
+	"github.com/WH-HN2026/raven/internal/scanner"
+	"github.com/WH-HN2026/raven/internal/scanner/nuclei"
 )
 
 // webReports collects the web scanners' reports and Asset tags for responding IPs.

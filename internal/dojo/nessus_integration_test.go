@@ -17,15 +17,15 @@ import (
 // TestIntegrationPushNessus pushes per-IP .nessus slices against the shared
 // compose DefectDojo and verifies a "Tenable Scan" Test and its findings are
 // created on the matching IP's Asset. Uses a random 198.18.R.0/24 range under
-// org "asi-it-p3-exchange" and cleans up created assets afterwards.
+// org "raven-it-p3-exchange" and cleans up created assets afterwards.
 func TestIntegrationPushNessus(t *testing.T) {
-	base := os.Getenv("ASI_DOJO_URL")
+	base := os.Getenv("RAVEN_DOJO_URL")
 	if base == "" {
-		t.Skip("ASI_DOJO_URL not set")
+		t.Skip("RAVEN_DOJO_URL not set")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
-	token := os.Getenv("ASI_DOJO_TOKEN")
+	token := os.Getenv("RAVEN_DOJO_TOKEN")
 	if token == "" {
 		var err error
 		if token, err = ObtainToken(ctx, base, os.Getenv("DD_ADMIN_USER"), os.Getenv("DD_ADMIN_PASSWORD")); err != nil {
@@ -48,7 +48,7 @@ func TestIntegrationPushNessus(t *testing.T) {
 		text = text[:idx] + text[idx+end:]
 	}
 
-	org, err := c.GetOrCreateOrganization(ctx, "asi-it-p3-exchange")
+	org, err := c.GetOrCreateOrganization(ctx, "raven-it-p3-exchange")
 	must(t, err)
 	p := &Pusher{Client: c, OrganizationID: org.ID, Parallel: 2}
 
@@ -80,8 +80,8 @@ func TestIntegrationPushNessus(t *testing.T) {
 	if gotType, _ := testObj["scan_type"].(string); gotType != TenableScanType {
 		t.Fatalf("test scan_type = %q, want %q", gotType, TenableScanType)
 	}
-	if gotTitle, _ := testObj["title"].(string); gotTitle != "ASI: nessus" {
-		t.Fatalf("test title = %q, want %q", gotTitle, "ASI: nessus")
+	if gotTitle, _ := testObj["title"].(string); gotTitle != "RAVEN: nessus" {
+		t.Fatalf("test title = %q, want %q", gotTitle, "RAVEN: nessus")
 	}
 
 	pg, err := c.ListFindings(ctx, FindingQuery{TestID: res[0].TestID, Related: true, Limit: 50})

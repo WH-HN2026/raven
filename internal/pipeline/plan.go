@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner/nmap"
+	"github.com/WH-HN2026/raven/internal/scanner"
+	"github.com/WH-HN2026/raven/internal/scanner/nmap"
 )
 
 // BatchSize is the fixed number of IPs per batch (S5 makes it adaptive).

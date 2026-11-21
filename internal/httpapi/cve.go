@@ -8,9 +8,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/auth"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/cve"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/httpx"
+	"github.com/WH-HN2026/raven/internal/auth"
+	"github.com/WH-HN2026/raven/internal/cve"
+	"github.com/WH-HN2026/raven/internal/httpx"
 )
 
 // Offline CVE matches (task C3), read-only; the hosts tag in openapi.

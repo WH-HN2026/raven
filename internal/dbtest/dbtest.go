@@ -1,7 +1,7 @@
 //go:build integration
 
 // Package dbtest gives integration tests a fresh, migrated database on the
-// server of ASI_DATABASE_URL (scripts/wt-env.sh). Only built with -tags integration.
+// server of RAVEN_DATABASE_URL (scripts/wt-env.sh). Only built with -tags integration.
 package dbtest
 
 import (
@@ -15,7 +15,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/db"
+	"github.com/WH-HN2026/raven/internal/db"
 )
 
 const Key = "integration-test-key-0123456789abcdef"
@@ -37,9 +37,9 @@ func Fresh(t *testing.T) *pgxpool.Pool {
 // FreshURL creates an empty throwaway database and returns its URL.
 func FreshURL(t *testing.T) string {
 	t.Helper()
-	base := os.Getenv("ASI_DATABASE_URL")
+	base := os.Getenv("RAVEN_DATABASE_URL")
 	if base == "" {
-		t.Skip("ASI_DATABASE_URL not set (run scripts/wt-env.sh)")
+		t.Skip("RAVEN_DATABASE_URL not set (run scripts/wt-env.sh)")
 	}
 	ctx := context.Background()
 	admin, err := pgx.Connect(ctx, base)
@@ -48,7 +48,7 @@ func FreshURL(t *testing.T) string {
 	}
 	b := make([]byte, 4)
 	_, _ = rand.Read(b)
-	name := "asi_it_" + hex.EncodeToString(b)
+	name := "raven_it_" + hex.EncodeToString(b)
 	if _, err := admin.Exec(ctx, "CREATE DATABASE "+name); err != nil {
 		t.Fatal(err)
 	}

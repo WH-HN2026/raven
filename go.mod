@@ -1,4 +1,4 @@
-module github.com/WH-HN2026/zadanie-agh-asi
+module github.com/WH-HN2026/raven
 
 go 1.26.0
 

@@ -1,0 +1,22 @@
+id: raven-bmc-title
+info:
+  name: Server management controller (BMC)
+  author: raven
+  severity: medium
+  description: The page title names an out-of-band management controller (iDRAC, iLO, Supermicro IPMI).
+  tags: raven,iot,bmc,title
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}"
+    matchers:
+      - type: regex
+        part: body
+        regex:
+          - '(?i)<title>[^<]*(idrac|remote access controller|integrated lights-out|\bilo [0-9]|supermicro|ipmi)[^<]*</title>'
+    extractors:
+      - type: regex
+        part: body
+        group: 1
+        regex:
+          - '(?i)<title>([^<]*)</title>'

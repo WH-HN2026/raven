@@ -1,5 +1,5 @@
 /*
- * ASI design tokens: the ONLY place colours are defined (AGENTS.md: no raw hex
+ * RAVEN design tokens: the ONLY place colours are defined (AGENTS.md: no raw hex
  * in components). Values come from docs/design/README.md ("Tokens"); the
  * Tailwind names map 1:1 to the design names:
  *

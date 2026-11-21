@@ -19,8 +19,8 @@ INSERT INTO http_observations (
     service_id, url, status, title, headers_enc, cookies_enc, tls_cert_enc,
     redirects, technologies, favicon_hash, run_id, observed_at
 )
-SELECT id, $1, $2, $3, asi_enc($4::text), asi_enc($5::text),
-       asi_enc(NULLIF($6::text, '')), $7, $8, $9,
+SELECT id, $1, $2, $3, raven_enc($4::text), raven_enc($5::text),
+       raven_enc(NULLIF($6::text, '')), $7, $8, $9,
        $10, $11
 FROM services
 WHERE ip = $12 AND port = $13 AND proto = 'tcp'

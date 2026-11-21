@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/dbtest"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner"
+	"github.com/WH-HN2026/raven/internal/dbtest"
+	"github.com/WH-HN2026/raven/internal/scanner"
 )
 
 // latencyNmap simulates a scanner with a known per-IP wall time, records

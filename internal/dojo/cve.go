@@ -9,12 +9,12 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/cve"
+	"github.com/WH-HN2026/raven/internal/cve"
 )
 
 // CVE matching (task C3, architecture §11): a periodic pass matches open
 // services against the committed CVE data, then every active IP whose match
-// set changed is reimported into its "ASI CVE match" test with
+// set changed is reimported into its "RAVEN CVE match" test with
 // close_old_findings, so a version change closes the old finding.
 
 // DefaultCVEProfile names the engagement for IPs no profile run has seen up
@@ -27,7 +27,7 @@ type CVEPusher struct {
 	OrganizationID int64
 }
 
-// Push ensures Asset "<ip>" → Engagement "ASI: <profile>" → Test "ASI CVE
+// Push ensures Asset "<ip>" → Engagement "RAVEN: <profile>" → Test "RAVEN CVE
 // match" and reimports the IP's match set (possibly empty) into it.
 func (p *CVEPusher) Push(ctx context.Context, h cve.PushHost, date time.Time) (*ImportResult, error) {
 	profile := h.Profile
@@ -36,7 +36,7 @@ func (p *CVEPusher) Push(ctx context.Context, h cve.PushHost, date time.Time) (*
 	}
 	tags := AssetTags(h.Hostnames)
 	asset, err := p.Client.GetOrCreateAsset(ctx, AssetSpec{
-		Name: h.IP.String(), Description: "Host " + h.IP.String() + " (managed by ASI)",
+		Name: h.IP.String(), Description: "Host " + h.IP.String() + " (managed by RAVEN)",
 		OrganizationID: p.OrganizationID, Tags: tags,
 	})
 	if err != nil {
@@ -60,7 +60,7 @@ func (p *CVEPusher) Push(ctx context.Context, h cve.PushHost, date time.Time) (*
 	}
 	return p.Client.ReimportScan(ctx, ImportRequest{
 		ScanType: GenericScanType, TestID: test.ID,
-		FileName: "asi-cve-" + h.IP.String() + ".json", File: bytes.NewReader(doc),
+		FileName: "raven-cve-" + h.IP.String() + ".json", File: bytes.NewReader(doc),
 		CloseOldFindings: true, Tags: []string{TagASI}, TagFindings: true, ScanDate: date,
 	})
 }

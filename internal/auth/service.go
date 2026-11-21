@@ -14,8 +14,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/audit"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/db/gen"
+	"github.com/WH-HN2026/raven/internal/audit"
+	"github.com/WH-HN2026/raven/internal/db/gen"
 )
 
 var ErrInvalidCredentials = errors.New("invalid username or password")
@@ -95,7 +95,7 @@ func (s *Service) UserForToken(ctx context.Context, token string) (*User, error)
 	return &u, nil
 }
 
-// EnsureBootstrapAdmin creates the admin from ASI_ADMIN_USERNAME/PASSWORD
+// EnsureBootstrapAdmin creates the admin from RAVEN_ADMIN_USERNAME/PASSWORD
 // when no enabled admin exists yet (first start).
 func (s *Service) EnsureBootstrapAdmin(ctx context.Context, username, password string) error {
 	n, err := s.q.CountAdmins(ctx)
@@ -106,7 +106,7 @@ func (s *Service) EnsureBootstrapAdmin(ctx context.Context, username, password s
 		return nil
 	}
 	if password == "" {
-		return errors.New("no admin user exists and ASI_ADMIN_PASSWORD is empty")
+		return errors.New("no admin user exists and RAVEN_ADMIN_PASSWORD is empty")
 	}
 	hash, err := HashPassword(password)
 	if err != nil {

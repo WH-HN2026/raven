@@ -13,7 +13,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner"
+	"github.com/WH-HN2026/raven/internal/scanner"
 )
 
 // Scanner runs ProjectDiscovery httpx. Its zero value uses httpx from PATH.
@@ -87,7 +87,7 @@ func (s *Scanner) Run(ctx context.Context, in scanner.Input, opt scanner.Options
 	if binary == "" {
 		binary = "httpx"
 	}
-	dir, err := os.MkdirTemp("", "asi-httpx-")
+	dir, err := os.MkdirTemp("", "raven-httpx-")
 	if err != nil {
 		return nil, fmt.Errorf("httpx: create config directory: %w", err)
 	}

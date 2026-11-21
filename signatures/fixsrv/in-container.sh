@@ -1,5 +1,5 @@
 #!/bin/sh
-# Runs inside the asi image with --network none: fixture server on loopback,
+# Runs inside the raven image with --network none: fixture server on loopback,
 # then nuclei per template against its own fixture and the neutral one.
 /w/fixsrv /pack/testdata /tmp/ports &
 sleep 1

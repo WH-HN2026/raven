@@ -13,8 +13,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/dbtest"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner"
+	"github.com/WH-HN2026/raven/internal/dbtest"
+	"github.com/WH-HN2026/raven/internal/scanner"
 )
 
 type lifecycleTestScanner func(context.Context, scanner.Input, scanner.Options) (*scanner.Result, error)

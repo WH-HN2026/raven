@@ -30,7 +30,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/cve"
+	"github.com/WH-HN2026/raven/internal/cve"
 )
 
 const (
@@ -135,7 +135,7 @@ func (f *fetcher) get(ctx context.Context, u string, auth bool) (io.ReadCloser, 
 		if err != nil {
 			return nil, err
 		}
-		req.Header.Set("User-Agent", "asi-cve-db/1")
+		req.Header.Set("User-Agent", "raven-cve-db/1")
 		if auth && f.key != "" {
 			req.Header.Set("apiKey", f.key)
 		}

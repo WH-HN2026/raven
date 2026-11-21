@@ -33,7 +33,7 @@ func (q *Queries) AddRunDojoPushStats(ctx context.Context, arg AddRunDojoPushSta
 
 const getBatchArtifact = `-- name: GetBatchArtifact :one
 
-SELECT asi_dec(content_enc)::text AS content FROM artifacts
+SELECT raven_dec(content_enc)::text AS content FROM artifacts
 WHERE batch_id = $1 AND scanner = $2
 ORDER BY id DESC LIMIT 1
 `

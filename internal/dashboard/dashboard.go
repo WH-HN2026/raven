@@ -13,8 +13,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/changes"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/db/gen"
+	"github.com/WH-HN2026/raven/internal/changes"
+	"github.com/WH-HN2026/raven/internal/db/gen"
 )
 
 // Limit caps every list on the dashboard.

@@ -14,13 +14,13 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/db/gen"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/dbtest"
+	"github.com/WH-HN2026/raven/internal/db/gen"
+	"github.com/WH-HN2026/raven/internal/dbtest"
 )
 
 // TestIntegrationPlanning runs D5 end-to-end against the shared DefectDojo
-// (ASI_DOJO_URL) and a fresh throwaway DB:
-//   - creates uniquely named "Not Started" engagements under "ASI Planning"
+// (RAVEN_DOJO_URL) and a fresh throwaway DB:
+//   - creates uniquely named "Not Started" engagements under "RAVEN Planning"
 //     (one with a valid profile tag, one with an unknown profile tag, one to
 //     verify disabling when cancelled/removed with no run);
 //   - polls and checks the resulting schedules rows;
@@ -30,21 +30,21 @@ import (
 //     In Progress → Completed with no redundant PATCHes;
 //   - deletes ONLY the engagements this test created.
 func TestIntegrationPlanning(t *testing.T) {
-	base := os.Getenv("ASI_DOJO_URL")
+	base := os.Getenv("RAVEN_DOJO_URL")
 	if base == "" {
-		t.Skip("ASI_DOJO_URL not set")
+		t.Skip("RAVEN_DOJO_URL not set")
 	}
 	pool := dbtest.Fresh(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
-	orgName := os.Getenv("ASI_DOJO_ORGANIZATION")
+	orgName := os.Getenv("RAVEN_DOJO_ORGANIZATION")
 	if orgName == "" {
-		orgName = "ASI"
+		orgName = "RAVEN"
 	}
 	boot, err := Bootstrap(ctx, BootstrapConfig{
 		URL:          base,
-		Token:        os.Getenv("ASI_DOJO_TOKEN"),
+		Token:        os.Getenv("RAVEN_DOJO_TOKEN"),
 		AdminUser:    os.Getenv("DD_ADMIN_USER"),
 		AdminPass:    os.Getenv("DD_ADMIN_PASSWORD"),
 		Organization: orgName,
@@ -56,7 +56,7 @@ func TestIntegrationPlanning(t *testing.T) {
 
 	rnd := make([]byte, 4)
 	_, _ = rand.Read(rnd)
-	slug := "asi-it-d5-" + hex.EncodeToString(rnd)
+	slug := "raven-it-d5-" + hex.EncodeToString(rnd)
 	t.Logf("slug=%s planning_asset_id=%d", slug, planningID)
 
 	createPlanned := func(name, start, end string, tags []string) *Engagement {

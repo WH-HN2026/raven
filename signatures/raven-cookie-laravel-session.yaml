@@ -1,0 +1,16 @@
+id: raven-cookie-laravel-session
+info:
+  name: Laravel session cookie
+  author: raven
+  severity: info
+  description: The response sets laravel_session, the Laravel framework session cookie.
+  tags: raven,cookies,tech,laravel,php
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}"
+    matchers:
+      - type: regex
+        part: header
+        regex:
+          - '(?mi)^set-cookie:[ \t]*laravel_session='

@@ -11,9 +11,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/audit"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/db/gen"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/scheduler"
+	"github.com/WH-HN2026/raven/internal/audit"
+	"github.com/WH-HN2026/raven/internal/db/gen"
+	"github.com/WH-HN2026/raven/internal/scheduler"
 )
 
 var errWindowClosed = errors.New("scan window closed")

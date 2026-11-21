@@ -19,9 +19,9 @@ func TestLoadMaxWorkers(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Setenv("ASI_DATABASE_URL", "postgres://asi:pw@127.0.0.1:5433/asi")
-			t.Setenv("ASI_ENCRYPTION_KEY", encKey)
-			t.Setenv("ASI_MAX_WORKERS", tt.val)
+			t.Setenv("RAVEN_DATABASE_URL", "postgres://raven:pw@127.0.0.1:5433/raven")
+			t.Setenv("RAVEN_ENCRYPTION_KEY", encKey)
+			t.Setenv("RAVEN_MAX_WORKERS", tt.val)
 			cfg, err := Load()
 			if tt.wantErr {
 				if err == nil {

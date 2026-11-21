@@ -12,21 +12,21 @@ import (
 	"testing"
 	"time"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner/nmap"
+	"github.com/WH-HN2026/raven/internal/scanner/nmap"
 )
 
 // TestIntegrationPush runs the push path against the shared compose Dojo with
 // the S2 fixture. Its IPs are rewritten to a random 198.18.R.0/24 (benchmark
 // range, never scanned) so the IP-named assets are unique per test run; they
-// live under the organization "asi-it-d2" and are deleted afterwards.
+// live under the organization "raven-it-d2" and are deleted afterwards.
 func TestIntegrationPush(t *testing.T) {
-	base := os.Getenv("ASI_DOJO_URL")
+	base := os.Getenv("RAVEN_DOJO_URL")
 	if base == "" {
-		t.Skip("ASI_DOJO_URL not set")
+		t.Skip("RAVEN_DOJO_URL not set")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
-	token := os.Getenv("ASI_DOJO_TOKEN")
+	token := os.Getenv("RAVEN_DOJO_TOKEN")
 	if token == "" {
 		var err error
 		if token, err = ObtainToken(ctx, base, os.Getenv("DD_ADMIN_USER"), os.Getenv("DD_ADMIN_PASSWORD")); err != nil {
@@ -45,7 +45,7 @@ func TestIntegrationPush(t *testing.T) {
 	web, ssh := netip.MustParseAddr(net+"10"), netip.MustParseAddr(net+"11")
 	t.Logf("ips %s %s", web, ssh)
 
-	org, err := c.GetOrCreateOrganization(ctx, "asi-it-d2")
+	org, err := c.GetOrCreateOrganization(ctx, "raven-it-d2")
 	must(t, err)
 	p := &Pusher{Client: c, OrganizationID: org.ID, Parallel: c.Concurrency()}
 	seen := time.Now().Add(-time.Hour)
@@ -110,8 +110,8 @@ func TestIntegrationPush(t *testing.T) {
 
 	fs := findings(webID)
 	for _, f := range fs {
-		if !contains(f.Tags, "asi") {
-			t.Errorf("finding %d %q not tagged asi: %v", f.ID, f.Title, f.Tags)
+		if !contains(f.Tags, "raven") {
+			t.Errorf("finding %d %q not tagged raven: %v", f.ID, f.Title, f.Tags)
 		}
 	}
 	if n, _ := count(fs, "New device found: "+web.String(), false); n != 1 {

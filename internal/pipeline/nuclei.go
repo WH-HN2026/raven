@@ -12,16 +12,16 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/db/gen"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner/nuclei"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/signatures"
+	"github.com/WH-HN2026/raven/internal/db/gen"
+	"github.com/WH-HN2026/raven/internal/scanner"
+	"github.com/WH-HN2026/raven/internal/scanner/nuclei"
+	"github.com/WH-HN2026/raven/internal/signatures"
 )
 
 func defaultNuclei(pool *pgxpool.Pool) scanner.Scanner {
 	return &nuclei.Scanner{
-		TemplatesDir: os.Getenv("ASI_NUCLEI_TEMPLATES"),
-		CustomDir:    "/opt/asi-signatures",
+		TemplatesDir: os.Getenv("RAVEN_NUCLEI_TEMPLATES"),
+		CustomDir:    "/opt/raven-signatures",
 		LoadSignatures: func(ctx context.Context) ([]string, error) {
 			items, err := (&signatures.Store{Pool: pool}).Enabled(ctx)
 			if err != nil {

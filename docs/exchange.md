@@ -1,6 +1,6 @@
-# ASI — Import & Export Formats
+# RAVEN — Import & Export Formats
 
-ASI supports importing targets and scan results from external tools and exporting normalized views of hosts, services, findings, changes, and targets.
+RAVEN supports importing targets and scan results from external tools and exporting normalized views of hosts, services, findings, changes, and targets.
 
 All imports require the `import` permission (`editor` or `admin`), write an `audit_log` entry, enforce upload size limits, and apply the target profile's scope rules plus the **global blacklist** (exclusions always win).
 
@@ -37,8 +37,8 @@ wordpress.lab,cms,
 Multipart form upload (max **25 MiB**):
 - `file` (required): the uploaded file
 - `kind` (optional; auto-detected from filename/content if omitted):
-  - `results-json` — ASI native scan-results JSON
-  - `results-csv` — ASI native scan-results CSV (also accepts exported `services` / `hosts` CSV)
+  - `results-json` — RAVEN native scan-results JSON
+  - `results-csv` — RAVEN native scan-results CSV (also accepts exported `services` / `hosts` CSV)
   - `nmap-xml` — raw `nmap -oX` XML
   - `nuclei-jsonl` — raw `nuclei -jsonl` JSON lines
   - `nessus` — Nessus `.nessus` (`NessusClientData_v2` XML)
@@ -46,13 +46,13 @@ Multipart form upload (max **25 MiB**):
 
 Every import creates a completed run (`runs.stats.source = "import"`, `runs.stats.import_kind = "<kind>"`), filters candidate IPs through the profile's include/exclude scope and global blacklist, ingests observations into `hosts`, `services`, `http_observations`, `run_observations`, and encrypted `artifacts`, and triggers DefectDojo push — without running any scanner binary.
 
-### 2.1 ASI Results JSON (`results-json`)
+### 2.1 RAVEN Results JSON (`results-json`)
 
 Example fixture: [`internal/exchange/testdata/sample_results.json`](../internal/exchange/testdata/sample_results.json).
 
 ```json
 {
-  "format": "asi-results",
+  "format": "raven-results",
   "version": 1,
   "scanned_at": "2026-11-21T14:00:00Z",
   "hosts": [
@@ -108,9 +108,9 @@ Design notes:
 - `version` is currently `1` (omitted defaults to `1`); unknown future fields are ignored for forward compatibility, while `version > 1` is rejected cleanly.
 - `up` defaults to `true` if omitted. `proto` defaults to `"tcp"`. `service` is accepted as an alias for `name`.
 - A bare JSON array of host objects or exported service objects (`GET /api/export/services?format=json`) is also accepted.
-- Sensitive fields (`banner`, `headers`, `cookies`, `tls_cert`, `extracted`, raw upload) are encrypted at rest with `asi_enc`.
+- Sensitive fields (`banner`, `headers`, `cookies`, `tls_cert`, `extracted`, raw upload) are encrypted at rest with `raven_enc`.
 
-### 2.2 ASI Results CSV (`results-csv`)
+### 2.2 RAVEN Results CSV (`results-csv`)
 
 Example fixture: [`internal/exchange/testdata/sample_results.csv`](../internal/exchange/testdata/sample_results.csv).
 
@@ -136,7 +136,7 @@ Example fixture: [`internal/exchange/testdata/sample.nessus`](../internal/exchan
 
 - Parses `NessusClientData_v2` XML, extracting each `<ReportHost>`'s IP (from `<HostProperties><tag name="host-ip">` or `<ReportHost name="...">`), hostnames, and open ports/services from `<ReportItem>`.
 - Filters hosts through the profile's scope and global blacklist, ingests discovered hosts/services into our DB (partial import), stores the raw `.nessus` encrypted in `artifacts(scanner='nessus')`.
-- Splits the XML per allowed IP (preserving `<Policy>` and `<Report>` byte-for-byte) and pushes each IP's slice to DefectDojo using the **"Tenable Scan"** parser into Asset `"<ip>"` → Engagement `"ASI: <profile>"` → Test `"ASI: nessus"` (`internal/dojo/nessus.go`).
+- Splits the XML per allowed IP (preserving `<Policy>` and `<Report>` byte-for-byte) and pushes each IP's slice to DefectDojo using the **"Tenable Scan"** parser into Asset `"<ip>"` → Engagement `"RAVEN: <profile>"` → Test `"RAVEN: nessus"` (`internal/dojo/nessus.go`).
 
 ---
 

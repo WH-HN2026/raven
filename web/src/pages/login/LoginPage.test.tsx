@@ -29,7 +29,7 @@ describe('LoginPage', () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce())
     const [url, init] = fetchMock.mock.calls[0]!
     expect(url).toBe('/api/auth/login')
-    expect((init?.headers as Record<string, string>)['X-ASI-CSRF']).toBe('1')
+    expect((init?.headers as Record<string, string>)['X-RAVEN-CSRF']).toBe('1')
     expect(JSON.parse(init?.body as string)).toEqual({ username: 'admin', password: 'pw' })
   })
 })

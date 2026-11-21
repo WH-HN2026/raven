@@ -16,12 +16,12 @@ type page struct {
 }
 
 var pages = map[string]page{
-	"staging":        {"ASI Staging", map[string]string{"X-Environment": "staging"}},
-	"printer":        {"ASI Lab Printer Status", map[string]string{"Server": "LabPrinter/1.0", "X-Device-Type": "printer"}},
-	"tls-selfsigned": {"ASI Self-signed TLS", nil},
-	"tls-expired":    {"ASI Expired TLS", nil},
-	"apache":         {"ASI Apache Banner Fixture", map[string]string{"Server": "Apache/2.4.49"}},
-	"flap":           {"ASI Flapping Host", map[string]string{"X-Lab-Host": "flap"}},
+	"staging":        {"RAVEN Staging", map[string]string{"X-Environment": "staging"}},
+	"printer":        {"RAVEN Lab Printer Status", map[string]string{"Server": "LabPrinter/1.0", "X-Device-Type": "printer"}},
+	"tls-selfsigned": {"RAVEN Self-signed TLS", nil},
+	"tls-expired":    {"RAVEN Expired TLS", nil},
+	"apache":         {"RAVEN Apache Banner Fixture", map[string]string{"Server": "Apache/2.4.49"}},
+	"flap":           {"RAVEN Flapping Host", map[string]string{"X-Lab-Host": "flap"}},
 }
 
 func main() {

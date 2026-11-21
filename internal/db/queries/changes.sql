@@ -21,7 +21,7 @@ ORDER BY id DESC LIMIT 1;
 SELECT ip, COALESCE(port, -1)::int AS port, up FROM run_observations WHERE run_id = $1;
 
 -- name: ListRunNmapArtifacts :many
-SELECT asi_dec(content_enc)::text AS content FROM artifacts
+SELECT raven_dec(content_enc)::text AS content FROM artifacts
 WHERE run_id = $1 AND scanner = 'nmap' ORDER BY id;
 
 -- name: ListRunHTTPObservations :many

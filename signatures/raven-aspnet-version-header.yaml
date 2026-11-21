@@ -1,0 +1,22 @@
+id: raven-aspnet-version-header
+info:
+  name: ASP.NET version header
+  author: raven
+  severity: info
+  description: X-AspNet-Version or X-AspNetMvc-Version discloses the .NET framework version.
+  tags: raven,headers,version,aspnet
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}"
+    matchers:
+      - type: regex
+        part: header
+        regex:
+          - '(?mi)^x-aspnet(mvc)?-version:[ \t]*[0-9]'
+    extractors:
+      - type: regex
+        part: header
+        group: 1
+        regex:
+          - '(?mi)^x-aspnet(?:mvc)?-version:[ \t]*([^\r\n]+)'

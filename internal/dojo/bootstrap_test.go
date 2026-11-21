@@ -38,7 +38,7 @@ func TestBootstrap(t *testing.T) {
 		}
 	}
 	mux.HandleFunc("GET /api/v2/organizations/", auth(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Query().Get("name") != "ASI" {
+		if r.URL.Query().Get("name") != "RAVEN" {
 			t.Errorf("organization filter = %q", r.URL.RawQuery)
 		}
 		_, _ = w.Write([]byte(`{"count":0,"results":[]}`))
@@ -46,7 +46,7 @@ func TestBootstrap(t *testing.T) {
 	mux.HandleFunc("POST /api/v2/organizations/", auth(func(w http.ResponseWriter, r *http.Request) {
 		orgCreates.Add(1)
 		w.WriteHeader(http.StatusCreated)
-		_, _ = w.Write([]byte(`{"id":7,"name":"ASI"}`))
+		_, _ = w.Write([]byte(`{"id":7,"name":"RAVEN"}`))
 	}))
 	mux.HandleFunc("GET /api/v2/assets/", auth(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"count":0,"results":[]}`))
@@ -59,7 +59,7 @@ func TestBootstrap(t *testing.T) {
 			t.Errorf("asset create body = %+v", a)
 		}
 		w.WriteHeader(http.StatusCreated)
-		_, _ = w.Write([]byte(`{"id":9,"name":"ASI Planning","organization":7}`))
+		_, _ = w.Write([]byte(`{"id":9,"name":"RAVEN Planning","organization":7}`))
 	}))
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -67,7 +67,7 @@ func TestBootstrap(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	res, err := Bootstrap(ctx, BootstrapConfig{
-		URL: srv.URL, AdminUser: "admin", AdminPass: "pw", Organization: "ASI", RetryEvery: 10 * time.Millisecond,
+		URL: srv.URL, AdminUser: "admin", AdminPass: "pw", Organization: "RAVEN", RetryEvery: 10 * time.Millisecond,
 	})
 	if err != nil {
 		t.Fatal(err)

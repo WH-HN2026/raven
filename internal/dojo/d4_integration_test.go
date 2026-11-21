@@ -15,12 +15,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/dbtest"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/pipeline"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner/httpx"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner/nmap"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner/nuclei"
+	"github.com/WH-HN2026/raven/internal/dbtest"
+	"github.com/WH-HN2026/raven/internal/pipeline"
+	"github.com/WH-HN2026/raven/internal/scanner"
+	"github.com/WH-HN2026/raven/internal/scanner/httpx"
+	"github.com/WH-HN2026/raven/internal/scanner/nmap"
+	"github.com/WH-HN2026/raven/internal/scanner/nuclei"
 )
 
 type artifactScanner struct {
@@ -35,21 +35,21 @@ func (s artifactScanner) Run(context.Context, scanner.Input, scanner.Options) (*
 }
 
 func TestIntegrationWebPushAndOffline(t *testing.T) {
-	base := os.Getenv("ASI_DOJO_URL")
+	base := os.Getenv("RAVEN_DOJO_URL")
 	if base == "" {
-		t.Skip("ASI_DOJO_URL not set")
+		t.Skip("RAVEN_DOJO_URL not set")
 	}
 	pool := dbtest.Fresh(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
 	defer cancel()
-	token := os.Getenv("ASI_DOJO_TOKEN")
+	token := os.Getenv("RAVEN_DOJO_TOKEN")
 	if token == "" {
 		var err error
 		token, err = ObtainToken(ctx, base, os.Getenv("DD_ADMIN_USER"), os.Getenv("DD_ADMIN_PASSWORD"))
 		must(t, err)
 	}
 	client := NewHTTPClient(base, token)
-	org, err := client.GetOrCreateOrganization(ctx, "asi-it-d4")
+	org, err := client.GetOrCreateOrganization(ctx, "raven-it-d4")
 	must(t, err)
 	randBytes := make([]byte, 2)
 	_, err = rand.Read(randBytes)
@@ -173,7 +173,7 @@ func TestIntegrationWebPushAndOffline(t *testing.T) {
 	}
 	updated, err := client.GetAsset(ctx, asset.ID)
 	must(t, err)
-	for _, tag := range []string{"asi", "user:ops", "tech:nginx", "tech:wordpress"} {
+	for _, tag := range []string{"raven", "user:ops", "tech:nginx", "tech:wordpress"} {
 		if !slices.Contains(updated.Tags, tag) {
 			t.Fatalf("asset tags %v lack %s", updated.Tags, tag)
 		}
@@ -221,7 +221,7 @@ func TestIntegrationWebPushAndOffline(t *testing.T) {
 	for _, f := range fs {
 		byUID[f.UniqueIDFromTool]++
 	}
-	if byUID["asi-host-offline:"+ip] != 1 || byUID["asi-new-device:"+ip] != 1 {
+	if byUID["raven-host-offline:"+ip] != 1 || byUID["raven-new-device:"+ip] != 1 {
 		t.Fatalf("want exactly one offline and new-device finding: %v", titles(fs))
 	}
 	t.Logf("run %d had one offline job, lifecycle after retry and another profile: %v", offlineRun, titles(fs))

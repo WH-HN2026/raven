@@ -1,0 +1,28 @@
+id: raven-version-endpoint
+info:
+  name: Version endpoint
+  author: raven
+  severity: info
+  description: A /version endpoint returns a JSON document with a version number.
+  tags: raven,version,path
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/version"
+      - "{{BaseURL}}/api/version"
+    stop-at-first-match: true
+    matchers-condition: and
+    matchers:
+      - type: status
+        status:
+          - 200
+      - type: regex
+        part: body
+        regex:
+          - '(?i)"(version|gitVersion|build_version|app_version)"\s*:\s*"v?[0-9]+\.[0-9]+'
+    extractors:
+      - type: regex
+        part: body
+        group: 1
+        regex:
+          - '(?i)"(?:version|gitVersion|build_version|app_version)"\s*:\s*"([^"]+)"'

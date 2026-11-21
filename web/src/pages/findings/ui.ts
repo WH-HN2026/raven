@@ -11,7 +11,7 @@ export type Severity = Schemas['Severity']
 
 /** Critical first (the list's sort order). */
 export const severities: Severity[] = ['Critical', 'High', 'Medium', 'Low', 'Info']
-export const scanners = ['nmap', 'nuclei', 'asi']
+export const scanners = ['nmap', 'nuclei', 'raven']
 
 /** The list filters, as kept in the URL query string. */
 export interface FindingFilters {

@@ -10,7 +10,7 @@ import (
 )
 
 const decrypt = `-- name: Decrypt :one
-SELECT asi_dec($1::bytea)::text AS plaintext
+SELECT raven_dec($1::bytea)::text AS plaintext
 `
 
 func (q *Queries) Decrypt(ctx context.Context, ciphertext []byte) (string, error) {
@@ -22,7 +22,7 @@ func (q *Queries) Decrypt(ctx context.Context, ciphertext []byte) (string, error
 
 const encrypt = `-- name: Encrypt :one
 
-SELECT asi_enc($1::text)::bytea AS ciphertext
+SELECT raven_enc($1::text)::bytea AS ciphertext
 `
 
 // Encryption helpers; used by the integration test and as an example for _enc columns.

@@ -1,4 +1,4 @@
-# ASI — Roadmap
+# RAVEN — Roadmap
 
 Each task is sized for **one worktree / one agent session**. Pick any task whose dependencies are `done`. The architecture is in [`architecture.md`](architecture.md); the workflow rules are in [`../AGENTS.md`](../AGENTS.md).
 
@@ -22,22 +22,22 @@ M0 is sequential and blocking. Do it in **one** worktree, as fast as possible, t
 ## M0 — Foundation (sequential, blocks everything)
 
 - [x] **F0 Repo skeleton & tooling.**
-  - `go.mod`, `cmd/asi`, `internal/config`.
+  - `go.mod`, `cmd/raven`, `internal/config`.
   - Makefile targets `dev`, `check`, `gen`, `build`, `infra-up`, `infra-down`, `db-new name=…`.
   - `.gitignore`, `.env.example`.
   - `.github/workflows/check.yml`: runs `make check` (Go + Node, no Docker) on PRs and on `main`; the job is named `check` (branch protection requires it). Keep it under ~5 min with Go/npm caching.
   - `web/` Vite + React + TS + Tailwind + React Router + TanStack Query.
   - The Go server serves the embedded SPA, and `/api/healthz` works.
 - [x] **F1 Docker Compose deployment** (architecture §10).
-  - Root `compose.yml` = `asi` + `asi-db` + `include: deploy/dojo.compose.yml` (DefectDojo 3.5.202, pinned).
+  - Root `compose.yml` = `raven` + `raven-db` + `include: deploy/dojo.compose.yml` (DefectDojo 3.5.202, pinned).
   - `deploy/Dockerfile`, multi-stage: web build → Go build → runtime with nmap + nuclei + pinned templates.
   - `.env.example` + `scripts/gen-env.sh`.
-  - `asi` gets its Dojo token itself from the admin credentials.
-  - `make infra-up` starts everything except `asi`.
+  - `raven` gets its Dojo token itself from the admin credentials.
+  - `make infra-up` starts everything except `raven`.
   - Done when `docker compose up -d --build` on a clean clone gives a working app on :8000 and Dojo on :8080, with no manual steps.
 - [x] **F2 DB baseline.**
-  - goose (timestamp names, embedded) + sqlc config; pgx pool with `asi.enc_key` set in `AfterConnect`.
-  - Baseline migration: `pgcrypto`, `asi_enc`/`asi_dec`, and **all core tables** from architecture §5, so later tasks rarely touch the same migration.
+  - goose (timestamp names, embedded) + sqlc config; pgx pool with `raven.enc_key` set in `AfterConnect`.
+  - Baseline migration: `pgcrypto`, `raven_enc`/`raven_dec`, and **all core tables** from architecture §5, so later tasks rarely touch the same migration.
   - River migrations run on startup.
 - [x] **F3 Contracts.**
   - `api/openapi.yaml` with the common schemas (error, pagination, Host, Service, Run, Finding …) and the stubbed paths for every area; TS generation wired up in `make gen`.
@@ -79,7 +79,7 @@ M0 is sequential and blocking. Do it in **one** worktree, as fast as possible, t
 
 **Track D — DefectDojo**
 - [x] **D4 Push httpx + nuclei + lifecycle findings.** (needs S7, S4, S6) Reimport httpx ("httpx Scan") and nuclei per IP, one Test per scanner; push "Host offline" once the threshold is hit; tags (`tech:*`, `panel:*`, `env:*`, `host:*`) on Assets.
-- [x] **D5 Planned engagements poller.** `ASI Planning` asset, poll `Not Started` engagements tagged `asi-profile:<name>` → `schedules(source='dojo')`, update engagement status on run start/finish.
+- [x] **D5 Planned engagements poller.** `RAVEN Planning` asset, poll `Not Started` engagements tagged `raven-profile:<name>` → `schedules(source='dojo')`, update engagement status on run start/finish.
 - [x] **D6 Write-through edits.** Finding edits in our API → PATCH Dojo → update the mirror; host user-fields → Asset description/tags.
 
 **Track P — Platform**
@@ -103,7 +103,7 @@ M0 is sequential and blocking. Do it in **one** worktree, as fast as possible, t
 - [x] **C3 Offline CVE matching.** (needs S8; uses S7/S4 output once merged) Architecture §11:
   - `make cve-db` fetches NVD CVE 2.0 for the curated `internal/cve/products.txt`, plus CISA KEV and EPSS, into committed gzip data;
   - CPE mapping for httpx/nuclei technology names, and a version-range matcher with table tests (`8.9p1`, `2.4.49`, distro suffixes);
-  - confidence and the distro cap; one finding per product instance pushed as "ASI CVE match" (Generic Findings Import with `vulnerability_ids`);
+  - confidence and the distro cap; one finding per product instance pushed as "RAVEN CVE match" (Generic Findings Import with `vulnerability_ids`);
   - feeds the interest score (X2).
 
 **Track W — Web UI**
@@ -119,7 +119,7 @@ M0 is sequential and blocking. Do it in **one** worktree, as fast as possible, t
   - replace the sidebar with the black top bar, the black page header with the squares band, and the footer (assets in `docs/design/assets/`);
   - square corners everywhere, and restyle the merged pages (Targets, Runs, Hosts) to their mockups;
   - remove explanatory copy.
-- [x] **W12 Import/Export page.** UI for P3: upload scan results (ASI JSON/CSV, nmap XML, nuclei JSONL, .nessus) with the import result; export buttons (JSON/CSV with the current filters) on Hosts, Findings, Changes and Targets.
+- [x] **W12 Import/Export page.** UI for P3: upload scan results (RAVEN JSON/CSV, nmap XML, nuclei JSONL, .nessus) with the import result; export buttons (JSON/CSV with the current filters) on Hosts, Findings, Changes and Targets.
 
 **Track L — Lab**
 - [x] **L1 Local test lab.** `compose.lab.yml` on an isolated docker network: WordPress, Joomla or Drupal, nginx with `/admin`, an app with `X-Environment: staging`, Tomcat, a fake IoT banner (e.g. a small Go service), a TLS service with a self-signed/expired cert, **two or three services that only announce known-vulnerable versions** (e.g. a tiny Go server sending `Server: Apache/2.4.49`, an SSH banner `OpenSSH_7.4`) so CVE matching can be demoed without real vulnerable software, and **one flapping container** (toggled by a script) for unstable-host testing. Until the organizers' lab arrives, **all dev scans target only this network.**
@@ -131,6 +131,7 @@ M0 is sequential and blocking. Do it in **one** worktree, as fast as possible, t
 - [ ] **X4 Grouping & tags.** Group similar services (same tech + version / same favicon hash / same title); tag management UI.
 - [ ] **X5 Export observations to Dojo.** Select observations in the UI → push as INFO findings, with evidence attached.
 - [ ] **X6 Demo script + docs.** `scripts/demo.sh` (two runs with a lab change in between), README quickstart, technical docs, ≤10 slides.
+- [x] **N1 Rename to RAVEN.** Project, module, binary, env vars, DB helpers, Dojo-facing names, lab and docs renamed from ASI to RAVEN.
 
 ## M4 — MCP (last)
 

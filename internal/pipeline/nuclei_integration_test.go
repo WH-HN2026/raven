@@ -11,11 +11,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/db/gen"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/dbtest"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner/nmap"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner/nuclei"
+	"github.com/WH-HN2026/raven/internal/db/gen"
+	"github.com/WH-HN2026/raven/internal/dbtest"
+	"github.com/WH-HN2026/raven/internal/scanner"
+	"github.com/WH-HN2026/raven/internal/scanner/nmap"
+	"github.com/WH-HN2026/raven/internal/scanner/nuclei"
 )
 
 type replayNuclei struct {
@@ -91,7 +91,7 @@ func TestNucleiBatchIngest(t *testing.T) {
 			}}
 			web := &scanner.Result{Raw: []byte("{}"), Observations: []scanner.Observation{
 				{Kind: scanner.ObsHTTP, IP: ip, Port: 80, URL: "http://172.30.0.17:80", HTTP: &scanner.HTTPInfo{Status: 200, Technologies: []string{"Apache"}}},
-				{Kind: scanner.ObsHTTP, IP: ip, Port: 80, URL: "http://wordpress.asi.lab:80", HTTP: &scanner.HTTPInfo{Status: 200}},
+				{Kind: scanner.ObsHTTP, IP: ip, Port: 80, URL: "http://wordpress.raven.lab:80", HTTP: &scanner.HTTPInfo{Status: 200}},
 			}}
 			detection, err := s.scanNuclei(ctx, b, prof, web)
 			if err != nil || (detection == nil) != (tt.err != nil) {
@@ -111,11 +111,11 @@ func TestNucleiBatchIngest(t *testing.T) {
 			}
 			var matches, evidence, artifact string
 			if err := pool.QueryRow(ctx, `
-				SELECT nuclei_matches->0->>'template_id', asi_dec(nuclei_evidence_enc)
+				SELECT nuclei_matches->0->>'template_id', raven_dec(nuclei_evidence_enc)
 				FROM run_observations WHERE run_id = $1 AND ip = $2 AND port = 80`, run.ID, ip).Scan(&matches, &evidence); err != nil {
 				t.Fatal(err)
 			}
-			if err := pool.QueryRow(ctx, `SELECT asi_dec(content_enc) FROM artifacts WHERE run_id = $1 AND scanner = 'nuclei'`, run.ID).Scan(&artifact); err != nil {
+			if err := pool.QueryRow(ctx, `SELECT raven_dec(content_enc) FROM artifacts WHERE run_id = $1 AND scanner = 'nuclei'`, run.ID).Scan(&artifact); err != nil {
 				t.Fatal(err)
 			}
 			if matches != "wordpress-detect" || evidence != `[["7.1.5"]]` || artifact != string(match.Raw) {

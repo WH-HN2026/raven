@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/db"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/db/gen"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/dbtest"
+	"github.com/WH-HN2026/raven/internal/db"
+	"github.com/WH-HN2026/raven/internal/db/gen"
+	"github.com/WH-HN2026/raven/internal/dbtest"
 )
 
 func TestMigrateAndEncryptionRoundTrip(t *testing.T) {
@@ -60,12 +60,12 @@ func TestMigrateAndEncryptionRoundTrip(t *testing.T) {
 
 	// Stored in a real _enc column: the bytes on disk are not plaintext.
 	if _, err := pool.Exec(ctx,
-		`INSERT INTO hosts (ip, notes_enc) VALUES ('10.0.0.1', asi_enc($1))`, secret); err != nil {
+		`INSERT INTO hosts (ip, notes_enc) VALUES ('10.0.0.1', raven_enc($1))`, secret); err != nil {
 		t.Fatal(err)
 	}
 	var raw []byte
 	var dec string
-	if err := pool.QueryRow(ctx, `SELECT notes_enc, asi_dec(notes_enc) FROM hosts WHERE ip = '10.0.0.1'`).Scan(&raw, &dec); err != nil {
+	if err := pool.QueryRow(ctx, `SELECT notes_enc, raven_dec(notes_enc) FROM hosts WHERE ip = '10.0.0.1'`).Scan(&raw, &dec); err != nil {
 		t.Fatal(err)
 	}
 	if bytes.Contains(raw, []byte("TOPSECRET")) || dec != secret {
@@ -78,7 +78,7 @@ func TestMigrateAndEncryptionRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer other.Close()
-	if err := other.QueryRow(ctx, `SELECT asi_dec(notes_enc) FROM hosts WHERE ip = '10.0.0.1'`).Scan(&dec); err == nil {
+	if err := other.QueryRow(ctx, `SELECT raven_dec(notes_enc) FROM hosts WHERE ip = '10.0.0.1'`).Scan(&dec); err == nil {
 		t.Fatal("decrypt with the wrong key succeeded")
 	}
 }

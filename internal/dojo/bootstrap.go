@@ -7,7 +7,7 @@ import (
 )
 
 // PlanningAssetName is the Asset whose Engagements are planned scans (D9).
-const PlanningAssetName = "ASI Planning"
+const PlanningAssetName = "RAVEN Planning"
 
 type BootstrapConfig struct {
 	URL          string
@@ -26,8 +26,8 @@ type BootstrapResult struct {
 }
 
 // Bootstrap waits for Dojo (its first boot runs migrations for minutes),
-// obtains a token if none is configured, then get-or-creates the ASI
-// organization and the "ASI Planning" asset. It retries until ctx is done, so
+// obtains a token if none is configured, then get-or-creates the RAVEN
+// organization and the "RAVEN Planning" asset. It retries until ctx is done, so
 // run it in a goroutine: it must never block the HTTP server.
 func Bootstrap(ctx context.Context, cfg BootstrapConfig) (*BootstrapResult, error) {
 	if cfg.RetryEvery == 0 {
@@ -66,9 +66,9 @@ func bootstrapOnce(ctx context.Context, cfg BootstrapConfig) (*BootstrapResult, 
 	}
 	planning, err := c.GetOrCreateAsset(ctx, AssetSpec{
 		Name:           PlanningAssetName,
-		Description:    "Planned ASI scans: engagements tagged asi-profile:<name> become schedule windows.",
+		Description:    "Planned RAVEN scans: engagements tagged raven-profile:<name> become schedule windows.",
 		OrganizationID: org.ID,
-		Tags:           []string{"asi"},
+		Tags:           []string{"raven"},
 	})
 	if err != nil {
 		return nil, err

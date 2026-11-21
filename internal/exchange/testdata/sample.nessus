@@ -1,9 +1,9 @@
 <?xml version="1.0" ?>
 <NessusClientData_v2>
 <Policy>
-  <policyName>ASI Lab Policy</policyName>
+  <policyName>RAVEN Lab Policy</policyName>
 </Policy>
-<Report name="ASI Lab Nessus Scan">
+<Report name="RAVEN Lab Nessus Scan">
   <ReportHost name="172.30.0.10">
     <HostProperties>
       <tag name="host-ip">172.30.0.10</tag>

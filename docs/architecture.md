@@ -1,6 +1,6 @@
-# ASI — Architecture
+# RAVEN — Architecture
 
-Attack Surface Intelligence: a web app that runs safe, recurring discovery scans of large networks (10k+ IPs) for AGH CBI. It fingerprints services and web technologies, tracks changes over time, and uses **DefectDojo** as its deduplication and finding-lifecycle engine.
+RAVEN (Recon of Assets, Versions, Exposures & Networks) is an attack-surface-intelligence web app that runs safe, recurring discovery scans of large networks (10k+ IPs) for AGH CBI. It fingerprints services and web technologies, tracks changes over time, and uses **DefectDojo** as its deduplication and finding-lifecycle engine.
 
 The brief and the organizers' notes are in [`challenge.md`](challenge.md), and the task breakdown is in [`roadmap.md`](roadmap.md). **This is a hackathon prototype: when in doubt, choose the simpler option.**
 
@@ -9,7 +9,7 @@ The brief and the organizers' notes are in [`challenge.md`](challenge.md), and t
 | # | Decision |
 |---|---|
 | D1 | **Web-only.** No CLI. Every "push" action (target entry, CSV/JSON import, starting scans, schedules, signatures) is done in the web UI. |
-| D2 | **Go backend in one binary, `asi`.** It contains the HTTP API, the embedded SPA, the scheduler, and the scan workers (goroutines plus a Postgres-backed job queue). |
+| D2 | **Go backend in one binary, `raven`.** It contains the HTTP API, the embedded SPA, the scheduler, and the scan workers (goroutines plus a Postgres-backed job queue). |
 | D3 | **React SPA** (Vite + TypeScript), built and embedded into the Go binary with `embed`. |
 | D4 | **DefectDojo: newest only (3.5.x), API v2, token auth.** One service-account token. Dojo is the dedup and lifecycle engine. RBAC is enforced **only in our app**, because OSS Dojo 3.x has no real roles. |
 | D5 | **Host identity = IP address. One Dojo Asset (Product) per IP.** Hostnames are attributes of the IP. |
@@ -26,7 +26,7 @@ The brief and the organizers' notes are in [`challenge.md`](challenge.md), and t
                          Browser (React SPA, AGH theme)
                                     │  JSON / session cookie
 ┌───────────────────────────────────▼─────────────────────────────────────┐
-│ asi  (single Go binary)                                                  │
+│ raven  (single Go binary)                                                  │
 │                                                                          │
 │  HTTP API (chi) ── auth/RBAC middleware ── service layer (internal/*)    │
 │        │                                         │                       │
@@ -43,7 +43,7 @@ The brief and the organizers' notes are in [`challenge.md`](challenge.md), and t
     read-model)                  same container)        Postgres, celery…)
 ```
 
-Runtime: Docker Compose runs `asi`, `asi-db` (Postgres 18 with pgcrypto) and the stock DefectDojo stack. See §10 for deployment.
+Runtime: Docker Compose runs `raven`, `raven-db` (Postgres 18 with pgcrypto) and the stock DefectDojo stack. See §10 for deployment.
 
 ## 3. Data flow of one scan run
 
@@ -90,20 +90,20 @@ Runtime: Docker Compose runs `asi`, `asi-db` (Postgres 18 with pgcrypto) and the
 
 | Dojo object | Our meaning | Notes |
 |---|---|---|
-| Organization (Product_Type) | `ASI` (one, configurable) | created on startup if missing |
-| Asset (Product) | one IP, name = the IP | tags: `asi`, `host:<hostname>`, user tags; description = user notes |
-| Engagement (per Asset) | `ASI: <profile name>`, type CI/CD | one long-lived engagement per (IP, profile) |
+| Organization (Product_Type) | `RAVEN` (one, configurable) | created on startup if missing |
+| Asset (Product) | one IP, name = the IP | tags: `raven`, `host:<hostname>`, user tags; description = user notes |
+| Engagement (per Asset) | `RAVEN: <profile name>`, type CI/CD | one long-lived engagement per (IP, profile) |
 | Test | one per (IP, profile, scanner) | reimported every run → Dojo's diff |
 | Finding | Dojo native parser output + our INFO findings | our INFO findings use Generic Findings Import with a stable `unique_id_from_tool` |
 | Location (URL) | `tcp://ip:port`, `https://host:port/path` | produced by the native parsers |
-| Asset `ASI Planning` + its Engagements | **planned scans** | engagements tagged `asi-profile:<name>`; their `target_start`/`target_end` become a schedule window |
+| Asset `RAVEN Planning` + its Engagements | **planned scans** | engagements tagged `raven-profile:<name>`; their `target_start`/`target_end` become a schedule window |
 
 **Planned engagements (D9).**
-- Every 5 min the poller lists engagements of the `ASI Planning` asset that have status `Not Started`.
+- Every 5 min the poller lists engagements of the `RAVEN Planning` asset that have status `Not Started`.
 - For each one it upserts a `schedules` row (`source='dojo'`, `dojo_engagement_id`), using the tagged profile and the window from `target_start`–`target_end`.
 - It sets the engagement status to `In Progress` when the run starts and `Completed` when it finishes.
 
-**Pull / read-model.** Every 5 min `dojo sync` pages through `/api/v2/findings/?tags=asi` (plus Assets) and upserts them into `dojo_findings` / `dojo_assets`. A full resync is fine at lab scale. The dashboard reads only our DB and never calls Dojo per request.
+**Pull / read-model.** Every 5 min `dojo sync` pages through `/api/v2/findings/?tags=raven` (plus Assets) and upserts them into `dojo_findings` / `dojo_assets`. A full resync is fine at lab scale. The dashboard reads only our DB and never calls Dojo per request.
 
 **Write-through edits.** Finding edits made in our UI (severity, active / false-positive / risk-accepted, notes) are sent straight to Dojo with PATCH, then the mirror row is updated. Reimport keeps the triage state of existing findings.
 
@@ -150,31 +150,31 @@ audit_log(id, user_id, action, object, object_id, diff jsonb, at)
 
 **Encryption (D8).**
 - `CREATE EXTENSION pgcrypto` plus two SQL helpers created by M0:
-  - `asi_enc(text) → bytea` = `pgp_sym_encrypt(t, current_setting('asi.enc_key'))`
-  - `asi_dec(bytea) → text`
-- The key comes from `ASI_ENCRYPTION_KEY`. It is set on every pooled connection in pgx `AfterConnect` via `set_config('asi.enc_key', $1, false)`.
-- Encrypted columns end in `_enc` and are `bytea`. Queries call `asi_enc(@x)` / `asi_dec(col)`.
+  - `raven_enc(text) → bytea` = `pgp_sym_encrypt(t, current_setting('raven.enc_key'))`
+  - `raven_dec(bytea) → text`
+- The key comes from `RAVEN_ENCRYPTION_KEY`. It is set on every pooled connection in pgx `AfterConnect` via `set_config('raven.enc_key', $1, false)`.
+- Encrypted columns end in `_enc` and are `bytea`. Queries call `raven_enc(@x)` / `raven_dec(col)`.
 - Keep IPs, ports and other filter/join keys **in plaintext**: they are identifiers, not secrets.
-- Statement logging must stay off on `asi-db`.
+- Statement logging must stay off on `raven-db`.
 
 ### 5.1 Encryption at rest: what, how, and what not (P4 audit)
 
-**Threat model.** A copy of the `asi-db` volume, a `pg_dump`, or a DB backup leaks without the `.env`. Then the content scanners pulled off the network (banners, HTTP headers and cookies, TLS certs, raw tool output) and the operators' free-text notes stay unreadable. Network facts (which IP has which port open, running which product) stay readable: they are needed for filtering, joins and diffs, and the jury needs them in Dojo anyway. A live attacker who has the app's env or a pooled connection can decrypt; that is out of scope.
+**Threat model.** A copy of the `raven-db` volume, a `pg_dump`, or a DB backup leaks without the `.env`. Then the content scanners pulled off the network (banners, HTTP headers and cookies, TLS certs, raw tool output) and the operators' free-text notes stay unreadable. Network facts (which IP has which port open, running which product) stay readable: they are needed for filtering, joins and diffs, and the jury needs them in Dojo anyway. A live attacker who has the app's env or a pooled connection can decrypt; that is out of scope.
 
-**Mechanism.** pgcrypto `pgp_sym_encrypt` (OpenPGP symmetric, AES-128, salted S2K, random salt and IV per value, so equal plaintexts give different ciphertexts) wrapped as `asi_enc(text) → bytea` and `asi_dec(bytea) → text` (baseline migration). The key lives only in the session GUC `asi.enc_key`, which `internal/db.Open` sets in pgx `AfterConnect` with a bound parameter (`set_config('asi.enc_key', $1, false)`), so it never appears in statement text. A connection without the key fails both in `asi_enc` and `asi_dec` (`current_setting` raises); the integration test checks both.
+**Mechanism.** pgcrypto `pgp_sym_encrypt` (OpenPGP symmetric, AES-128, salted S2K, random salt and IV per value, so equal plaintexts give different ciphertexts) wrapped as `raven_enc(text) → bytea` and `raven_dec(bytea) → text` (baseline migration). The key lives only in the session GUC `raven.enc_key`, which `internal/db.Open` sets in pgx `AfterConnect` with a bound parameter (`set_config('raven.enc_key', $1, false)`), so it never appears in statement text. A connection without the key fails both in `raven_enc` and `raven_dec` (`current_setting` raises); the integration test checks both.
 
 **Key lifecycle.**
-- `scripts/gen-env.sh` generates `ASI_ENCRYPTION_KEY` (32 random bytes, base64url) into `.env`, which is gitignored; it refuses to overwrite an existing `.env` without `-f`. Dev worktrees get one from `scripts/wt-env.sh` in `.env.local`.
-- `internal/config` refuses to start with a key shorter than 32 characters. `compose.yml` passes it to the `asi` container only (`${ASI_ENCRYPTION_KEY:?…}`), not to `asi-db`.
+- `scripts/gen-env.sh` generates `RAVEN_ENCRYPTION_KEY` (32 random bytes, base64url) into `.env`, which is gitignored; it refuses to overwrite an existing `.env` without `-f`. Dev worktrees get one from `scripts/wt-env.sh` in `.env.local`.
+- `internal/config` refuses to start with a key shorter than 32 characters. `compose.yml` passes it to the `raven` container only (`${RAVEN_ENCRYPTION_KEY:?…}`), not to `raven-db`.
 - **Losing the key = losing every `_enc` value** (notes, banners, headers, cookies, certs, artifacts). There is no escrow and no recovery. Back up `.env` together with the DB volume, but store them separately.
-- **No rotation in the prototype.** Changing the key makes existing ciphertext unreadable (`asi_dec` errors with "Wrong key or corrupt data"). Rotation would be `UPDATE t SET c = pgp_sym_encrypt(pgp_sym_decrypt(c, old), new)` per column in one transaction; not implemented.
+- **No rotation in the prototype.** Changing the key makes existing ciphertext unreadable (`raven_dec` errors with "Wrong key or corrupt data"). Rotation would be `UPDATE t SET c = pgp_sym_encrypt(pgp_sym_decrypt(c, old), new)` per column in one transaction; not implemented.
 
 **Rules that keep it true (enforced by tests).**
 - A column whose name looks sensitive (`note(s)`, `banner`, `header(s)`, `cookie(s)`, `cert`, `content`, `body`, `password`, `token`, `secret`, `key`) must end in `_enc` and be `bytea`, unless it is in the documented allowlist below. `internal/db/encryption_test.go` parses every migration and fails otherwise.
-- `internal/db/encryption_integration_test.go` writes a marker into every `_enc` column (banner and artifact through the real `pipeline.Ingest`; notes, HTTP observations and nuclei evidence through the generated queries the host edit and the httpx/nuclei ingest call), reads the raw bytes, asserts the marker is absent and `asi_dec` returns it, and that a connection without the key can neither decrypt nor encrypt. It also fails when the schema gains an `_enc` column the test doesn't cover.
+- `internal/db/encryption_integration_test.go` writes a marker into every `_enc` column (banner and artifact through the real `pipeline.Ingest`; notes, HTTP observations and nuclei evidence through the generated queries the host edit and the httpx/nuclei ingest call), reads the raw bytes, asserts the marker is absent and `raven_dec` returns it, and that a connection without the key can neither decrypt nor encrypt. It also fails when the schema gains an `_enc` column the test doesn't cover.
 - `audit_log.diff` is plaintext jsonb, so `audit.Log` redacts the values of sensitive keys (`notes`, `banner`, `headers`, `cookies`, `tls_cert`, `cert`, `content`, `password`, `token`, `secret`, `key`, `*_enc`, and `*_<one of those>`) to `"[redacted]"`. Boolean values are kept (`"password_reset": true`). Callers should still log only that a field changed, never its value.
 - Decrypted values are never passed to `slog`. As of P4 no log call carries a banner, header, note, artifact or credential: logs carry IDs, IPs, counts and wrapped errors.
-- `asi-db` runs with `log_statement=none` and `log_min_duration_statement=-1` (`compose.yml`). Statements use bind parameters, so even error logging (`log_min_error_statement`, default `error`) shows `$n`, not plaintext. `log_parameter_max_length_on_error` stays at its default 0.
+- `raven-db` runs with `log_statement=none` and `log_min_duration_statement=-1` (`compose.yml`). Statements use bind parameters, so even error logging (`log_min_error_statement`, default `error`) shows `$n`, not plaintext. `log_parameter_max_length_on_error` stays at its default 0.
 
 **Column audit** (all migrations as of P4; S = sensitive content, I = identifier or fingerprint used for filtering, joins or diffs, M = metadata or counters).
 
@@ -203,12 +203,12 @@ audit_log(id, user_id, action, object, object_id, diff jsonb, at)
 **Not encrypted, by decision.**
 - **DefectDojo's DB (D8).** The raw nmap XML (with banners and `http-headers`/`ssl-cert` script output) is re-imported into Dojo per Asset, and Dojo stores findings, endpoints and the uploaded files in its own stock Postgres and media volume, all plaintext. Protect the Dojo host as you would protect the data; Dojo-side encryption is out of scope.
 - **Identifiers and fingerprints**: see the table. Encrypting them would break indexes, filters and diffs, and they are mirrored to Dojo in plaintext anyway.
-- **Transport** inside the compose network (`sslmode=disable` to `asi-db`) is plain: both containers sit on one private Docker network.
+- **Transport** inside the compose network (`sslmode=disable` to `raven-db`) is plain: both containers sit on one private Docker network.
 
 **Known follow-ups (Person A's code, not changed in P4).**
 - A1 `internal/dojo/http.go:200-208`: `HTTPError.Body` keeps up to 512 bytes of Dojo's response. It ends up in logs (`pushjob.go:145,158`) and in `river_job.errors`. A Dojo parser error could echo uploaded scan content. Suggested fix: keep the status and Dojo's `message`/`detail` field only, or cut the body to about 120 chars.
 - A2 `internal/scanner/nmap/nmap.go:64`: the last stderr line goes into `batches.error` (plaintext). Today that's nmap's own diagnostics, so it's acceptable. Keep it that way: never put stdout or the XML into errors.
-- A3 S7 (httpx) is done right: `internal/db/queries/http_observations.sql` writes `headers_enc`, `cookies_enc` and `tls_cert_enc` with `asi_enc`, the raw httpx JSON goes to `artifacts.content_enc`, and nothing in `internal/pipeline/http.go` or `internal/scanner/httpx` logs them. The integration test writes through this same query (`gen.InsertHTTPObservation`). Nothing to fix.
+- A3 S7 (httpx) is done right: `internal/db/queries/http_observations.sql` writes `headers_enc`, `cookies_enc` and `tls_cert_enc` with `raven_enc`, the raw httpx JSON goes to `artifacts.content_enc`, and nothing in `internal/pipeline/http.go` or `internal/scanner/httpx` logs them. The integration test writes through this same query (`gen.InsertHTTPObservation`). Nothing to fix.
 - A4 `internal/scanner/httpx/parse.go:113-123` (`appendRedirect`): it drops userinfo but keeps the query string and fragment of each redirect target, which lands in plaintext `http_observations.redirects`. Redirect URLs often carry tokens (`?code=`, `?session=`, SSO tickets). Suggested fix: also set `to.RawQuery = ""`, `to.Fragment = ""` there (the full URL stays in the encrypted artifact).
 
 ## 6. RBAC
@@ -227,13 +227,13 @@ The roles come straight from requirement 13:
 - The **backend check is the source of truth**; the frontend only hides things.
 - Every mutation writes to `audit_log`.
 
-Auth: local users with argon2id passwords. Server-side sessions use an `HttpOnly; SameSite=Strict` cookie, and unsafe methods need a `X-ASI-CSRF` header. API tokens (hashed) exist for MCP.
+Auth: local users with argon2id passwords. Server-side sessions use an `HttpOnly; SameSite=Strict` cookie, and unsafe methods need a `X-RAVEN-CSRF` header. API tokens (hashed) exist for MCP.
 
 ## 7. Backend layout
 
 ```
-cmd/asi/main.go              wires config → db → services → http server + workers
-internal/config/             env config (ASI_*)
+cmd/raven/main.go              wires config → db → services → http server + workers
+internal/config/             env config (RAVEN_*)
 internal/db/                 pool (with enc key), migrations/, queries/, gen/ (sqlc)
 internal/auth/               users, sessions, rbac.go, middleware
 internal/httpapi/            router.go (mounts each area), one file per area: targets.go, runs.go …
@@ -321,7 +321,7 @@ Adding a scanner means adding a package that implements `Scanner` and registerin
 **Deployment is `docker compose up -d --build` from the repo root, and nothing else.** One `compose.yml` serves as both the production deployment and the dev infra: dev just starts a subset of its services.
 
 ```
-compose.yml                 # the deployment: asi + asi-db + DefectDojo (via include)
+compose.yml                 # the deployment: raven + raven-db + DefectDojo (via include)
 deploy/dojo.compose.yml     # DefectDojo 3.5.202 services copied from its repo, images pinned
 deploy/Dockerfile           # multi-stage: node (web build) → go (binary) → runtime with nmap + httpx + nuclei + templates
 compose.lab.yml             # local test lab (task L1), separate network, never needed in prod
@@ -331,27 +331,27 @@ scripts/gen-env.sh          # creates .env with random secrets (encryption key, 
 
 | Service | Image | Port | Notes |
 |---|---|---|---|
-| `asi` | built from `deploy/Dockerfile` | 8000 | `cap_add: [NET_RAW, NET_ADMIN]`; on the default network and the lab network; runs migrations on start |
-| `asi-db` | `postgres:18` | 5433 (dev only) | volume `asi-db-data`; `log_statement=none`; healthcheck |
+| `raven` | built from `deploy/Dockerfile` | 8000 | `cap_add: [NET_RAW, NET_ADMIN]`; on the default network and the lab network; runs migrations on start |
+| `raven-db` | `postgres:18` | 5433 (dev only) | volume `raven-db-data`; `log_statement=none`; healthcheck |
 | DefectDojo (`nginx`, `uwsgi`, `celeryworker`, `celerybeat`, `initializer`, `postgres`, `valkey`) | official `defectdojo/*:3.5.202` | 8080 | unchanged from upstream except the pinned tag and `DD_ADMIN_PASSWORD` coming from `.env` |
 
-- **No manual Dojo token.** If `ASI_DOJO_TOKEN` is empty, `asi` waits for Dojo to be healthy and gets a token via `POST /api/v2/api-token-auth/` with `DD_ADMIN_USER`/`DD_ADMIN_PASSWORD`. It then creates the `ASI` organization and the `ASI Planning` asset if they're missing.
-- **Startup order:** `depends_on` with `condition: service_healthy` on `asi-db`. The Dojo wait is a retry loop inside `asi`, because Dojo's first boot (migrations) takes minutes.
-- **Dev:** `make infra-up` = `docker compose up -d asi-db nginx uwsgi celeryworker celerybeat initializer postgres valkey` (everything except `asi`). The Go binary then runs on the host via `make dev`.
-- **Scanning network:** by default `asi` scans from the bridge network; it is attached to the lab network for the local lab. If the organizers' lab needs L2 host discovery (ARP), set `network_mode: host` on `asi` and point `ASI_DOJO_URL` at `localhost:8080`. That's a one-line override and is documented in the README.
+- **No manual Dojo token.** If `RAVEN_DOJO_TOKEN` is empty, `raven` waits for Dojo to be healthy and gets a token via `POST /api/v2/api-token-auth/` with `DD_ADMIN_USER`/`DD_ADMIN_PASSWORD`. It then creates the `RAVEN` organization and the `RAVEN Planning` asset if they're missing.
+- **Startup order:** `depends_on` with `condition: service_healthy` on `raven-db`. The Dojo wait is a retry loop inside `raven`, because Dojo's first boot (migrations) takes minutes.
+- **Dev:** `make infra-up` = `docker compose up -d raven-db nginx uwsgi celeryworker celerybeat initializer postgres valkey` (everything except `raven`). The Go binary then runs on the host via `make dev`.
+- **Scanning network:** by default `raven` scans from the bridge network; it is attached to the lab network for the local lab. If the organizers' lab needs L2 host discovery (ARP), set `network_mode: host` on `raven` and point `RAVEN_DOJO_URL` at `localhost:8080`. That's a one-line override and is documented in the README.
 
 Configuration (env, all in `.env`):
 
 ```
-ASI_HTTP_ADDR=:8000
-ASI_DATABASE_URL=postgres://asi:${ASI_DB_PASSWORD}@asi-db:5432/asi
-ASI_ENCRYPTION_KEY=<32+ random bytes, base64>       # generated by gen-env.sh; losing it = losing encrypted data
-ASI_DOJO_URL=http://nginx:8080
-ASI_DOJO_TOKEN=                                      # optional; otherwise obtained with the admin credentials
+RAVEN_HTTP_ADDR=:8000
+RAVEN_DATABASE_URL=postgres://raven:${RAVEN_DB_PASSWORD}@raven-db:5432/raven
+RAVEN_ENCRYPTION_KEY=<32+ random bytes, base64>       # generated by gen-env.sh; losing it = losing encrypted data
+RAVEN_DOJO_URL=http://nginx:8080
+RAVEN_DOJO_TOKEN=                                      # optional; otherwise obtained with the admin credentials
 DD_ADMIN_USER=admin
 DD_ADMIN_PASSWORD=<generated>
-ASI_DOJO_ORGANIZATION=ASI
-ASI_ADMIN_USERNAME / ASI_ADMIN_PASSWORD              # bootstrap admin of our app on first start
+RAVEN_DOJO_ORGANIZATION=RAVEN
+RAVEN_ADMIN_USERNAME / RAVEN_ADMIN_PASSWORD              # bootstrap admin of our app on first start
 ```
 
 ## 11. Vulnerability matching (offline)
@@ -377,7 +377,7 @@ Matching fingerprints to known vulnerabilities is allowed (organizers' note 2); 
   - `vulnerability_ids` = all CVE IDs;
   - description lists CVEs with CVSS, EPSS and KEV.
 
-  Pushed with Generic Findings Import into a per-IP Test "ASI CVE match", with `unique_id_from_tool = ip:port:cpe:version`. A version change closes the old finding and opens a new one on reimport.
+  Pushed with Generic Findings Import into a per-IP Test "RAVEN CVE match", with `unique_id_from_tool = ip:port:cpe:version`. A version change closes the old finding and opens a new one on reimport.
 
   A pass runs at startup and every 5 min: it rewrites `cve_matches` from the open services, then reimports the findings of every **active** IP whose match set changed (hash in `cve_push`). `GET /api/cve-matches?ip=` reads the table.
 

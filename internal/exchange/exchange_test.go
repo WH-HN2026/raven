@@ -11,13 +11,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/changes"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/dojo"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/hosts"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner/nmap"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner/nuclei"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/targets"
+	"github.com/WH-HN2026/raven/internal/changes"
+	"github.com/WH-HN2026/raven/internal/dojo"
+	"github.com/WH-HN2026/raven/internal/hosts"
+	"github.com/WH-HN2026/raven/internal/scanner"
+	"github.com/WH-HN2026/raven/internal/scanner/nmap"
+	"github.com/WH-HN2026/raven/internal/scanner/nuclei"
+	"github.com/WH-HN2026/raven/internal/targets"
 )
 
 func TestResultsJSONRoundTrip(t *testing.T) {
@@ -304,7 +304,7 @@ func TestExportFormattersCSV(t *testing.T) {
 		var buf bytes.Buffer
 		err := WriteFindingsCSV(&buf, []dojo.MirrorFinding{{
 			ID: 7, AssetID: &assetID, IP: &ip, Title: "Open port: 80/tcp",
-			Severity: "Info", Active: true, Tags: []string{"asi"}, Scanner: "nmap",
+			Severity: "Info", Active: true, Tags: []string{"raven"}, Scanner: "nmap",
 			Date: &date, DojoURL: "http://dojo/finding/7",
 		}})
 		if err != nil {

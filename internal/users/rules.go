@@ -10,7 +10,7 @@ import (
 	"slices"
 	"unicode/utf8"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/auth"
+	"github.com/WH-HN2026/raven/internal/auth"
 )
 
 var (

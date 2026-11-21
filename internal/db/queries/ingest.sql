@@ -12,7 +12,7 @@ ON CONFLICT (ip) DO UPDATE SET
 
 -- name: UpsertScannedService :exec
 INSERT INTO services (ip, port, proto, name, product, version, cpe, banner_enc, state, first_seen, last_seen)
-VALUES (@ip, @port, @proto, @name, @product, @version, @cpe, asi_enc(NULLIF(@banner::text, '')), 'open', @seen, @seen)
+VALUES (@ip, @port, @proto, @name, @product, @version, @cpe, raven_enc(NULLIF(@banner::text, '')), 'open', @seen, @seen)
 ON CONFLICT (ip, port, proto) DO UPDATE SET
     name = EXCLUDED.name,
     product = EXCLUDED.product,
@@ -38,4 +38,4 @@ ON CONFLICT (run_id, ip, COALESCE(port, -1)) DO UPDATE SET up = EXCLUDED.up, obs
 
 -- name: InsertArtifact :exec
 INSERT INTO artifacts (run_id, batch_id, scanner, content_enc)
-VALUES (@run_id, @batch_id, @scanner, asi_enc(@content::text));
+VALUES (@run_id, @batch_id, @scanner, raven_enc(@content::text));

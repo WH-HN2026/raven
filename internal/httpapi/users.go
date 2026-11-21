@@ -7,9 +7,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/auth"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/httpx"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/users"
+	"github.com/WH-HN2026/raven/internal/auth"
+	"github.com/WH-HN2026/raven/internal/httpx"
+	"github.com/WH-HN2026/raven/internal/users"
 )
 
 // User administration (task P2). Logic and rules live in internal/users.

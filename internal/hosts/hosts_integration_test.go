@@ -11,11 +11,11 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/dbtest"
+	"github.com/WH-HN2026/raven/internal/dbtest"
 )
 
 // Seed inserts three hosts with services, encrypted banners/headers/cookies/
-// certs (asi_enc), HTTP observations and run observations.
+// certs (raven_enc), HTTP observations and run observations.
 func Seed(t *testing.T, pool *pgxpool.Pool) {
 	t.Helper()
 	ctx := context.Background()
@@ -24,29 +24,29 @@ func Seed(t *testing.T, pool *pgxpool.Pool) {
 		`INSERT INTO runs (profile_id, status) SELECT id, 'done' FROM profiles WHERE name = 'w3-test'`,
 		`INSERT INTO runs (profile_id, status) SELECT id, 'done' FROM profiles WHERE name = 'w3-test'`,
 		`INSERT INTO hosts (ip, hostnames, state, miss_count, owner, criticality, user_tags, notes_enc) VALUES
-			('10.10.0.2', '{wp.lab}', 'active', 0, 'web team', 'high', '{dmz,prod}', asi_enc('secret note')),
+			('10.10.0.2', '{wp.lab}', 'active', 0, 'web team', 'high', '{dmz,prod}', raven_enc('secret note')),
 			('10.10.0.3', '{}', 'unstable', 1, '', '', '{prod}', NULL),
 			('10.20.0.4', '{iot-cam.lab}', 'inactive', 3, '', '', '{}', NULL)`,
 		`INSERT INTO services (ip, port, proto, name, product, version, banner_enc, state, overrides) VALUES
-			('10.10.0.2', 80, 'tcp', 'http', 'nginx', '1.25.3', asi_enc('nginx banner'), 'open', '{"product":"OpenResty"}'),
+			('10.10.0.2', 80, 'tcp', 'http', 'nginx', '1.25.3', raven_enc('nginx banner'), 'open', '{"product":"OpenResty"}'),
 			('10.10.0.2', 443, 'tcp', 'https', 'nginx', '1.25.3', NULL, 'open', '{}'),
 			('10.10.0.2', 21, 'tcp', 'ftp', 'vsftpd', '3.0.3', NULL, 'gone', '{}'),
-			('10.10.0.3', 22, 'tcp', 'ssh', 'OpenSSH', '9.6', asi_enc('SSH-2.0-OpenSSH_9.6'), 'open', '{}'),
+			('10.10.0.3', 22, 'tcp', 'ssh', 'OpenSSH', '9.6', raven_enc('SSH-2.0-OpenSSH_9.6'), 'open', '{}'),
 			('10.20.0.4', 443, 'tcp', 'https', '', '', NULL, 'gone', '{}')`,
 		// older then newer observation of the same URL: only the newer one is returned.
 		`INSERT INTO http_observations (service_id, url, status, title, headers_enc, cookies_enc, tls_cert_enc,
 			redirects, technologies, run_id, observed_at)
-		 SELECT s.id, 'http://10.10.0.2/', 200, 'Old', asi_enc('{"Server":"old"}'), NULL, NULL, '[]', '{Apache}',
+		 SELECT s.id, 'http://10.10.0.2/', 200, 'Old', raven_enc('{"Server":"old"}'), NULL, NULL, '[]', '{Apache}',
 			(SELECT min(id) FROM runs), now() - interval '1 day'
 		 FROM services s WHERE s.ip = '10.10.0.2' AND s.port = 80`,
 		`INSERT INTO http_observations (service_id, url, status, title, headers_enc, cookies_enc, tls_cert_enc,
 			redirects, technologies, run_id, observed_at)
-		 SELECT s.id, 'http://10.10.0.2/', 200, 'WordPress', asi_enc('{"Server":"nginx","X-Environment":"staging"}'),
-			asi_enc('["wp_session=abc; HttpOnly"]'), NULL, '["http://10.10.0.2/wp/"]', '{WordPress,PHP,Nginx}',
+		 SELECT s.id, 'http://10.10.0.2/', 200, 'WordPress', raven_enc('{"Server":"nginx","X-Environment":"staging"}'),
+			raven_enc('["wp_session=abc; HttpOnly"]'), NULL, '["http://10.10.0.2/wp/"]', '{WordPress,PHP,Nginx}',
 			(SELECT max(id) FROM runs), now()
 		 FROM services s WHERE s.ip = '10.10.0.2' AND s.port = 80`,
 		`INSERT INTO http_observations (service_id, url, status, title, tls_cert_enc, technologies, observed_at)
-		 SELECT s.id, 'https://10.20.0.4/', NULL, '', asi_enc('CN=cam'), '{Hikvision}', now()
+		 SELECT s.id, 'https://10.20.0.4/', NULL, '', raven_enc('CN=cam'), '{Hikvision}', now()
 		 FROM services s WHERE s.ip = '10.20.0.4' AND s.port = 443`,
 		`INSERT INTO run_observations (run_id, ip, port, up, observed_at) VALUES
 			((SELECT min(id) FROM runs), '10.10.0.3', NULL, true, now() - interval '1 day'),

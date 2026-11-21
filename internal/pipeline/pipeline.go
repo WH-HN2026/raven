@@ -20,12 +20,12 @@ import (
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
 	"github.com/riverqueue/river/rivertype"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/audit"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/auth"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/db/gen"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner/httpx"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/targets"
+	"github.com/WH-HN2026/raven/internal/audit"
+	"github.com/WH-HN2026/raven/internal/auth"
+	"github.com/WH-HN2026/raven/internal/db/gen"
+	"github.com/WH-HN2026/raven/internal/scanner"
+	"github.com/WH-HN2026/raven/internal/scanner/httpx"
+	"github.com/WH-HN2026/raven/internal/targets"
 )
 
 var (

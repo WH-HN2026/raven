@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/db/gen"
+	"github.com/WH-HN2026/raven/internal/db/gen"
 )
 
 // Redacted replaces the value of a sensitive key in an audit diff.

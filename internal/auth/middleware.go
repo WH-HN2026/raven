@@ -5,14 +5,14 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/httpx"
+	"github.com/WH-HN2026/raven/internal/httpx"
 )
 
 const (
 	// CookieName is the session cookie (HttpOnly, SameSite=Strict).
-	CookieName = "asi_session"
+	CookieName = "raven_session"
 	// CSRFHeader must be present (value "1") on every unsafe request to /api.
-	CSRFHeader = "X-ASI-CSRF"
+	CSRFHeader = "X-RAVEN-CSRF"
 )
 
 type ctxKey struct{}
@@ -59,7 +59,7 @@ func Sessions(store SessionLookup) func(http.Handler) http.Handler {
 
 // CSRF protection design: the session cookie is SameSite=Strict, and every
 // unsafe request (POST/PUT/PATCH/DELETE) to /api — login included — must
-// carry the custom header "X-ASI-CSRF: 1". Browsers can't add a custom header
+// carry the custom header "X-RAVEN-CSRF: 1". Browsers can't add a custom header
 // to a cross-origin request without a CORS preflight, which we never allow
 // (no CORS headers are sent), so a forged form/fetch from another site fails
 // here even if SameSite were bypassed. No token to store or rotate.

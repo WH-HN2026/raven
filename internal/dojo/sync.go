@@ -13,17 +13,17 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/db/gen"
+	"github.com/WH-HN2026/raven/internal/db/gen"
 )
 
-// SyncTag is the tag on every finding ASI pushes; the sync pulls only those.
-const SyncTag = "asi"
+// SyncTag is the tag on every finding RAVEN pushes; the sync pulls only those.
+const SyncTag = "raven"
 
 // syncPageSize is the Dojo page size used by the sync.
 const syncPageSize = 250
 
 // Syncer pulls the Dojo read-model (architecture §4 "Pull / read-model"):
-// the Assets of one organization and the findings tagged "asi" of that
+// the Assets of one organization and the findings tagged "raven" of that
 // organization go into dojo_assets / dojo_findings.
 type Syncer struct {
 	Client         Client
@@ -142,7 +142,7 @@ func pageAll[T any](ctx context.Context, list func(limit, offset int) (*Page[T],
 	}
 }
 
-// ipFromName: an ASI asset is named after its IP (D5); others ("ASI Planning") have none.
+// ipFromName: an RAVEN asset is named after its IP (D5); others ("RAVEN Planning") have none.
 func ipFromName(name string) *netip.Addr {
 	a, err := netip.ParseAddr(strings.TrimSpace(name))
 	if err != nil {
@@ -199,13 +199,13 @@ func normSeverity(s string) string {
 
 // ScannerFromScanType maps a Dojo scan/test type to our scanner name:
 // "Nmap Scan" → "nmap", "Nuclei Scan" → "nuclei", our INFO findings
-// ("Generic Findings Import") → "asi"; anything else is lowercased.
+// ("Generic Findings Import") → "raven"; anything else is lowercased.
 func ScannerFromScanType(t string) string {
 	switch t {
 	case "":
 		return ""
 	case "Generic Findings Import":
-		return "asi"
+		return "raven"
 	}
 	return strings.ToLower(strings.TrimSuffix(strings.TrimSpace(t), " Scan"))
 }

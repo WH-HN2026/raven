@@ -1,0 +1,22 @@
+id: raven-printer-title
+info:
+  name: Printer web interface
+  author: raven
+  severity: info
+  description: The page title names a network printer / MFP web interface.
+  tags: raven,iot,printer,title
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}"
+    matchers:
+      - type: regex
+        part: body
+        regex:
+          - '(?i)<title>[^<]*(laserjet|officejet|deskjet|pagewide|brother|epson|kyocera|ricoh|xerox|lexmark|syncthru|imagerunner|bizhub|konica)[^<]*</title>'
+    extractors:
+      - type: regex
+        part: body
+        group: 1
+        regex:
+          - '(?i)<title>([^<]*)</title>'

@@ -14,7 +14,7 @@ import (
 
 	"go.yaml.in/yaml/v3"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/signatures"
+	"github.com/WH-HN2026/raven/internal/signatures"
 )
 
 // Reviewed against the v10.5.2 pack in deploy/Dockerfile. The HTTP templates

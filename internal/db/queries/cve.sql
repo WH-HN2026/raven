@@ -4,7 +4,7 @@
 -- Open services with something to identify the product by. The banner is
 -- only used for distro detection and never logged.
 SELECT s.ip, s.port, s.proto, s.cpe, s.product, s.version,
-       COALESCE(asi_dec(s.banner_enc), '')::text AS banner
+       COALESCE(raven_dec(s.banner_enc), '')::text AS banner
 FROM services s
 WHERE s.state = 'open' AND (s.cpe <> '' OR s.product <> '')
 ORDER BY s.ip, s.port, s.proto;

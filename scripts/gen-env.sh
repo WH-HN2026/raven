@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Creates .env from .env.example, replacing every "generated" value with a
 # random secret. Refuses to overwrite an existing .env unless -f is given
-# (overwriting loses ASI_ENCRYPTION_KEY and the DB passwords of existing volumes).
+# (overwriting loses RAVEN_ENCRYPTION_KEY and the DB passwords of existing volumes).
 #
 #   scripts/gen-env.sh [-f] [target-dir]
 set -euo pipefail

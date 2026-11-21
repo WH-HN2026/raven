@@ -38,7 +38,7 @@ type GetDojoFindingRow struct {
 // User edits (task D6): write-through finding triage, host user-owned
 // fields and service overrides. Scans never use these queries; they write
 // only user-owned columns (architecture §5). notes are encrypted with
-// asi_enc and must never be logged.
+// raven_enc and must never be logged.
 func (q *Queries) GetDojoFinding(ctx context.Context, id int64) (GetDojoFindingRow, error) {
 	row := q.db.QueryRow(ctx, getDojoFinding, id)
 	var i GetDojoFindingRow
@@ -61,7 +61,7 @@ func (q *Queries) GetDojoFinding(ctx context.Context, id int64) (GetDojoFindingR
 }
 
 const getHostUserFieldsForUpdate = `-- name: GetHostUserFieldsForUpdate :one
-SELECT dojo_asset_id, owner, criticality, COALESCE(asi_dec(notes_enc), '')::text AS notes, user_tags
+SELECT dojo_asset_id, owner, criticality, COALESCE(raven_dec(notes_enc), '')::text AS notes, user_tags
 FROM hosts WHERE ip = $1 FOR UPDATE
 `
 
@@ -88,7 +88,7 @@ func (q *Queries) GetHostUserFieldsForUpdate(ctx context.Context, ip netip.Addr)
 
 const getService = `-- name: GetService :one
 SELECT id, ip, port, proto, name, product, version, cpe,
-    COALESCE(asi_dec(banner_enc), '')::text AS banner,
+    COALESCE(raven_dec(banner_enc), '')::text AS banner,
     state, first_seen, last_seen, overrides
 FROM services WHERE id = $1
 `
@@ -185,7 +185,7 @@ func (q *Queries) UpdateDojoFindingTriage(ctx context.Context, arg UpdateDojoFin
 const updateHostUserFields = `-- name: UpdateHostUserFields :exec
 UPDATE hosts SET
     owner = $1, criticality = $2, user_tags = $3,
-    notes_enc = CASE WHEN $4::text = '' THEN NULL ELSE asi_enc($4::text) END
+    notes_enc = CASE WHEN $4::text = '' THEN NULL ELSE raven_enc($4::text) END
 WHERE ip = $5
 `
 

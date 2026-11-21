@@ -11,7 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/db/gen"
+	"github.com/WH-HN2026/raven/internal/db/gen"
 )
 
 type offlineArgs struct {
@@ -85,7 +85,7 @@ func (p *Pusher) pushOffline(ctx context.Context, profile string, date time.Time
 	if err != nil {
 		return err
 	}
-	uid := "asi-host-offline:" + h.IP.String()
+	uid := "raven-host-offline:" + h.IP.String()
 	// A host can transition under another profile after recovery. Check the
 	// whole Asset so the other profile's Test cannot duplicate the finding.
 	for off := 0; ; off += 100 {
@@ -116,5 +116,5 @@ func (p *Pusher) pushOffline(ctx context.Context, profile string, date time.Time
 	if err != nil {
 		return err
 	}
-	return p.pushLifecycle(ctx, eng.ID, date, "asi-host-offline.json", doc)
+	return p.pushLifecycle(ctx, eng.ID, date, "raven-host-offline.json", doc)
 }

@@ -53,8 +53,8 @@ describe('kindFromName', () => {
     ['r.NESSUS', 'nessus'],
     ['n.jsonl', 'nuclei-jsonl'],
     ['n.ndjson', 'nuclei-jsonl'],
-    ['asi-services.csv', 'results-csv'],
-    ['asi.json', 'results-json'],
+    ['raven-services.csv', 'results-csv'],
+    ['raven.json', 'results-json'],
     ['notes.txt', undefined],
   ])('%s → %s', (name, kind) => expect(kindFromName(name)).toBe(kind))
 })
@@ -81,7 +81,7 @@ describe('ExchangePage import', () => {
     const call = fetchSpy.mock.calls.find(([u]) => String(u).startsWith('/api/import/results'))!
     const init = call[1]!
     expect(init.method).toBe('POST')
-    expect((init.headers as Record<string, string>)['X-ASI-CSRF']).toBe('1')
+    expect((init.headers as Record<string, string>)['X-RAVEN-CSRF']).toBe('1')
     const form = init.body as FormData
     expect((form.get('file') as File).name).toBe('lab.xml')
     expect(form.get('profile')).toBe('2')

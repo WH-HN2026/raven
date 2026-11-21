@@ -1,7 +1,7 @@
-name: asi-lab
+name: raven-lab
 
 x-fixture: &fixture
-  image: asi-lab-fixtures:local
+  image: raven-lab-fixtures:local
   build: ./lab/fixtures
   healthcheck: &http-health
     test: [CMD, wget, -q, --spider, 'http://127.0.0.1/']
@@ -59,7 +59,7 @@ services:
       JOOMLA_DB_NAME: joomla
       JOOMLA_DB_USER: joomla
       JOOMLA_DB_PASSWORD: joomla-lab
-      JOOMLA_SITE_NAME: ASI Joomla Lab
+      JOOMLA_SITE_NAME: RAVEN Joomla Lab
       JOOMLA_ADMIN_USER: Lab Administrator
       JOOMLA_ADMIN_USERNAME: lab-admin
       JOOMLA_ADMIN_EMAIL: admin@example.invalid
@@ -179,7 +179,7 @@ services:
 
 networks:
   lab:
-    name: asi_lab
+    name: raven_lab
     driver: bridge
     internal: true
     ipam:

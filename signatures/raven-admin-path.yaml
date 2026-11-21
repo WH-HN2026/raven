@@ -1,0 +1,23 @@
+id: raven-admin-path
+info:
+  name: Admin page at /admin
+  author: raven
+  severity: low
+  description: GET /admin returns a page whose title names an admin area, dashboard or login.
+  tags: raven,panel,admin,path
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/admin"
+      - "{{BaseURL}}/admin/"
+      - "{{BaseURL}}/administrator/"
+    stop-at-first-match: true
+    matchers-condition: and
+    matchers:
+      - type: status
+        status:
+          - 200
+      - type: regex
+        part: body
+        regex:
+          - '(?i)<title>[^<]*(admin|administration|dashboard|control panel|log ?in|sign in)[^<]*</title>'

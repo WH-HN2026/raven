@@ -32,11 +32,11 @@ changed() {
 while true; do
   if [[ -z "$srv" || ! -f bin/.dev-stamp || -n "$(changed)" ]]; then
     touch bin/.dev-stamp
-    if go build -o bin/asi-dev ./cmd/asi; then
+    if go build -o bin/raven-dev ./cmd/raven; then
       if [[ -n "$srv" ]]; then kill "$srv" 2>/dev/null || true; wait "$srv" 2>/dev/null || true; fi
-      bin/asi-dev &
+      bin/raven-dev &
       srv=$!
-      echo "dev: asi (pid $srv) on $ASI_HTTP_ADDR — open http://127.0.0.1:$ASI_VITE_PORT"
+      echo "dev: raven (pid $srv) on $RAVEN_HTTP_ADDR — open http://127.0.0.1:$RAVEN_VITE_PORT"
     else
       echo "dev: go build failed; waiting for changes" >&2
     fi

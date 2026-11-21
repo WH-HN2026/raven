@@ -35,7 +35,7 @@ type NessusHost struct {
 
 // NessusBatch is a .nessus import ready to push to DefectDojo.
 type NessusBatch struct {
-	Profile  string // profile name → engagement "ASI: <profile>"
+	Profile  string // profile name → engagement "RAVEN: <profile>"
 	ScanDate time.Time
 	Hosts    []NessusHost
 }
@@ -55,7 +55,7 @@ type NessusHostResult struct {
 }
 
 // PushNessus pushes each host's .nessus slice into its IP Asset in DefectDojo
-// under Engagement "ASI: <profile>" and Test "ASI: nessus" ("Tenable Scan").
+// under Engagement "RAVEN: <profile>" and Test "RAVEN: nessus" ("Tenable Scan").
 // Results are returned in the same order as b.Hosts; one IP failing does not
 // stop the others.
 func (p *Pusher) PushNessus(ctx context.Context, b NessusBatch) []NessusHostResult {
@@ -92,7 +92,7 @@ func (p *Pusher) pushNessusHost(ctx context.Context, b NessusBatch, h NessusHost
 	tags := AssetTags(h.Hostnames)
 	asset, err := p.Client.GetOrCreateAsset(ctx, AssetSpec{
 		Name:           h.IP.String(),
-		Description:    "Host " + h.IP.String() + " (managed by ASI)",
+		Description:    "Host " + h.IP.String() + " (managed by RAVEN)",
 		OrganizationID: p.OrganizationID,
 		Tags:           tags,
 	})

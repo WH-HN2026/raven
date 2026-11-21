@@ -1,0 +1,22 @@
+id: raven-x-powered-by-header
+info:
+  name: X-Powered-By header discloses the stack
+  author: raven
+  severity: info
+  description: The X-Powered-By response header names the application platform.
+  tags: raven,headers,version
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}"
+    matchers:
+      - type: regex
+        part: header
+        regex:
+          - '(?mi)^x-powered-by:[ \t]*\S'
+    extractors:
+      - type: regex
+        part: header
+        group: 1
+        regex:
+          - '(?mi)^x-powered-by:[ \t]*([^\r\n]+)'

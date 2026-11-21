@@ -14,11 +14,11 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/changes"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/db/gen"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/dojo"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/hosts"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/targets"
+	"github.com/WH-HN2026/raven/internal/changes"
+	"github.com/WH-HN2026/raven/internal/db/gen"
+	"github.com/WH-HN2026/raven/internal/dojo"
+	"github.com/WH-HN2026/raven/internal/hosts"
+	"github.com/WH-HN2026/raven/internal/targets"
 )
 
 // ServiceFilter selects services for GET /api/export/services. Zero values mean

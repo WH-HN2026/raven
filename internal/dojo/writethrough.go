@@ -13,8 +13,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/audit"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/db/gen"
+	"github.com/WH-HN2026/raven/internal/audit"
+	"github.com/WH-HN2026/raven/internal/db/gen"
 )
 
 // Write-through edits (architecture §4, task D6): finding triage and notes
@@ -30,8 +30,8 @@ var (
 	ErrInvalid = errors.New("invalid edit")
 )
 
-// UserTagPrefix marks asset tags that come from ASI user tags. Every other
-// tag on an asset (asi, host:*, tech:*, … and tags set in Dojo) is kept.
+// UserTagPrefix marks asset tags that come from RAVEN user tags. Every other
+// tag on an asset (raven, host:*, tech:*, … and tags set in Dojo) is kept.
 const UserTagPrefix = "user:"
 
 // MaxNoteLen bounds a finding note (bytes).
@@ -315,7 +315,7 @@ type HostAsset struct {
 // AssetDescription renders the asset description from the user fields.
 func AssetDescription(h HostAsset) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "Host %s (managed by ASI)\n", h.IP)
+	fmt.Fprintf(&b, "Host %s (managed by RAVEN)\n", h.IP)
 	var meta []string
 	if h.Owner != "" {
 		meta = append(meta, "**Owner:** "+h.Owner)

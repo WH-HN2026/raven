@@ -8,7 +8,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner"
+	"github.com/WH-HN2026/raven/internal/scanner"
 )
 
 func TestBuildArgs(t *testing.T) {
@@ -105,24 +105,24 @@ func TestParseNginxFixture(t *testing.T) {
 	}
 
 	plain := httpByHost["http://172.21.0.2:80"]
-	if plain.HTTP == nil || plain.HTTP.Title != "ASI nginx fixture" || plain.HTTP.FaviconHash != "1617003604" {
+	if plain.HTTP == nil || plain.HTTP.Title != "RAVEN nginx fixture" || plain.HTTP.FaviconHash != "1617003604" {
 		t.Fatalf("HTTP info = %+v", plain.HTTP)
 	}
-	tls := httpByHost["https://asi-s7-nginx:443"]
-	if tls.IP.String() != "172.21.0.2" || tls.Hostname != "asi-s7-nginx" || tls.Port != 443 || tls.Proto != "tcp" || tls.HTTP == nil {
+	tls := httpByHost["https://raven-s7-nginx:443"]
+	if tls.IP.String() != "172.21.0.2" || tls.Hostname != "raven-s7-nginx" || tls.Port != 443 || tls.Proto != "tcp" || tls.HTTP == nil {
 		t.Fatalf("HTTPS observation = %+v", tls)
 	}
 	h := tls.HTTP
-	if h.Status != 200 || h.Title != "ASI TLS fixture" || h.Headers["X-Environment"] != "staging" {
+	if h.Status != 200 || h.Title != "RAVEN TLS fixture" || h.Headers["X-Environment"] != "staging" {
 		t.Fatalf("HTTPS info = %+v", h)
 	}
 	if !slices.Equal(h.Cookies, []string{"session=fixture; Expires=Wed, 21 Oct 2030 07:28:00 GMT; Secure", "theme=light; Path=/"}) {
 		t.Errorf("cookies = %q", h.Cookies)
 	}
-	if !bytes.Contains([]byte(h.TLSCert), []byte(`"subject_cn":"asi-s7-nginx"`)) {
+	if !bytes.Contains([]byte(h.TLSCert), []byte(`"subject_cn":"raven-s7-nginx"`)) {
 		t.Errorf("TLS data = %s", h.TLSCert)
 	}
-	if !slices.Equal(h.Redirects, []string{"https://asi-s7-nginx/home"}) || !slices.Equal(h.Technologies, []string{"Nginx:1.30.7"}) {
+	if !slices.Equal(h.Redirects, []string{"https://raven-s7-nginx/home"}) || !slices.Equal(h.Technologies, []string{"Nginx:1.30.7"}) {
 		t.Errorf("redirects = %v, technologies = %v", h.Redirects, h.Technologies)
 	}
 

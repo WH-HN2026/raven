@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner"
+	"github.com/WH-HN2026/raven/internal/scanner"
 )
 
 var testIPs = []netip.Addr{

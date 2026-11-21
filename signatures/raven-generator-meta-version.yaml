@@ -1,0 +1,22 @@
+id: raven-generator-meta-version
+info:
+  name: Generator meta tag with version
+  author: raven
+  severity: info
+  description: A <meta name="generator"> tag names the CMS and its version.
+  tags: raven,version,cms
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}"
+    matchers:
+      - type: regex
+        part: body
+        regex:
+          - '(?i)<meta[^>]+name=["'']generator["''][^>]+content=["''][^"'']*[0-9]+\.[0-9]+'
+    extractors:
+      - type: regex
+        part: body
+        group: 1
+        regex:
+          - '(?i)<meta[^>]+name=["'']generator["''][^>]+content=["'']([^"'']+)'

@@ -19,7 +19,7 @@ type FindingFilter struct {
 	Active     *bool         //
 	IP         *netip.Prefix // a single IP is a /32 (/128) prefix
 	Q          string        // case-insensitive title substring
-	Scanner    string        // exact: nmap, nuclei, asi, …
+	Scanner    string        // exact: nmap, nuclei, raven, …
 	Limit      int32
 	Offset     int32
 }

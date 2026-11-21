@@ -1,4 +1,4 @@
-# AGENTS.md — ASI (Attack Surface Intelligence)
+# AGENTS.md — RAVEN (Recon of Assets, Versions, Exposures & Networks)
 
 Hackathon prototype for AGH CBI: a web app that runs safe, recurring discovery scans of large networks (nmap + nuclei), fingerprints services and web technologies, tracks changes between runs, and uses **DefectDojo 3.5 (API v2)** as its dedup and finding-lifecycle engine. Go backend, React SPA, Postgres 18.
 
@@ -20,7 +20,7 @@ Read before working:
 
 ## Workflow (Orca coordinator + workers, no human review)
 
-Repo: https://github.com/WH-HN2026/zadanie-agh-asi. One roadmap task = one worktree = one branch = one PR. There are no human reviews. Rules (by convention: the org is on GitHub Free, so branch protection isn't available on this private repo):
+Repo: https://github.com/WH-HN2026/raven. One roadmap task = one worktree = one branch = one PR. There are no human reviews. Rules (by convention: the org is on GitHub Free, so branch protection isn't available on this private repo):
 - the CI check `check` (`.github/workflows/check.yml`, which runs `make check`) must be green before merging;
 - squash merge only, and the remote branch is deleted automatically after merge (both are repo settings);
 - **never push to `main` directly.**
@@ -62,7 +62,7 @@ The coordinator's checkout stays on `main` and only runs `git pull`. It never ed
 
 **Worker spec template** (paste it, fill it in; a worker can't see your conversation):
 ```
-Task <ID>: <task name>  — repo zadanie-agh-asi, read AGENTS.md and docs/architecture.md first.
+Task <ID>: <task name>  — repo raven, read AGENTS.md and docs/architecture.md first.
 Goal: <the roadmap text for the task, plus anything the user added>.
 In scope: <packages/dirs the worker may edit>. Out of scope: <what not to touch>.
 Contract: <API paths / tables / interfaces it must provide or use>.
@@ -78,7 +78,7 @@ Report with worker_done: PR URL, summary, evidence (commands + results), known g
 2. **Claim it with a draft PR right away.** Don't edit the roadmap for the claim; the draft PR *is* the claim.
    `git commit --allow-empty -m "<ID>: start" && git push -u origin HEAD && gh pr create --draft --title "<ID>: <task name>" --body "Roadmap task <ID>."`
    If another open PR for the same ID already exists, stop and tell your coordinator (`ask`), or the user if you're solo.
-3. **Set up the env:** `scripts/wt-env.sh`. It writes `.env.local` with a per-worktree database (`asi_<slug>`) and free ports for the Go server and Vite, then prints the URLs. Put those URLs in your report.
+3. **Set up the env:** `scripts/wt-env.sh`. It writes `.env.local` with a per-worktree database (`raven_<slug>`) and free ports for the Go server and Vite, then prints the URLs. Put those URLs in your report.
 4. **Work in small commits:** `<ID>: <what>` (e.g. `S2: parse nmap service versions`). Push often. Stay inside the spec's scope; if the task needs more, `ask` before widening it.
 5. **Verify your own work** as described in "Verify your change" below, and save the evidence (commands, output, pages visited).
 6. **Finish:**
@@ -108,7 +108,7 @@ Report with worker_done: PR URL, summary, evidence (commands + results), known g
 
 ### Parallel worktrees, shared infra
 
-- Start the infra **once** from any checkout: `make infra-up`. It runs the root `compose.yml` without the `asi` service, giving Postgres on 5433 and DefectDojo on http://localhost:8080 (admin credentials in `.env`).
+- Start the infra **once** from any checkout: `make infra-up`. It runs the root `compose.yml` without the `raven` service, giving Postgres on 5433 and DefectDojo on http://localhost:8080 (admin credentials in `.env`).
 - Every worktree uses its **own database** on the shared Postgres (created by `scripts/wt-env.sh`, migrated on startup) and its own ports. Don't hardcode ports.
 - DefectDojo is **shared**: don't assume it's empty, and don't delete other people's data. Integration tests create uniquely named objects (e.g. with the branch slug as a tag).
 - The lab: `make lab-up` (after task L1).
@@ -119,7 +119,7 @@ Report with worker_done: PR URL, summary, evidence (commands + results), known g
 make dev          # Go server (with reload) + Vite dev server, using .env.local
 make check        # gofmt, go vet, go test ./..., web: tsc --noEmit, eslint, vitest, build
 make gen          # sqlc + openapi-typescript
-make build        # web build → embedded into bin/asi
+make build        # web build → embedded into bin/raven
 make db-new name=add_foo        # new timestamped goose migration
 make test-integration           # go test -tags integration ./... (needs infra-up)
 make infra-up / infra-down / lab-up / lab-down
@@ -143,7 +143,7 @@ scripts/gen-env.sh && docker compose up -d --build   # full deployment, what the
 - Every handler declares its permission with `auth.Require(auth.Perm…)`. Every mutation writes `audit_log`.
 - Pass `context.Context` everywhere; scanner processes are started with `exec.CommandContext`, so cancelling ctx kills them (time windows depend on this).
 - Wrap errors: `fmt.Errorf("dojo reimport %s: %w", ip, err)`. No panics outside `main`.
-- Sensitive fields: `_enc bytea` columns written with `asi_enc(@x)` and read with `asi_dec(col)` (see architecture §5). Never log their plaintext.
+- Sensitive fields: `_enc bytea` columns written with `raven_enc(@x)` and read with `raven_dec(col)` (see architecture §5). Never log their plaintext.
 - Scans write only scan-owned columns. User-owned columns and `overrides` are written only by user edits.
 
 **Web** (`web/`)

@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/auth"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/db/gen"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/dbtest"
+	"github.com/WH-HN2026/raven/internal/auth"
+	"github.com/WH-HN2026/raven/internal/db/gen"
+	"github.com/WH-HN2026/raven/internal/dbtest"
 )
 
 // Hosts API over HTTP: a viewer can read the list and the decrypted detail,
@@ -30,7 +30,7 @@ func TestHostsAPI(t *testing.T) {
 	for _, s := range []string{
 		`INSERT INTO hosts (ip, hostnames, user_tags) VALUES ('10.30.0.5', '{api.lab}', '{lab}')`,
 		`INSERT INTO services (ip, port, proto, name, product, banner_enc, overrides)
-		 VALUES ('10.30.0.5', 8080, 'tcp', 'http', 'Tomcat', asi_enc('Apache-Coyote/1.1'), '{"version":"9.0"}')`,
+		 VALUES ('10.30.0.5', 8080, 'tcp', 'http', 'Tomcat', raven_enc('Apache-Coyote/1.1'), '{"version":"9.0"}')`,
 	} {
 		if _, err := pool.Exec(ctx, s); err != nil {
 			t.Fatal(err)

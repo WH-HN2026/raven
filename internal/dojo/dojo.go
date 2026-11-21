@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-// Client is the DefectDojo API surface ASI uses (architecture §4).
+// Client is the DefectDojo API surface RAVEN uses (architecture §4).
 type Client interface {
 	GetOrCreateOrganization(ctx context.Context, name string) (*Organization, error)
 	GetOrCreateAsset(ctx context.Context, a AssetSpec) (*Asset, error)
@@ -47,7 +47,7 @@ type Organization struct {
 }
 
 type AssetSpec struct {
-	Name           string   `json:"name"` // the IP, or "ASI Planning"
+	Name           string   `json:"name"` // the IP, or "RAVEN Planning"
 	Description    string   `json:"description"`
 	OrganizationID int64    `json:"organization"`
 	Tags           []string `json:"tags,omitempty"`
@@ -78,7 +78,7 @@ const (
 
 type EngagementSpec struct {
 	AssetID int64
-	Name    string // "ASI: <profile name>"
+	Name    string // "RAVEN: <profile name>"
 	Tags    []string
 }
 

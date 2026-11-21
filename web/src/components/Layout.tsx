@@ -37,14 +37,14 @@ export function Layout({ routes }: { routes: AppRoute[] }) {
   )
 }
 
-/** Wordmark: logo, rule, "ASI / Attack Surface Intelligence". */
+/** Wordmark: logo, rule, "RAVEN / Recon of Assets, Versions, Exposures & Networks". */
 export function Brand() {
   return (
     <span className="flex items-center gap-3.5 py-3">
       <Logo className="h-[54px] w-7" />
       <span className="flex flex-col border-l border-on-dark-rule pl-3.5">
-        <span className="text-[22px] leading-[1.1] font-medium tracking-[0.08em]">ASI</span>
-        <span className="text-xs font-light text-on-dark-muted">Attack Surface Intelligence</span>
+        <span className="text-[22px] leading-[1.1] font-medium tracking-[0.08em]">RAVEN</span>
+        <span className="text-xs font-light text-on-dark-muted">Recon of Assets, Versions, Exposures &amp; Networks</span>
       </span>
     </span>
   )
@@ -113,7 +113,7 @@ export function Footer() {
         </div>
       </div>
       <div className="mx-auto flex max-w-[1440px] flex-wrap justify-between gap-x-6 gap-y-2 px-10 pt-2 pb-5 text-[13px] font-light text-on-dark">
-        <span>Centrum Bezpieczeństwa Informacji AGH · ASI</span>
+        <span>Centrum Bezpieczeństwa Informacji AGH · RAVEN</span>
       </div>
     </footer>
   )

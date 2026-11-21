@@ -16,17 +16,17 @@ import (
 )
 
 // TestIntegrationDojo runs the whole client against the shared compose Dojo
-// (ASI_DOJO_URL + ASI_DOJO_TOKEN or DD_ADMIN_USER/DD_ADMIN_PASSWORD, from
-// .env.local). Every run makes a fresh asset "asi-it-d1-<random>" under the
-// shared organization "asi-it-d1", and deletes only the assets it created.
+// (RAVEN_DOJO_URL + RAVEN_DOJO_TOKEN or DD_ADMIN_USER/DD_ADMIN_PASSWORD, from
+// .env.local). Every run makes a fresh asset "raven-it-d1-<random>" under the
+// shared organization "raven-it-d1", and deletes only the assets it created.
 func TestIntegrationDojo(t *testing.T) {
-	base := os.Getenv("ASI_DOJO_URL")
+	base := os.Getenv("RAVEN_DOJO_URL")
 	if base == "" {
-		t.Skip("ASI_DOJO_URL not set")
+		t.Skip("RAVEN_DOJO_URL not set")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
-	token := os.Getenv("ASI_DOJO_TOKEN")
+	token := os.Getenv("RAVEN_DOJO_TOKEN")
 	if token == "" {
 		var err error
 		if token, err = ObtainToken(ctx, base, os.Getenv("DD_ADMIN_USER"), os.Getenv("DD_ADMIN_PASSWORD")); err != nil {
@@ -36,21 +36,21 @@ func TestIntegrationDojo(t *testing.T) {
 	c := NewHTTPClient(base, token)
 	rnd := make([]byte, 4)
 	_, _ = rand.Read(rnd)
-	slug := "asi-it-d1-" + hex.EncodeToString(rnd)
+	slug := "raven-it-d1-" + hex.EncodeToString(rnd)
 	t.Logf("slug %s", slug)
 
 	// Get-or-create is idempotent: twice → same id. The organization name is
 	// fixed, so a second test run reuses it.
-	org, err := c.GetOrCreateOrganization(ctx, "asi-it-d1")
+	org, err := c.GetOrCreateOrganization(ctx, "raven-it-d1")
 	must(t, err)
-	org2, err := c.GetOrCreateOrganization(ctx, "asi-it-d1")
+	org2, err := c.GetOrCreateOrganization(ctx, "raven-it-d1")
 	must(t, err)
 	if org.ID != org2.ID {
 		t.Fatalf("organization ids %d != %d", org.ID, org2.ID)
 	}
 
 	// Racing goroutines all get the one asset.
-	spec := AssetSpec{Name: slug, Description: "D1 integration test", OrganizationID: org.ID, Tags: []string{"asi-it"}}
+	spec := AssetSpec{Name: slug, Description: "D1 integration test", OrganizationID: org.ID, Tags: []string{"raven-it"}}
 	ids := make([]int64, 4)
 	var wg sync.WaitGroup
 	for i := range ids {
@@ -77,9 +77,9 @@ func TestIntegrationDojo(t *testing.T) {
 		}
 	}
 
-	eng, err := c.GetOrCreateEngagement(ctx, EngagementSpec{AssetID: asset.ID, Name: "ASI: it", Tags: []string{"asi"}})
+	eng, err := c.GetOrCreateEngagement(ctx, EngagementSpec{AssetID: asset.ID, Name: "RAVEN: it", Tags: []string{"raven"}})
 	must(t, err)
-	eng2, err := c.GetOrCreateEngagement(ctx, EngagementSpec{AssetID: asset.ID, Name: "ASI: it"})
+	eng2, err := c.GetOrCreateEngagement(ctx, EngagementSpec{AssetID: asset.ID, Name: "RAVEN: it"})
 	must(t, err)
 	if eng.ID != eng2.ID || eng.AssetID != asset.ID {
 		t.Fatalf("engagements %+v %+v", eng, eng2)
@@ -94,7 +94,7 @@ func TestIntegrationDojo(t *testing.T) {
 	}
 
 	// First reimport into the empty test: 3 open ports → 3 new findings.
-	tags := []string{"asi", slug}
+	tags := []string{"raven", slug}
 	r1, err := c.ReimportScan(ctx, ImportRequest{
 		ScanType: "Nmap Scan", TestID: test.ID, FileName: "nmap.xml", File: open(t, "testdata/nmap_3ports.xml"),
 		CloseOldFindings: true, Tags: tags, TagFindings: true, ScanDate: time.Now(),
@@ -171,7 +171,7 @@ func TestIntegrationDojo(t *testing.T) {
 	}
 
 	// Asset tags replace.
-	newTags := []string{"asi", slug, "host:it.example"}
+	newTags := []string{"raven", slug, "host:it.example"}
 	must(t, c.SetAssetTags(ctx, asset.ID, newTags))
 	assets, err := c.ListAssets(ctx, AssetQuery{Tags: []string{slug}})
 	must(t, err)
@@ -195,7 +195,7 @@ func TestIntegrationDojo(t *testing.T) {
 	autoName := slug + "-auto"
 	ri, err := c.ImportScan(ctx, ImportRequest{
 		ScanType: "Nmap Scan", AutoCreate: true, OrganizationName: org.Name, AssetName: autoName,
-		EngagementName: "ASI: it", FileName: "nmap.xml", File: open(t, "testdata/nmap_3ports.xml"),
+		EngagementName: "RAVEN: it", FileName: "nmap.xml", File: open(t, "testdata/nmap_3ports.xml"),
 	})
 	must(t, err)
 	t.Cleanup(func() { deleteAsset(t, c, ri.AssetID) })

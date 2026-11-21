@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner/httpx"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner/nuclei"
+	"github.com/WH-HN2026/raven/internal/scanner"
+	"github.com/WH-HN2026/raven/internal/scanner/httpx"
+	"github.com/WH-HN2026/raven/internal/scanner/nuclei"
 )
 
 func fixture(t *testing.T, name string) []byte {
@@ -54,7 +54,7 @@ func TestWebReportsByRespondingIP(t *testing.T) {
 	}{
 		{wp, []string{"Nuclei Scan"}, []string{`"template-id":"wordpress-detect"`}, []string{"tech:wordpress"}},
 		{tomcat, []string{"Nuclei Scan"}, []string{`"template-id":"apache-tomcat-exposed"`}, []string{"panel:tomcat"}},
-		{nginx, []string{"httpx Scan", "Nuclei Scan"}, []string{"asi-s7-nginx:443", "[]"}, []string{"tech:nginx", "env:staging", "host:asi-s7-nginx"}},
+		{nginx, []string{"httpx Scan", "Nuclei Scan"}, []string{"raven-s7-nginx:443", "[]"}, []string{"tech:nginx", "env:staging", "host:raven-s7-nginx"}},
 		{noWeb, nil, nil, nil},
 	} {
 		t.Run(tc.ip.String(), func(t *testing.T) {
@@ -92,7 +92,7 @@ func TestEnvironmentTags(t *testing.T) {
 	for _, tc := range []struct{ hostname, title, header, tag string }{
 		{"", "", " Stg ", "env:staging"},
 		{"app-staging.example", "", "", "env:staging"},
-		{"", "ASI Staging", "", "env:staging"},
+		{"", "RAVEN Staging", "", "env:staging"},
 		{"app-staging.example", "", "prod", "env:production"},
 		{"", "Restaging", "unrecognized", ""},
 	} {

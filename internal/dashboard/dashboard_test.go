@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/db/gen"
+	"github.com/WH-HN2026/raven/internal/db/gen"
 )
 
 func TestFindingCounts(t *testing.T) {

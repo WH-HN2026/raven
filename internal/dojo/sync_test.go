@@ -14,12 +14,12 @@ import (
 const findingJSON = `{
   "id": 42, "title": "Open port: 22/tcp", "severity": "Medium", "active": false,
   "verified": true, "false_p": false, "risk_accepted": false, "is_mitigated": true,
-  "tags": ["asi", "x"], "test": 7, "date": "2026-11-20",
+  "tags": ["raven", "x"], "test": 7, "date": "2026-11-20",
   "last_status_update": "2026-11-21T10:00:00.123456Z",
   "test_type_name": "Nmap Scan",
   "related_fields": {"test": {"id": 7, "title": "nmap",
-    "engagement": {"id": 3, "name": "ASI: default",
-      "product": {"id": 9, "name": "10.0.0.5", "prod_type": {"id": 1, "name": "ASI"}}}}}
+    "engagement": {"id": 3, "name": "RAVEN: default",
+      "product": {"id": 9, "name": "10.0.0.5", "prod_type": {"id": 1, "name": "RAVEN"}}}}}
 }`
 
 func TestMirrorFinding(t *testing.T) {
@@ -38,7 +38,7 @@ func TestMirrorFinding(t *testing.T) {
 	if !p.Date.Valid || p.Date.Time.Format(time.DateOnly) != "2026-11-20" {
 		t.Fatalf("date: %+v", p.Date)
 	}
-	if p.LastStatusUpdate == nil || !p.SyncedAt.Equal(now) || !reflect.DeepEqual(p.Tags, []string{"asi", "x"}) {
+	if p.LastStatusUpdate == nil || !p.SyncedAt.Equal(now) || !reflect.DeepEqual(p.Tags, []string{"raven", "x"}) {
 		t.Fatalf("misc: %+v", p)
 	}
 
@@ -57,7 +57,7 @@ func TestMirrorAsset(t *testing.T) {
 		{"10.0.0.5", "10.0.0.5"},
 		{"2001:db8::1", "2001:db8::1"},
 		{"::ffff:10.1.2.3", "10.1.2.3"},
-		{"ASI Planning", ""},
+		{"RAVEN Planning", ""},
 		{"10.0.0.0/24", ""},
 	} {
 		p := mirrorAsset(Asset{ID: 1, Name: tc.name}, now)
@@ -73,7 +73,7 @@ func TestMirrorAsset(t *testing.T) {
 
 func TestScannerFromScanType(t *testing.T) {
 	for in, want := range map[string]string{
-		"Nmap Scan": "nmap", "Nuclei Scan": "nuclei", "Generic Findings Import": "asi",
+		"Nmap Scan": "nmap", "Nuclei Scan": "nuclei", "Generic Findings Import": "raven",
 		"": "", "OpenVAS Parser": "openvas parser", "Nessus Scan": "nessus",
 	} {
 		if got := ScannerFromScanType(in); got != want {

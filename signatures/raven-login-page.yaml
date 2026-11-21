@@ -1,0 +1,23 @@
+id: raven-login-page
+info:
+  name: Login form
+  author: raven
+  severity: info
+  description: A common login path returns a page with a password field (fetched with GET only, nothing is submitted).
+  tags: raven,panel,login,path
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/login"
+      - "{{BaseURL}}/signin"
+      - "{{BaseURL}}/user/login"
+    stop-at-first-match: true
+    matchers-condition: and
+    matchers:
+      - type: status
+        status:
+          - 200
+      - type: regex
+        part: body
+        regex:
+          - '(?i)<input[^>]+type=["'']?password'
