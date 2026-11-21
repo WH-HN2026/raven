@@ -75,8 +75,8 @@ func TestBuiltinPack(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if n := len(pack); n < 30 || n > 40 {
-		t.Fatalf("pack has %d templates, want 30..40", n)
+	if n := len(pack); n < 30 || n > 60 {
+		t.Fatalf("pack has %d templates, want 30..60", n)
 	}
 	neutral := fixtureServer(t, "_neutral", true)
 	seen := map[string]bool{"_neutral": true}

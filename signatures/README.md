@@ -36,6 +36,7 @@ Fixture provenance:
   - Tomcat `webapps/ROOT/favicon.ico`.
 
   The Jenkins, phpMyAdmin and Tomcat hashes are the same values nuclei-templates' `favicon-detect.yaml` uses. The Grafana and GitLab hashes are computed from the current upstream files, and older releases may serve a different icon.
+- The vuln-lab templates (V3, table below: `raven-npm-admin` … `raven-gitea-version`) use **recordings** of the real services in the vuln lab ([`docs/vuln-lab.md`](../docs/vuln-lab.md)), taken with `curl -i` from a one-shot `raven-lab-tools:local` container on `raven_vlab` (never from the host). The only edit: `Transfer-Encoding: chunked` is dropped from the phpMyAdmin and Gitea recordings, because curl already de-chunked the body.
 - Every other `response.http` is a hand-written reconstruction of the product's typical response: the same headers, title and markers that the official nuclei-templates match on.
 
 When the lab (L1) has the real services, replace the reconstructions with recordings from it.
@@ -84,6 +85,15 @@ When the lab (L1) has the real services, replace the reconstructions with record
 | `raven-dahua-camera` | IoT | low | `<title>WEB SERVICE</title>` | Dahua login page |
 | `raven-bmc-title` | IoT | medium | BMC title (iDRAC, iLO, Supermicro, IPMI) | iDRAC 9 |
 | `raven-fortigate-sslvpn` | IoT / VPN | low | `top.location="/remote/login"` | FortiGate landing page |
+| `raven-npm-admin` | panel | low | `/` → 200 `<title>Nginx Proxy Manager</title>` | recorded: `jc21/nginx-proxy-manager:2.17.1` :81 (10.77.1.14) |
+| `raven-traefik-api` | panel / version | low | `/api/version` → 200 JSON `"Version"` + `"Codename"`; extracts the version, CPE `traefik:traefik` | recorded: `traefik:v3.1.7` :8080 `--api.insecure` (10.77.2.10) |
+| `raven-toxiproxy-api` | panel / version | low | `/version` → 200 with `X-Toxiproxy-Request-Id`; extracts the version | recorded: `ghcr.io/shopify/toxiproxy:2.12.0` :8474 (10.77.2.11) |
+| `raven-rabbitmq-management` | panel | low | `/` → 200 `<title>RabbitMQ Management</title>`; CPE `vmware:rabbitmq` | recorded: `rabbitmq:3.13.7-management` :15672 (10.77.4.12) |
+| `raven-adminer-login` | panel / version | medium | `/` or `/adminer.php` → 200 `<title>… Adminer</title>`; extracts `<span class='version'>`, CPE `adminer:adminer` | recorded: `adminer:6.3.0` :8080 (10.77.3.12) |
+| `raven-phpmyadmin-login` | panel / version | medium | `/` → 200 `<title>phpMyAdmin`; extracts `version:"x.y.z"` from `CommonParams`, CPE `phpmyadmin:phpmyadmin` | recorded: `phpmyadmin:5.2.3` (10.77.1.12) |
+| `raven-dvwa-login` | panel / version | medium | `/login.php` or `/dvwa/login.php` → 200 "Damn Vulnerable Web Application (DVWA)"; extracts `v1.10` from the title | recorded: `vulnerables/web-dvwa@sha256:dae203fe…` (10.77.3.14) |
+| `raven-dvwa-development` | staging | low | the DVWA title carries `*Development*` | recorded: as `raven-dvwa-login` |
+| `raven-gitea-version` | version | info | "Powered by Gitea" followed by `Version: x.y.z` (also across lines); extracts it, CPE `gitea:gitea` | recorded: `gitea/gitea:28.4.0` :3000 (10.77.4.20) |
 
 ## Adding a template
 

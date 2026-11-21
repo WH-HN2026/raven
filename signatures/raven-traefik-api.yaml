@@ -1,0 +1,34 @@
+id: raven-traefik-api
+info:
+  name: Traefik dashboard API
+  author: raven
+  severity: low
+  description: The Traefik API (dashboard backend) answers /api/version without authentication.
+  tags: raven,panel,traefik,version
+  metadata:
+    vendor: traefik
+    product: traefik
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/api/version"
+    matchers-condition: and
+    matchers:
+      - type: status
+        status:
+          - 200
+      - type: regex
+        part: body
+        regex:
+          - '"Version"\s*:\s*"v?[0-9]+\.[0-9]+'
+      - type: word
+        part: body
+        words:
+          - '"Codename"'
+    extractors:
+      - type: regex
+        name: version
+        part: body
+        group: 1
+        regex:
+          - '"Version"\s*:\s*"v?([0-9]+\.[0-9]+[0-9A-Za-z.+~-]*)"'

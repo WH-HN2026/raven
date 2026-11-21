@@ -1,0 +1,27 @@
+id: raven-toxiproxy-api
+info:
+  name: Toxiproxy API
+  author: raven
+  severity: low
+  description: The Toxiproxy control API answers without authentication.
+  tags: raven,panel,toxiproxy,version
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/version"
+    matchers-condition: and
+    matchers:
+      - type: status
+        status:
+          - 200
+      - type: regex
+        part: header
+        regex:
+          - '(?im)^X-Toxiproxy-Request-Id:'
+    extractors:
+      - type: regex
+        name: version
+        part: body
+        group: 1
+        regex:
+          - '"version"\s*:\s*"v?([0-9]+\.[0-9]+[0-9A-Za-z.+~-]*)"'

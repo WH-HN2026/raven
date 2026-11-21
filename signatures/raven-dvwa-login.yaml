@@ -1,0 +1,29 @@
+id: raven-dvwa-login
+info:
+  name: DVWA login
+  author: raven
+  severity: medium
+  description: The Damn Vulnerable Web Application (DVWA) login page is reachable.
+  tags: raven,panel,dvwa,version
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/login.php"
+      - "{{BaseURL}}/dvwa/login.php"
+    stop-at-first-match: true
+    matchers-condition: and
+    matchers:
+      - type: status
+        status:
+          - 200
+      - type: word
+        part: body
+        words:
+          - "Damn Vulnerable Web Application (DVWA)"
+    extractors:
+      - type: regex
+        name: version
+        part: body
+        group: 1
+        regex:
+          - '<title>[^<]*\(DVWA\) v([0-9]+\.[0-9]+[0-9A-Za-z.+~-]*)'

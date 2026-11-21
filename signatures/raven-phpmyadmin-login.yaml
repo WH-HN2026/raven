@@ -1,0 +1,30 @@
+id: raven-phpmyadmin-login
+info:
+  name: phpMyAdmin login
+  author: raven
+  severity: medium
+  description: The phpMyAdmin login page is served at the site root.
+  tags: raven,panel,phpmyadmin,version
+  metadata:
+    vendor: phpmyadmin
+    product: phpmyadmin
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}"
+    matchers-condition: and
+    matchers:
+      - type: status
+        status:
+          - 200
+      - type: word
+        part: body
+        words:
+          - "<title>phpMyAdmin"
+    extractors:
+      - type: regex
+        name: version
+        part: body
+        group: 1
+        regex:
+          - 'CommonParams\.setAll\(\{[^}]*\bversion:"([0-9]+\.[0-9]+[0-9A-Za-z.+~-]*)"'

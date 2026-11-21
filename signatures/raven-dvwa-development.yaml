@@ -1,0 +1,22 @@
+id: raven-dvwa-development
+info:
+  name: DVWA development build
+  author: raven
+  severity: low
+  description: The DVWA page title carries the "*Development*" marker of a development build.
+  tags: raven,dvwa,development
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/login.php"
+      - "{{BaseURL}}/dvwa/login.php"
+    stop-at-first-match: true
+    matchers-condition: and
+    matchers:
+      - type: status
+        status:
+          - 200
+      - type: regex
+        part: body
+        regex:
+          - '<title>[^<]*\(DVWA\)[^<]*\*Development\*'
