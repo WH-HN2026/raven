@@ -28,7 +28,6 @@ type genericFinding struct {
 	EPSSScore         float64  `json:"epss_score,omitempty"`
 	KnownExploited    bool     `json:"known_exploited"`
 	ScannerConfidence int      `json:"scanner_confidence"`
-	Service           string   `json:"service"`
 	Tags              []string `json:"tags"`
 	Active            bool     `json:"active"`
 	Verified          bool     `json:"verified"`
@@ -71,7 +70,8 @@ func (m *Match) Description() string {
 }
 
 // Report is the Generic Findings Import JSON for one IP: one finding per
-// product instance. An empty list is valid and, reimported with
+// product instance. Findings carry no "service": Dojo's close_old_findings
+// only closes findings with the reimport's service value (none). An empty list is valid and, reimported with
 // close_old_findings, closes the IP's previous CVE findings.
 func Report(ms []Match, date time.Time) ([]byte, error) {
 	out := make([]genericFinding, 0, len(ms))
@@ -92,7 +92,6 @@ func Report(ms []Match, date time.Time) ([]byte, error) {
 			Date: date.UTC().Format(time.DateOnly), UniqueIDFromTool: m.UID(), VulnerabilityIDs: ids,
 			ComponentName: m.Name, ComponentVersion: m.Version, CVSSv3Score: m.MaxCVSS, EPSSScore: epss,
 			KnownExploited: m.KEV > 0, ScannerConfidence: conf,
-			Service: strconv.Itoa(int(m.Port)) + "/" + m.Proto,
 			Tags: m.FindingTags(), Active: true, StaticFinding: true,
 		})
 	}

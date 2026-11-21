@@ -1,9 +1,12 @@
 package cve
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/netip"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestCompare(t *testing.T) {
@@ -287,4 +290,37 @@ func hasHit(m *Match, id string) bool {
 		}
 	}
 	return false
+}
+
+func TestReport(t *testing.T) {
+	m := NewMatcher(testDB(), Products())
+	ip := netip.MustParseAddr("172.30.0.26")
+	ms := []Match{*m.Match(Instance{IP: ip, Port: 22, Proto: "tcp", CPE: "openbsd:openssh:7.4p1", Version: "7.4p1 Debian 10+deb9u7"})}
+	b, err := Report(ms, time.Date(2026, 11, 21, 0, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc struct {
+		Findings []map[string]any `json:"findings"`
+	}
+	if err := json.Unmarshal(b, &doc); err != nil || len(doc.Findings) != 1 {
+		t.Fatalf("report: %s (%v)", b, err)
+	}
+	f := doc.Findings[0]
+	if f["title"] != "OpenSSH 7.4p1: 2 known CVEs (0 KEV)" || f["severity"] != "Low" ||
+		f["unique_id_from_tool"] != "172.30.0.26:22:openbsd:openssh:7.4p1" {
+		t.Errorf("finding: %v", f)
+	}
+	if ids, _ := f["vulnerability_ids"].([]any); len(ids) != 2 || ids[0] != "CVE-2023-38408" {
+		t.Errorf("vulnerability_ids = %v", f["vulnerability_ids"])
+	}
+	if tags := fmt.Sprint(f["tags"]); !strings.Contains(tags, TagDistroBuild) {
+		t.Errorf("tags = %s, want %s", tags, TagDistroBuild)
+	}
+	if _, ok := f["service"]; ok {
+		t.Error("finding has a service field: Dojo would not close it on reimport")
+	}
+	if empty, _ := Report(nil, time.Now()); string(empty) != `{"findings":[]}` {
+		t.Errorf("empty report = %s", empty)
+	}
 }

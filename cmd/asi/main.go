@@ -15,6 +15,7 @@ import (
 
 	"github.com/WH-HN2026/zadanie-agh-asi/internal/auth"
 	"github.com/WH-HN2026/zadanie-agh-asi/internal/config"
+	"github.com/WH-HN2026/zadanie-agh-asi/internal/cve"
 	"github.com/WH-HN2026/zadanie-agh-asi/internal/db"
 	"github.com/WH-HN2026/zadanie-agh-asi/internal/db/gen"
 	"github.com/WH-HN2026/zadanie-agh-asi/internal/dojo"
@@ -68,6 +69,10 @@ func run() error {
 	// Dojo bootstrap must never block the HTTP server (Dojo's first boot takes minutes).
 	// Push jobs (D2) are enqueued from the start and wait until it's done.
 	var hook pipeline.BatchHook
+	cveMatcher, err := cve.Default() // offline CVE data (C3), embedded
+	if err != nil {
+		return err
+	}
 	dojoWrite := &dojo.Lazy{} // write-through edits (D6); set once bootstrap is done
 	if cfg.DojoURL != "" {
 		push, err := dojo.NewPushService(pool, map[string]dojo.ParseFunc{"nmap": nmap.Parse})
@@ -96,11 +101,15 @@ func run() error {
 			dojoWrite.Set(res.Client)
 			// Planned engagements poller (D5): once now, then every 5 min.
 			go (&dojo.PlanningPoller{Client: res.Client, Pool: pool, PlanningAssetID: res.Planning.ID}).Run(ctx, 5*time.Minute)
+			// Offline CVE matching + push (C3): now, then every 5 min.
+			go (&dojo.CVESync{Pool: pool, Matcher: cveMatcher,
+				Pusher: &dojo.CVEPusher{Client: res.Client, OrganizationID: res.Organization.ID}}).Run(ctx, 5*time.Minute)
 			// Read-model pull (D3): once now, then every 5 min.
 			(&dojo.Syncer{Client: res.Client, Pool: pool, OrganizationID: res.Organization.ID}).Run(ctx, 5*time.Minute)
 		}()
 	} else {
 		slog.Warn("ASI_DOJO_URL is empty: DefectDojo integration disabled")
+		go (&dojo.CVESync{Pool: pool, Matcher: cveMatcher}).Run(ctx, 5*time.Minute) // match only (C3)
 	}
 
 	// Scan pipeline: River workers running nmap per batch (S3).
