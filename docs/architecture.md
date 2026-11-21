@@ -13,12 +13,12 @@ The brief and the organizers' notes are in [`challenge.md`](challenge.md), and t
 | D3 | **React SPA** (Vite + TypeScript), built and embedded into the Go binary with `embed`. |
 | D4 | **DefectDojo: newest only (3.5.x), API v2, token auth.** One service-account token. Dojo is the dedup and lifecycle engine. RBAC is enforced **only in our app**, because OSS Dojo 3.x has no real roles. |
 | D5 | **Host identity = IP address. One Dojo Asset (Product) per IP.** Hostnames are attributes of the IP. |
-| D6 | **Scanners: nmap → httpx → nuclei**, each behind a `Scanner` interface. nmap finds hosts and services, httpx collects the HTTP facts (title, status, headers, cookies, TLS, redirects, favicon hash, technologies), and nuclei runs detection templates and our signatures. Results reach Dojo through Dojo's **native parsers** ("Nmap Scan", "httpx Scan", "Nuclei Scan"). Nessus is supported by **importing `.nessus` files** (Dojo's "Tenable Scan" parser), not by running it. |
+| D6 | **Scanners: nmap → httpx → nuclei**, each behind a `Scanner` interface. nmap finds hosts and services, httpx collects the HTTP facts (title, status, headers, cookies, TLS, redirects, favicon hash, technologies), and nuclei runs detection templates and our signatures. Results reach Dojo through Dojo's **native parsers** ("Nmap Scan", "httpx Scan", "Nuclei Scan"). Nessus is supported by **importing `.nessus` files** (Dojo's "Tenable Scan" parser), not by running it. The stages a run uses come from its profile's workflow (§3.11); the extra aggressive stages (active nuclei, nikto, wpscan, ZAP) exist only behind the opt-in **Aggressive** preset, never by default (§9). |
 | D7 | **Custom signatures = nuclei templates**, restricted to a safe subset by our validator. |
 | D8 | **Encryption at rest = Postgres-native `pgcrypto`** on sensitive columns of our DB. Dojo's own DB is stock Postgres 18 and is not encrypted; the docs say so. |
 | D9 | **Schedules come from two sources:** our UI, and Dojo Engagements planned ahead (polled and imported into our schedule table). |
 | D10 | **MCP server is the last feature.** It is a thin layer over the same service functions and RBAC. |
-| D11 | **Vulnerability detection = fingerprints → offline CVE matching + safe signatures.** No active vulnerability checks. CPE + version from nmap/httpx/nuclei is matched against a CVE dataset committed to the repo (§11). |
+| D11 | **Vulnerability detection = fingerprints → offline CVE matching + safe signatures.** No active vulnerability checks in the default workflow; only the opt-in Aggressive preset (§9) adds them. CPE + version from nmap/httpx/nuclei is matched against a CVE dataset committed to the repo (§11). |
 
 ## 2. System overview
 
@@ -76,7 +76,7 @@ Runtime: Docker Compose runs `raven`, `raven-db` (Postgres 18 with pgcrypto) and
 6. **Ingest (our DB).** Parse all three outputs into `hosts`, `services`, `http_observations` and `run_observations`. Store the raw artifacts (encrypted) in `artifacts`. Update `first_seen`/`last_seen` and the miss counters. Every product + version (with its CPE) is matched against the local CVE data (§11).
 7. **Push (Dojo)**, for every IP that **responded** in this run:
    - make sure the Asset `"<ip>"`, its Engagement and its Tests exist;
-   - `reimport-scan` the nmap XML, httpx JSON and nuclei JSONL filtered to this IP (one Test per scanner), with `close_old_findings=true`;
+   - `reimport-scan` the nmap XML, httpx JSON and nuclei JSONL filtered to this IP (one Test per scanner), with `close_old_findings=true`, only for the stages that ran in this run (§3.11);
    - Dojo dedups and marks findings new/closed/reactivated.
 8. **Shadow IT / lifecycle.**
    - IP never seen before → the Asset is created with an **INFO finding "New device found"**.
@@ -85,6 +85,26 @@ Runtime: Docker Compose runs `raven`, `raven-db` (Postgres 18 with pgcrypto) and
    - A host that responds again resets its counter, and Dojo reactivates its findings on the next reimport.
 9. **Unstable hosts.** IPs that were up in the previous run but are down now are re-probed **once more at the end of the run**, before they count as a miss.
 10. **Time window.** A batch job runs with `ctx` deadline = window end. On deadline the scanner processes are killed, the batch is set back to `pending`, and the run becomes `suspended`. The next window resumes from the remaining batches of the same run.
+
+### 3.11 Workflows (stages per profile)
+
+Steps 3–5 above are the **Default** workflow. A workflow is a property of a profile: `profiles.stages text[]`, validated against a **stage registry** in Go (`internal/pipeline`). Each stage is one scanner.
+
+| Stage | Needs | Input | Dojo scan type (own per-IP Test) | Set |
+|---|---|---|---|---|
+| `nmap` | — (always on) | the run's targets | "Nmap Scan" | Default |
+| `httpx` | `nmap` | open HTTP(S) ports from nmap | "httpx Scan" | Default |
+| `nuclei` | `httpx` | URLs httpx confirmed alive | "Nuclei Scan" | Default |
+| `nuclei_active` | `httpx` | URLs httpx confirmed alive | "Nuclei Scan", separate Test title from `nuclei` | aggressive |
+| `nikto` | `httpx` | URLs httpx confirmed alive | "Nikto Scan" | aggressive |
+| `wpscan` | `httpx` | only URLs where httpx/nuclei detected WordPress | "Wpscan" | aggressive |
+| `zap` | `httpx` | URLs httpx confirmed alive | "ZAP Scan" | aggressive |
+
+- **Validation is server-side.** Saving a profile whose stage set has a stage without its dependency → `400`. `nmap` can't be removed.
+- **Presets only fill the toggles.** **Default** = `nmap, httpx, nuclei`: existing profiles migrate to it, and it is the default for new profiles. **Aggressive** = Default + `nuclei_active, nikto, wpscan, zap`. Users may switch stages off (e.g. `nmap → httpx`, or plain `nmap`). A profile that has any aggressive stage is an **aggressive profile**, with the gating in §9.
+- **Execution.** The pipeline runs only the enabled stages, in registry order. Each stage gets input only from stages that ran in this run.
+- **Dojo (same spirit as step 8).** A stage that didn't run in a run gets **no reimport** of its tool's Test, because `close_old_findings` would close all of that tool's findings. Each run records the stages that actually ran (`runs.stages`). Changes (C1) compares only the stages both runs share.
+- **Deployment.** nikto and wpscan are pinned in `deploy/Dockerfile`. ZAP is a separate compose service under the compose profile `aggressive`, driven over its API on the internal network. Its image is large, so it is not in our image (§10).
 
 ## 4. DefectDojo mapping
 
@@ -121,11 +141,13 @@ scope_entries(id, kind ip|cidr|domain, value, list include|exclude,
               profile_id NULL = global, note, created_by)
 targets(id, kind, value, source manual|csv|json|dojo, tags[], created_by)
 profiles(id, name, ports, nmap_max_rate, nuclei_rate, nuclei_tags[],
-         miss_threshold, target_batch_seconds, enabled)
+         miss_threshold, target_batch_seconds, enabled,
+         stages text[])                                                -- workflow, §3.11 (WF1)
 schedules(id, profile_id, source ui|dojo, dojo_engagement_id NULL,
           cron NULL, window_start, window_end, timezone, enabled)
 runs(id, profile_id, schedule_id, status pending|running|suspended|done|failed,
-     started_at, finished_at, hosts_total, hosts_up, stats jsonb)
+     started_at, finished_at, hosts_total, hosts_up, stats jsonb,
+     stages text[])                                                    -- stages that actually ran (WF1)
 batches(id, run_id, seq, ips inet[], status, attempts, started_at, finished_at, duration_ms)
 hosts(ip inet PK, hostnames text[], state active|unstable|inactive,
       first_seen, last_seen, miss_count, dojo_asset_id,
@@ -222,6 +244,8 @@ The roles come straight from requirement 13:
 | `operator` | modify + read: edit findings and hosts (triage, notes, tags), no create/delete |
 | `viewer` | read everything, export |
 
+Permission `scan:aggressive` (**admin only**): create an aggressive profile, add aggressive stages to a profile, or change an aggressive profile (including its scope entries). Editors may still start and stop runs of an existing aggressive profile (`runs:control`), after the explicit confirmation (§9).
+
 - One file, `internal/auth/rbac.go`, defines the `Permission` constants and the `role → permissions` map.
 - Each handler declares its permission with `auth.Require(perm)`, and the frontend hides what the role can't do.
 - The **backend check is the source of truth**; the frontend only hides things.
@@ -241,9 +265,12 @@ internal/targets/            parse manual/CSV/JSON, CIDR expand, domain resolve,
 internal/scanner/            Scanner interface + types
 internal/scanner/nmap/       command builder, XML parser → observations
 internal/scanner/httpx/      command builder, JSON parser → http_observations
-internal/scanner/nuclei/     command builder, JSONL parser, template policy
+internal/scanner/nuclei/     command builder, JSONL parser, template policy (default + aggressive sets)
+internal/scanner/nikto/      (aggressive) command builder, flag allowlist, parser
+internal/scanner/wpscan/     (aggressive) command builder, flag allowlist, parser
+internal/scanner/zap/        (aggressive) ZAP API client: spider + capped active scan
 internal/signatures/         safe-subset validator for nuclei templates
-internal/pipeline/           run orchestration: batching, jobs, ingest, miss counting, re-probe
+internal/pipeline/           run orchestration: stage registry (§3.11), batching, jobs, ingest, miss counting, re-probe
 internal/scheduler/          schedules, windows, suspend/resume, dojo engagement poller
 internal/dojo/               API v2 client, push (reimport, INFO findings), sync (pull)
 internal/changes/            diff between runs, time-of-day presence, interestingness score
@@ -300,21 +327,52 @@ Adding a scanner means adding a package that implements `Scanner` and registerin
 
 ## 9. Safety (scored criterion; non-negotiable)
 
+The rules come in three layers. **Always** holds for every workflow. **Default workflow** holds for the Default stages (`nmap`, `httpx`, `nuclei`), in every profile. **Aggressive preset** lists what an aggressive profile may do *in addition*; it never relaxes the other two layers.
+
+### Always (every workflow)
+
+- **Scope:** only in-scope targets of the run's profile are scanned: no target is scanned unless it matches some include entry of that profile. The global blacklist (exclude list) is applied after every expansion step (CIDR, domain resolution, vhost URLs), and exclusions always win.
+- **Lab only from dev machines:** scan only the local lab (`compose.lab.yml`) or the organizers' lab. Never the internet, the host network, or AGH ranges.
+- **Intensity:** every tool runs with a rate limit and a time cap (the batch `ctx` deadline plus a per-tool limit). Cancelling `ctx` kills the process.
+- **Credentials:** no login attempts and no credential or password brute-forcing anywhere (wpscan password attack off, nikto credential tests off).
+- **No DoS:** no DoS templates, DoS tuning or flood options.
+- **No OAST:** no interactsh or other out-of-band callbacks.
+- **No external APIs:** CVE matching is offline only: product/version are matched to CPEs locally (§11). wpscan runs without an API token. Never send our data to external APIs.
+- **Flags:** scanner flags come only from the per-tool allowlists in `internal/scanner/*`.
+
+### Default workflow
+
 - **nmap:**
   - no `-A`, no `-sC`, no `--script` outside the allowlist in `internal/scanner/nmap`;
   - `--max-rate` is always set;
   - only the profile's allowed ports.
 - **httpx:** one GET per URL (no path brute-forcing, no `-path` lists), rate limit always set.
-- **nuclei:** only allowlisted tags plus our signatures; the exclusion flags above are always applied; `-no-interactsh`; a rate limit is always set.
+- **nuclei:** only allowlisted tags plus our signatures; the exclusion flags in §3 step 5 are always applied (`intrusive`, `dos`, `fuzz`, … tags; `code`, `headless`, `javascript` types); `-no-interactsh`; a rate limit is always set.
 - **Signatures:** the validator rejects any template that has
   - a method other than GET/HEAD;
   - a request body, payloads/attack/fuzzing;
   - `code`/`headless`/`javascript`/`network` write steps;
   - DSL that could make extra requests;
   - interactsh.
-- **Scope:** the global blacklist is applied after every expansion step, and no target is scanned unless it matches some include entry.
-- **Credentials:** no login attempts anywhere. Paths like `/admin`, `/login` and `/version` may be fetched with GET only.
-- **CVE matching** is offline only: match product/version to CPEs locally. Never send our data to external APIs.
+- **Paths:** paths like `/admin`, `/login` and `/version` may be fetched with GET only.
+
+### Aggressive preset (opt-in, never default)
+
+Allowed **in addition**, only in an aggressive profile (§3.11), and still under every "Always" rule:
+
+- **`nuclei_active`:** official templates tagged `intrusive`/`fuzz`, still from a pinned, allowlisted aggressive set; `dos` (and the credential tags) stay excluded; `-no-interactsh`; rate limit set.
+- **`nikto`:** tuning limited to the information/misconfiguration categories: no injection, no DoS, no credential tests; rate and time caps set.
+- **`wpscan`:** version, plugin and theme enumeration on WordPress URLs only, without passwords and without an API token. The versions it finds feed offline CVE matching (§11).
+- **`zap`:** spider + active scan with a capped scan policy and a per-URL time limit.
+
+Gating:
+
+- **Admins only** (`scan:aggressive`, §6) can save a profile with aggressive stages or change an aggressive profile. Editors may still start runs of an existing aggressive profile.
+- Starting an aggressive run requires an **explicit confirmation**.
+- Aggressive profiles and runs carry a visible **"Aggressive"** badge.
+- Every create, change and start of an aggressive profile or run writes `audit_log`.
+- The profile's own scope entries are the aggressive scope; there is no separate list.
+- New profiles and the seeded default profile are **never** aggressive.
 
 ## 10. Deployment (Docker Compose) and configuration
 
@@ -323,7 +381,7 @@ Adding a scanner means adding a package that implements `Scanner` and registerin
 ```
 compose.yml                 # the deployment: raven + raven-db + DefectDojo (via include)
 deploy/dojo.compose.yml     # DefectDojo 3.5.202 services copied from its repo, images pinned
-deploy/Dockerfile           # multi-stage: node (web build) → go (binary) → runtime with nmap + httpx + nuclei + templates
+deploy/Dockerfile           # multi-stage: node (web build) → go (binary) → runtime with nmap + httpx + nuclei + templates (+ nikto, wpscan, pinned; AG3/AG4)
 compose.lab.yml             # local test lab (task L1), separate network, never needed in prod
 .env.example                # every variable, with safe defaults; copied to .env
 scripts/gen-env.sh          # creates .env with random secrets (encryption key, passwords, Dojo secret key)
@@ -333,6 +391,7 @@ scripts/gen-env.sh          # creates .env with random secrets (encryption key, 
 |---|---|---|---|
 | `raven` | built from `deploy/Dockerfile` | 8000 | `cap_add: [NET_RAW, NET_ADMIN]`; on the default network and the lab network; runs migrations on start |
 | `raven-db` | `postgres:18` | 5433 (dev only) | volume `raven-db-data`; `log_statement=none`; healthcheck |
+| `zap` (compose profile `aggressive`, AG5) | official ZAP image, pinned tag | none (internal only) | started only with `--profile aggressive`; `raven` drives it over its API on the internal network; attached to the lab network to reach targets |
 | DefectDojo (`nginx`, `uwsgi`, `celeryworker`, `celerybeat`, `initializer`, `postgres`, `valkey`) | official `defectdojo/*:3.5.202` | 8080 | unchanged from upstream except the pinned tag and `DD_ADMIN_PASSWORD` coming from `.env` |
 
 - **No manual Dojo token.** If `RAVEN_DOJO_TOKEN` is empty, `raven` waits for Dojo to be healthy and gets a token via `POST /api/v2/api-token-auth/` with `DD_ADMIN_USER`/`DD_ADMIN_PASSWORD`. It then creates the `RAVEN` organization and the `RAVEN Planning` asset if they're missing.
@@ -363,6 +422,7 @@ Matching fingerprints to known vulnerabilities is allowed (organizers' note 2); 
   - nmap gives CPEs directly (`<cpe>` in `-sV` output).
   - httpx technology names map to CPEs through a table generated from Wappalyzer's fingerprint data.
   - nuclei tech templates carry `metadata.vendor/product`.
+  - wpscan (aggressive profiles only) reports WordPress core, plugin and theme versions, matched the same way.
 - **Data, committed to the repo** (`internal/cve/data/`, gzip, a few MB), regenerated by `make cve-db`. The build and runtime never call external APIs.
   - **NVD CVE 2.0** records for a curated product list (`internal/cve/products.txt`, about 50–100 vendor:product pairs we actually detect: web servers, CMSes, panels, SSH/FTP/mail servers, appliances).
   - **CISA KEV** (known exploited) and **EPSS** scores for prioritization.
@@ -395,4 +455,4 @@ Full before/after tables and methodology are in [`scale.md`](scale.md).
 
 ## 13. Out of scope (for the hackathon)
 
-Multi-tenant orgs inside our app, SSO/LDAP, HA/clustering, Dojo versions older than 3.5, a CLI, active vulnerability verification of any kind.
+Multi-tenant orgs inside our app, SSO/LDAP, HA/clustering, Dojo versions older than 3.5, a CLI, exploitation of any kind, active vulnerability checks outside the opt-in Aggressive preset (§9).

@@ -257,3 +257,6 @@ Translated and summarised from the team's notes. These take precedence over our 
 - Open-source Dojo has no real RBAC, so RBAC lives in our app only.
 - AGH currently uses Nessus, but that changes over time, so scanners must be pluggable. nmap and other open-source scanners must be supported.
 - The web UI must use AGH colours and branding.
+
+**Later notes (dated).**
+- **2026-11-21 — Aggressive preset accepted.** The jury accepts an aggressive scanning preset (active nuclei templates, nikto, wpscan, ZAP) as an **explicit opt-in option that is never the default**. Note 2 ("wide, not deep") still describes the default workflow. Guardrails: [`architecture.md`](architecture.md) §3.11 (workflows) and §9 (safety).

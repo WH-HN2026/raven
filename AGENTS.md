@@ -13,9 +13,10 @@ Read before working:
 
 - **Hackathon: choose the simplest thing that works.** No compat layers, no speculative config, no new infra. Decisions in architecture §1 are settled; don't re-open them in code.
 - **Newest DefectDojo only** (3.5.x, API v2, Locations, Asset naming).
-- **Safety is a scored criterion. Never break it:**
-  - Scan **only** the local lab network (`compose.lab.yml`) or the organizers' lab. Never scan the internet, the host network, or AGH ranges from a dev machine.
-  - nmap and nuclei flags come only from the allowlists in `internal/scanner/*`. No intrusive scripts or templates, no login attempts, rate limits always set.
+- **Safety is a scored criterion. Never break it** (full rules: [architecture §9](docs/architecture.md#9-safety-scored-criterion-non-negotiable)):
+  - **Always (every workflow):** scan **only** the local lab network (`compose.lab.yml`) or the organizers' lab, and only the profile's in-scope targets with the global blacklist applied. Never scan the internet, the host network, or AGH ranges from a dev machine. Scanner flags come only from the allowlists in `internal/scanner/*`. Rate limit and time cap on every tool; no login attempts or credential brute-forcing, no DoS, no interactsh/OAST, no external APIs.
+  - **Default workflow** (nmap → httpx → nuclei): no intrusive scripts or templates, GET-only probes, signatures from the safe-subset validator.
+  - **Aggressive stages** (active nuclei, nikto, wpscan, ZAP) only in profiles using the **Aggressive preset**: explicit opt-in, admin-only (`scan:aggressive`), never the default, still under the "Always" rules.
 - **No secrets in git.** Use `.env.local`, which is gitignored; keep `.env.example` up to date when you add a variable.
 
 ## Workflow (Orca coordinator + workers, no human review)
@@ -51,6 +52,7 @@ The coordinator's checkout stays on `main` and only runs `git pull`. It never ed
   - every new route has `auth.Require`, and mutations write `audit_log`;
   - sensitive fields use `_enc`;
   - scanner flags come from the allowlists;
+  - aggressive stages stay gated (`scan:aggressive`, start confirmation, badge, `audit_log`; never default), see architecture §9;
   - scans only write scan-owned columns;
   - deploy files (`compose.yml`, `deploy/Dockerfile`, `.env.example`) are updated if the task needs it;
   - the task is marked `[x]` in the roadmap.
@@ -159,5 +161,7 @@ scripts/gen-env.sh && docker compose up -d --build   # full deployment, what the
 
 - Don't call Dojo from request handlers to render pages; read the mirror tables (`dojo_*`). Writes (triage edits) go to Dojo and then update the mirror.
 - Don't reimport a host that didn't respond in this run, because `close_old_findings` would close everything on it (see architecture §3.8).
+- Don't reimport a tool's Test for a stage that didn't run in this run, for the same reason (see architecture §3.11).
+- Don't make a new or seeded profile aggressive, and don't let a non-admin save or change an aggressive profile.
 - Don't add Dojo version checks, fallbacks for v1/old Endpoints, or alternative storage backends.
 - Don't modify `../django-DefectDojo`. It's reference material, not part of this repo.

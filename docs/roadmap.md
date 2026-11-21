@@ -141,6 +141,16 @@ M0 is sequential and blocking. Do it in **one** worktree, as fast as possible, t
 - [x] **U2 Naming & navigation fixes.** User profile page, flat breadcrumbs, clearer labels (intermittent hosts, exclude, signature status, type, profile enabled, batch duration).
 - [x] **U1 Sortable columns + instant filters.** Every list view has asc/desc sort on its column headers; filters apply immediately (no Apply button).
 
+**Track WF — Workflows & aggressive preset**
+- [x] **WF0 Workflow & aggressive guardrails.** Docs: architecture workflows section and §9 split (always / default / aggressive), AGENTS.md safety rules, roadmap track WF, jury note.
+- [ ] **WF1 Workflow model.** Stage registry with dependencies; `profiles.stages` (migration: existing profiles → Default); API validation (400 on missing dependency); pipeline runs only enabled stages; runs record executed stages; no Dojo reimport for stages that did not run; Changes compares shared stages only.
+- [ ] **WF2 Workflow builder UI.** (needs WF1) Stage cards with toggles in the profile editor, Default/Aggressive presets, dependents auto-disabled with a "needs <stage>" label; stage badges on profiles and runs.
+- [ ] **AG1 Aggressive gating.** (needs WF1) `scan:aggressive` permission (admin), confirmation on start, "Aggressive" badge on profiles/runs, audit_log entries, viewer/editor 403s.
+- [ ] **AG2 nuclei active.** (needs AG1) intrusive/fuzz templates pinned in an aggressive set, dos excluded, no interactsh; own Dojo test.
+- [ ] **AG3 nikto.** (needs AG1) Pinned in the image, flag allowlist with limited tuning and rate/time caps, "Nikto Scan" push, lab test.
+- [ ] **AG4 wpscan.** (needs AG1) Pinned in the image, WordPress URLs only, enumeration without passwords or API token, "Wpscan" push, versions into offline CVE matching, lab test against the lab WordPress.
+- [ ] **AG5 ZAP.** (needs AG1) ZAP service under compose profile `aggressive`, API-driven spider + capped active scan, "ZAP Scan" push, lab test.
+
 ## M4 — MCP (last)
 
 - [ ] **MCP1 MCP server.** `internal/mcp` using the official Go MCP SDK, streamable HTTP at `/mcp`, auth by API token (P2), the same RBAC. Read tools: `search_hosts`, `get_host`, `list_findings`, `get_changes`, `list_runs`. Editor tools: `start_scan`, `add_targets`. Admin UI to issue tokens.
@@ -157,6 +167,7 @@ M1:     ├─ S1 ─┬─ S3 ─┬─ D2          W1 (S1)  W2/W3 (S3)
         └─ D1 ────────┴─ D3
 M2:  S7 (S3) → S4 · S5, S6 (S3) · D4 (S7,S4,S6) · S8 (S2) · D5 (D1) · D6 (D3) · P1..P4 · C1 (S3) · C2 · C3 (S8) · W4..W11 · L1 (anytime)
 M3:  after the relevant M2 parts     M4: after P2
+WF:  WF0 → WF1 → WF2 · AG1 (WF1) → AG2..AG5
 ```
 
 L1 (lab) has no dependencies and is a good first task for whoever is free while M0 is being built.
