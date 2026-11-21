@@ -94,12 +94,13 @@ type Engagement struct {
 }
 
 type EngagementQuery struct {
-	AssetID int64
-	Name    string
-	Status  string
-	Tags    []string
-	Limit   int
-	Offset  int
+	AssetID     int64
+	Name        string
+	Status      string
+	Tags        []string // exact tags (OR)
+	TagContains string   // substring match on tag name (Dojo "tag" icontains filter)
+	Limit       int
+	Offset      int
 }
 
 type TestSpec struct {

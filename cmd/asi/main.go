@@ -94,6 +94,8 @@ func run() error {
 			push.SetPusher(&dojo.Pusher{Client: res.Client, OrganizationID: res.Organization.ID,
 				Parallel: res.Client.Concurrency()})
 			dojoWrite.Set(res.Client)
+			// Planned engagements poller (D5): once now, then every 5 min.
+			go (&dojo.PlanningPoller{Client: res.Client, Pool: pool, PlanningAssetID: res.Planning.ID}).Run(ctx, 5*time.Minute)
 			// Read-model pull (D3): once now, then every 5 min.
 			(&dojo.Syncer{Client: res.Client, Pool: pool, OrganizationID: res.Organization.ID}).Run(ctx, 5*time.Minute)
 		}()
