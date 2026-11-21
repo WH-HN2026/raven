@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/WH-HN2026/raven/internal/cve"
+	"github.com/WH-HN2026/raven/internal/scanner/httpx"
 )
 
 // Valid enum values for GET /api/services and GET /api/technologies.
@@ -49,6 +50,9 @@ type ServiceItem struct {
 	Technologies []string `json:"technologies"`
 	CVECount     int      `json:"cve_count"`
 	CVESeverity  string   `json:"cve_severity"`
+	// ResponseMS is the slowest latest HTTP response time of the service (V7).
+	ResponseMS *int32 `json:"response_ms"`
+	Slow       bool   `json:"slow"`
 }
 
 // TechnologyFilter selects technology aggregates for GET /api/technologies.
@@ -81,7 +85,7 @@ const (
 
 // servicesCTE joins services with latest HTTP observation technologies per service.
 const servicesCTE = `WITH latest_http AS (
-	SELECT DISTINCT ON (o.service_id, o.url) o.service_id, o.technologies
+	SELECT DISTINCT ON (o.service_id, o.url) o.id, o.service_id, o.url, o.observed_at, o.run_id, o.technologies, o.response_ms
 	FROM http_observations o
 	ORDER BY o.service_id, o.url, o.observed_at DESC, o.id DESC
 ), svc_tech AS (
@@ -89,6 +93,19 @@ const servicesCTE = `WITH latest_http AS (
 	FROM latest_http lh
 	CROSS JOIN LATERAL unnest(lh.technologies) AS t
 	GROUP BY lh.service_id
+), svc_resp AS (
+	-- V7: the slowest URL of each service in its latest HTTP run (URLs not probed
+	-- in that run are stale) and that URL's previous response time.
+	SELECT DISTINCT ON (lh.service_id) lh.service_id, lh.response_ms,
+		(SELECT p.response_ms FROM http_observations p
+		 WHERE p.service_id = lh.service_id AND p.url = lh.url AND (p.observed_at, p.id) < (lh.observed_at, lh.id)
+		 ORDER BY p.observed_at DESC, p.id DESC LIMIT 1) AS prev_response_ms
+	FROM (
+		SELECT l.*, first_value(l.run_id) OVER (PARTITION BY l.service_id ORDER BY l.observed_at DESC, l.id DESC) AS last_run
+		FROM latest_http l
+	) lh
+	WHERE lh.response_ms IS NOT NULL AND lh.run_id IS NOT DISTINCT FROM lh.last_run
+	ORDER BY lh.service_id, lh.response_ms DESC
 )`
 
 const servicesBaseFrom = ` FROM services s
@@ -206,7 +223,9 @@ func buildServiceList(f ServiceFilter) (list, count string, args []any) {
 		s.state, s.first_seen, s.last_seen, s.overrides,
 		h.hostnames, COALESCE(st.technologies, '{}')::text[] AS technologies,
 		COALESCE(cardinality(cm.cve_ids), 0)::int AS cve_count,
-		COALESCE(cm.severity, '')::text AS cve_severity` +
+		COALESCE(cm.severity, '')::text AS cve_severity,
+		(SELECT sr.response_ms FROM svc_resp sr WHERE sr.service_id = s.id) AS response_ms,
+		(SELECT sr.prev_response_ms FROM svc_resp sr WHERE sr.service_id = s.id) AS prev_response_ms` +
 		servicesFrom + where +
 		" ORDER BY " + serviceOrderBy(f.Sort, f.Order) +
 		" LIMIT $" + strconv.Itoa(n+1) + " OFFSET $" + strconv.Itoa(n+2)
@@ -246,9 +265,12 @@ func ListServices(ctx context.Context, pool *pgxpool.Pool, f ServiceFilter) ([]S
 			techs       []string
 			cveCount    int
 			cveSeverity string
+			respMS      *int32
+			prevMS      *int32
 		)
 		if err := r.Scan(&id, &ip, &port, &proto, &name, &product, &version, &cpeStr, &banner,
-			&state, &firstSeen, &lastSeen, &overrides, &hostnames, &techs, &cveCount, &cveSeverity); err != nil {
+			&state, &firstSeen, &lastSeen, &overrides, &hostnames, &techs, &cveCount, &cveSeverity,
+			&respMS, &prevMS); err != nil {
 			return ServiceItem{}, err
 		}
 		scan := ServiceFields{Name: name, Product: product, Version: version}
@@ -267,6 +289,7 @@ func ListServices(ctx context.Context, pool *pgxpool.Pool, f ServiceFilter) ([]S
 				FirstSeen: firstSeen, LastSeen: lastSeen, Overrides: objectOrEmpty(overrides),
 			},
 			Hostnames: hostnames, Technologies: techs, CVECount: cveCount, CVESeverity: cveSeverity,
+			ResponseMS: respMS, Slow: slow(respMS, prevMS),
 		}, nil
 	})
 	if err != nil {
@@ -526,4 +549,16 @@ func vendorProduct(cpe string) string {
 		return ""
 	}
 	return parts[0] + ":" + parts[1]
+}
+
+// slow applies httpx.Slow to nullable response times.
+func slow(ms, prev *int32) bool {
+	if ms == nil {
+		return false
+	}
+	p := -1
+	if prev != nil {
+		p = int(*prev)
+	}
+	return httpx.Slow(int(*ms), p)
 }

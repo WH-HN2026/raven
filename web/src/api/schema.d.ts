@@ -978,7 +978,9 @@ export interface components {
             /**
              * @description Scan list stats (candidates, not_included, excluded, rejected, warnings, batch_size) from the start;
              *     when finished also batches, batches_done/failed/stopped, duration_ms_sum, duration_ms_max,
-             *     services_open; `reason` for an empty scan list.
+             *     services_open; `reason` for an empty scan list. Runs with the httpx stage add http_slow (open
+             *     services with a slow response) and http_unresponsive (open services that answered HTTP in the
+             *     previous run of the profile and not in this one).
              */
             stats: {
                 [key: string]: unknown;
@@ -1122,6 +1124,10 @@ export interface components {
             cve_count: number;
             /** @enum {string} */
             cve_severity: "" | "Info" | "Low" | "Medium" | "High" | "Critical";
+            /** @description slowest latest HTTP response time of the service in ms (httpx); null if unknown */
+            response_ms: number | null;
+            /** @description response_ms is at least 2000 ms, or at least 3x the previous observation's and 500 ms */
+            slow: boolean;
         };
         ServiceList: {
             items: components["schemas"]["ServiceItem"][];
@@ -1167,6 +1173,10 @@ export interface components {
             run_id: number | null;
             /** Format: date-time */
             observed_at: string;
+            /** @description httpx response time in ms; null if unknown */
+            response_ms: number | null;
+            /** @description response_ms is at least 2000 ms, or at least 3x the previous observation's of this URL and 500 ms */
+            slow: boolean;
         };
         CveHit: {
             /** @example CVE-2021-41773 */
@@ -1255,6 +1265,10 @@ export interface components {
             services_new: number;
             services_gone: number;
             services_changed: number;
+            /** @description changed services with the `slow` field */
+            services_slow?: number;
+            /** @description changed services with the `http_unresponsive` field */
+            services_http_unresponsive?: number;
         };
         HostChange: {
             ip: string;
@@ -1272,6 +1286,8 @@ export interface components {
             version: string;
             title: string;
             technologies: string[];
+            /** @description slowest URL's httpx response time in ms; absent without an HTTP answer */
+            response_ms?: number;
         };
         ServiceChange: {
             ip: string;
@@ -1281,8 +1297,12 @@ export interface components {
             before: components["schemas"]["ServiceFingerprint"] | null;
             /** @description null for gone services */
             after: components["schemas"]["ServiceFingerprint"] | null;
-            /** @description changed fields (only for changed services) */
-            fields: ("name" | "product" | "version" | "title" | "technologies")[];
+            /**
+             * @description changed fields (only for changed services). `slow`: the response time became slow (at least
+             *     2000 ms, or 3x the previous run's and 500 ms); `http_unresponsive`: the port is still open but
+             *     gave no HTTP answer in this run, after one in the previous run.
+             */
+            fields: ("name" | "product" | "version" | "title" | "technologies" | "slow" | "http_unresponsive")[];
         };
         RunDiff: {
             from: components["schemas"]["DiffRun"];

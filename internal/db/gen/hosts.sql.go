@@ -173,7 +173,11 @@ SELECT DISTINCT ON (o.service_id, o.url)
     COALESCE(raven_dec(o.headers_enc), '')::text AS headers,
     COALESCE(raven_dec(o.cookies_enc), '')::text AS cookies,
     COALESCE(raven_dec(o.tls_cert_enc), '')::text AS tls_cert,
-    o.redirects, o.technologies, o.favicon_hash, o.run_id, o.observed_at
+    o.redirects, o.technologies, o.favicon_hash, o.run_id, o.observed_at, o.response_ms,
+    (SELECT p.response_ms FROM http_observations p
+     WHERE p.service_id = o.service_id AND p.url = o.url
+       AND (p.observed_at, p.id) < (o.observed_at, o.id)
+     ORDER BY p.observed_at DESC, p.id DESC LIMIT 1) AS prev_response_ms
 FROM http_observations o
 JOIN services s ON s.id = o.service_id
 WHERE s.ip = $1
@@ -181,19 +185,21 @@ ORDER BY o.service_id, o.url, o.observed_at DESC, o.id DESC
 `
 
 type ListLatestHTTPObservationsRow struct {
-	ID           int64           `json:"id"`
-	ServiceID    int64           `json:"service_id"`
-	Url          string          `json:"url"`
-	Status       pgtype.Int4     `json:"status"`
-	Title        string          `json:"title"`
-	Headers      string          `json:"headers"`
-	Cookies      string          `json:"cookies"`
-	TlsCert      string          `json:"tls_cert"`
-	Redirects    json.RawMessage `json:"redirects"`
-	Technologies []string        `json:"technologies"`
-	FaviconHash  string          `json:"favicon_hash"`
-	RunID        *int64          `json:"run_id"`
-	ObservedAt   time.Time       `json:"observed_at"`
+	ID             int64           `json:"id"`
+	ServiceID      int64           `json:"service_id"`
+	Url            string          `json:"url"`
+	Status         pgtype.Int4     `json:"status"`
+	Title          string          `json:"title"`
+	Headers        string          `json:"headers"`
+	Cookies        string          `json:"cookies"`
+	TlsCert        string          `json:"tls_cert"`
+	Redirects      json.RawMessage `json:"redirects"`
+	Technologies   []string        `json:"technologies"`
+	FaviconHash    string          `json:"favicon_hash"`
+	RunID          *int64          `json:"run_id"`
+	ObservedAt     time.Time       `json:"observed_at"`
+	ResponseMs     pgtype.Int4     `json:"response_ms"`
+	PrevResponseMs pgtype.Int4     `json:"prev_response_ms"`
 }
 
 // The latest observation per (service, URL) of one host.
@@ -220,6 +226,8 @@ func (q *Queries) ListLatestHTTPObservations(ctx context.Context, ip netip.Addr)
 			&i.FaviconHash,
 			&i.RunID,
 			&i.ObservedAt,
+			&i.ResponseMs,
+			&i.PrevResponseMs,
 		); err != nil {
 			return nil, err
 		}

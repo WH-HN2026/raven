@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/WH-HN2026/raven/internal/db/gen"
@@ -78,6 +79,8 @@ type HTTPObservation struct {
 	FaviconHash  string            `json:"favicon_hash"`
 	RunID        *int64            `json:"run_id"`
 	ObservedAt   time.Time         `json:"observed_at"`
+	ResponseMS   *int32            `json:"response_ms"` // httpx response time (V7)
+	Slow         bool              `json:"slow"`        // httpx.Slow against the previous observation of the URL
 }
 
 // Observation is one host-level up/down result of a run.
@@ -197,6 +200,7 @@ func Get(ctx context.Context, pool *pgxpool.Pool, ip netip.Addr) (*Detail, error
 			Headers: decodeHeaders(o.Headers), Cookies: decodeStrings(o.Cookies), TLSCert: o.TlsCert,
 			Redirects: decodeStrings(string(o.Redirects)), Technologies: o.Technologies,
 			FaviconHash: o.FaviconHash, RunID: o.RunID, ObservedAt: o.ObservedAt,
+			ResponseMS: int4(o.ResponseMs), Slow: slow(int4(o.ResponseMs), int4(o.PrevResponseMs)),
 		})
 		for _, t := range o.Technologies {
 			if !techs[t] {
@@ -217,4 +221,11 @@ func Get(ctx context.Context, pool *pgxpool.Pool, ip netip.Addr) (*Detail, error
 		d.Timeline = append(d.Timeline, Observation{RunID: o.RunID, Up: o.Up, ObservedAt: o.ObservedAt})
 	}
 	return d, nil
+}
+
+func int4(v pgtype.Int4) *int32 {
+	if !v.Valid {
+		return nil
+	}
+	return &v.Int32
 }

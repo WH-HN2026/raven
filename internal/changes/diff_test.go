@@ -121,9 +121,10 @@ func TestDiff(t *testing.T) {
 			want: summary{changed: map[string][]string{"10.0.0.1:80": {"title", "technologies"}}},
 		},
 		{
-			name: "technologies not compared without httpx data in one run",
+			name: "technologies not compared without httpx data in one run; the lost answer is http_unresponsive (V7)",
 			a:    snap(up, svc{ip: ipA, port: 80, fp: web, http: true}),
 			b:    snap(up, svc{ip: ipA, port: 80, fp: Fingerprint{Name: "http", Product: "nginx", Version: "1.24", Title: "Home"}}),
+			want: summary{changed: map[string][]string{"10.0.0.1:80": {FieldHTTPUnresponsive}}},
 		},
 		{
 			name: "no fingerprint source in one run (e.g. imported) is not a change",

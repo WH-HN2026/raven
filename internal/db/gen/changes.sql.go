@@ -10,6 +10,8 @@ import (
 	"encoding/json"
 	"net/netip"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const getChangeRun = `-- name: GetChangeRun :one
@@ -164,19 +166,20 @@ func (q *Queries) LatestDoneRun(ctx context.Context, profileID *int64) (LatestDo
 }
 
 const listRunHTTPObservations = `-- name: ListRunHTTPObservations :many
-SELECT s.ip, s.port, s.proto, o.url, o.title, o.technologies
+SELECT s.ip, s.port, s.proto, o.url, o.title, o.technologies, o.response_ms
 FROM http_observations o JOIN services s ON s.id = o.service_id
 WHERE o.run_id = $1
 ORDER BY s.ip, s.port, s.proto, o.url, o.observed_at DESC
 `
 
 type ListRunHTTPObservationsRow struct {
-	Ip           netip.Addr `json:"ip"`
-	Port         int32      `json:"port"`
-	Proto        string     `json:"proto"`
-	Url          string     `json:"url"`
-	Title        string     `json:"title"`
-	Technologies []string   `json:"technologies"`
+	Ip           netip.Addr  `json:"ip"`
+	Port         int32       `json:"port"`
+	Proto        string      `json:"proto"`
+	Url          string      `json:"url"`
+	Title        string      `json:"title"`
+	Technologies []string    `json:"technologies"`
+	ResponseMs   pgtype.Int4 `json:"response_ms"`
 }
 
 func (q *Queries) ListRunHTTPObservations(ctx context.Context, runID *int64) ([]ListRunHTTPObservationsRow, error) {
@@ -195,6 +198,7 @@ func (q *Queries) ListRunHTTPObservations(ctx context.Context, runID *int64) ([]
 			&i.Url,
 			&i.Title,
 			&i.Technologies,
+			&i.ResponseMs,
 		); err != nil {
 			return nil, err
 		}

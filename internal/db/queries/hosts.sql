@@ -26,7 +26,11 @@ SELECT DISTINCT ON (o.service_id, o.url)
     COALESCE(raven_dec(o.headers_enc), '')::text AS headers,
     COALESCE(raven_dec(o.cookies_enc), '')::text AS cookies,
     COALESCE(raven_dec(o.tls_cert_enc), '')::text AS tls_cert,
-    o.redirects, o.technologies, o.favicon_hash, o.run_id, o.observed_at
+    o.redirects, o.technologies, o.favicon_hash, o.run_id, o.observed_at, o.response_ms,
+    (SELECT p.response_ms FROM http_observations p
+     WHERE p.service_id = o.service_id AND p.url = o.url
+       AND (p.observed_at, p.id) < (o.observed_at, o.id)
+     ORDER BY p.observed_at DESC, p.id DESC LIMIT 1) AS prev_response_ms
 FROM http_observations o
 JOIN services s ON s.id = o.service_id
 WHERE s.ip = @ip

@@ -20,7 +20,22 @@ import (
 
 	"github.com/WH-HN2026/raven/internal/pipeline"
 	"github.com/WH-HN2026/raven/internal/scanner"
+	"github.com/WH-HN2026/raven/internal/scanner/httpx"
 )
+
+// Change fields that are states rather than fingerprint differences (V7).
+const (
+	FieldSlow             = "slow"
+	FieldHTTPUnresponsive = "http_unresponsive"
+)
+
+// ms returns a response time, -1 when unknown.
+func ms(v *int) int {
+	if v == nil {
+		return -1
+	}
+	return *v
+}
 
 // SvcKey identifies a service within a run. run_observations has no proto
 // column; we scan TCP only.
@@ -36,6 +51,9 @@ type Fingerprint struct {
 	Version      string   `json:"version"`
 	Title        string   `json:"title"`
 	Technologies []string `json:"technologies"`
+	// ResponseMS is the slowest URL's httpx response time; nil = no HTTP
+	// answer or unknown. Not compared as a field: see "slow".
+	ResponseMS *int `json:"response_ms,omitempty"`
 }
 
 // Service is one open port in a run's snapshot.
@@ -83,6 +101,7 @@ type HTTPRow struct {
 	Port         uint16
 	Title        string
 	Technologies []string
+	ResponseMS   *int // nil = unknown
 }
 
 // BuildSnapshot assembles a run's state. nmapObs are the parsed nmap
@@ -133,6 +152,10 @@ func BuildSnapshot(obs []ObsRow, nmapObs []scanner.Observation, http []HTTPRow) 
 		sv.HasHTTP = true
 		sv.httpTitle = cmp.Or(sv.httpTitle, h.Title)
 		sv.FP.Technologies = append(sv.FP.Technologies, h.Technologies...)
+		if h.ResponseMS != nil && (sv.FP.ResponseMS == nil || *h.ResponseMS > *sv.FP.ResponseMS) {
+			ms := *h.ResponseMS
+			sv.FP.ResponseMS = &ms
+		}
 	}
 	for _, sv := range s.Services {
 		sv.FP.Title = sv.nmapTitle
@@ -184,7 +207,11 @@ type Result struct {
 //   - services are compared only on hosts up in both runs, so a host going
 //     down doesn't make its services "gone" (they're listed on the host);
 //   - changed: name / product / version / title / technologies differ;
-//     a field is compared only if both runs have a source for it.
+//     a field is compared only if both runs have a source for it;
+//   - changed with "slow" (V7): b's response time is slow (httpx.Slow,
+//     against a's) and a's wasn't above the fixed threshold;
+//   - changed with "http_unresponsive" (V7): httpx answered in a, the port
+//     is still open in b, but httpx got no answer in b.
 func Diff(a, b Snapshot) Result {
 	shared := pipeline.SharedStages(a.Stages, b.Stages)
 	compareHTTP := pipeline.HasStage(shared, pipeline.StageHTTPX)
@@ -295,6 +322,13 @@ func changedFields(a, b *Service, compareHTTP bool) []string {
 	}
 	if compareHTTP && a.HasHTTP && b.HasHTTP && !slices.Equal(a.FP.Technologies, b.FP.Technologies) {
 		f = append(f, "technologies")
+	}
+	if compareHTTP && a.HasHTTP && b.HasHTTP && httpx.Slow(ms(b.FP.ResponseMS), ms(a.FP.ResponseMS)) &&
+		ms(a.FP.ResponseMS) < httpx.SlowMS {
+		f = append(f, FieldSlow)
+	}
+	if compareHTTP && a.HasHTTP && !b.HasHTTP {
+		f = append(f, FieldHTTPUnresponsive)
 	}
 	return f
 }

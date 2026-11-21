@@ -140,6 +140,7 @@ type HttpObservation struct {
 	RunID        *int64          `json:"run_id"`
 	ObservedAt   time.Time       `json:"observed_at"`
 	Cpes         []string        `json:"cpes"`
+	ResponseMs   pgtype.Int4     `json:"response_ms"`
 }
 
 type Profile struct {

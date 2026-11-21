@@ -12,6 +12,7 @@ import (
 	"github.com/WH-HN2026/raven/internal/cve"
 	"github.com/WH-HN2026/raven/internal/db/gen"
 	"github.com/WH-HN2026/raven/internal/scanner"
+	"github.com/WH-HN2026/raven/internal/scanner/httpx"
 )
 
 // techCPEs maps technology strings (e.g. "WordPress:6.4.2", "Apache Tomcat:9.0.50")
@@ -91,6 +92,11 @@ func (s *Service) ingestHTTP(ctx context.Context, q *gen.Queries, b gen.Batch, r
 		params.TechnologiesJson = append(params.TechnologiesJson, string(techs))
 		params.CpesJson = append(params.CpesJson, string(cpesJSON))
 		params.FaviconHashes = append(params.FaviconHashes, h.FaviconHash)
+		responseMS := int32(-1) // stored as NULL
+		if h.ResponseMS != nil {
+			responseMS = int32(*h.ResponseMS)
+		}
+		params.ResponseMs = append(params.ResponseMs, responseMS)
 		params.ObservedAts = append(params.ObservedAts, at)
 	}
 	if len(params.Ips) > 0 {
@@ -117,5 +123,56 @@ func (s *Service) ingestHTTP(ctx context.Context, q *gen.Queries, b gen.Batch, r
 	}); err != nil {
 		return fmt.Errorf("ingest HTTP artifact: %w", err)
 	}
+	return nil
+}
+
+// HTTPStats are the run stats of the httpx stage (V7), compared with the
+// previous finished run of the same profile.
+type HTTPStats struct {
+	// Slow: open services whose response time is slow (httpx.Slow).
+	Slow int
+	// Unresponsive: open services that gave no HTTP answer in this run but
+	// had one in the previous run (port open, HTTP silent).
+	Unresponsive int
+}
+
+// CountHTTPStats classifies rows of the RunHTTPResponses query.
+func CountHTTPStats(rows []gen.RunHTTPResponsesRow) HTTPStats {
+	var st HTTPStats
+	for _, r := range rows {
+		switch {
+		case r.CurHttp && httpx.Slow(int(r.CurMs), prevMS(r)):
+			st.Slow++
+		case !r.CurHttp && r.PrevHttp:
+			st.Unresponsive++
+		}
+	}
+	return st
+}
+
+func prevMS(r gen.RunHTTPResponsesRow) int {
+	if !r.PrevHttp {
+		return -1
+	}
+	return int(r.PrevMs)
+}
+
+// httpRunStats adds http_slow and http_unresponsive to a finished run's
+// stats when the run had the httpx stage.
+func httpRunStats(ctx context.Context, q *gen.Queries, runID int64, stats map[string]any) error {
+	run, err := q.GetChangeRun(ctx, runID)
+	if err != nil {
+		return fmt.Errorf("get run %d: %w", runID, err)
+	}
+	if !HasStage(EffectiveStages(run.Stages), StageHTTPX) {
+		return nil
+	}
+	rows, err := q.RunHTTPResponses(ctx, &runID)
+	if err != nil {
+		return fmt.Errorf("http responses of run %d: %w", runID, err)
+	}
+	st := CountHTTPStats(rows)
+	stats["http_slow"] = st.Slow
+	stats["http_unresponsive"] = st.Unresponsive
 	return nil
 }

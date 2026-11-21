@@ -87,14 +87,14 @@ func (q *Queries) InsertHTTPObservation(ctx context.Context, arg InsertHTTPObser
 const insertHTTPObservations = `-- name: InsertHTTPObservations :execrows
 INSERT INTO http_observations (
     service_id, url, status, title, headers_enc, cookies_enc, tls_cert_enc,
-    redirects, technologies, cpes, favicon_hash, run_id, observed_at
+    redirects, technologies, cpes, favicon_hash, response_ms, run_id, observed_at
 )
 SELECT s.id, o.url, o.status, o.title,
        raven_enc(o.headers), raven_enc(o.cookies), raven_enc(NULLIF(o.tls_cert, '')),
        o.redirects::jsonb,
        COALESCE(ARRAY(SELECT jsonb_array_elements_text(o.technologies::jsonb)), '{}'::text[]),
        COALESCE(ARRAY(SELECT jsonb_array_elements_text(o.cpes::jsonb)), '{}'::text[]),
-       o.favicon_hash, $1, o.observed_at
+       o.favicon_hash, NULLIF(o.response_ms, -1), $1, o.observed_at
 FROM (
     SELECT unnest($2::inet[]) AS ip,
            unnest($3::int[]) AS port,
@@ -108,7 +108,8 @@ FROM (
            unnest($11::text[]) AS technologies,
            unnest($12::text[]) AS cpes,
            unnest($13::text[]) AS favicon_hash,
-           unnest($14::timestamptz[]) AS observed_at
+           unnest($14::int[]) AS response_ms, -- -1 = unknown
+           unnest($15::timestamptz[]) AS observed_at
 ) AS o
 JOIN services s ON s.ip = o.ip AND s.port = o.port AND s.proto = 'tcp'
 `
@@ -127,6 +128,7 @@ type InsertHTTPObservationsParams struct {
 	TechnologiesJson []string     `json:"technologies_json"`
 	CpesJson         []string     `json:"cpes_json"`
 	FaviconHashes    []string     `json:"favicon_hashes"`
+	ResponseMs       []int32      `json:"response_ms"`
 	ObservedAts      []time.Time  `json:"observed_ats"`
 }
 
@@ -145,10 +147,71 @@ func (q *Queries) InsertHTTPObservations(ctx context.Context, arg InsertHTTPObse
 		arg.TechnologiesJson,
 		arg.CpesJson,
 		arg.FaviconHashes,
+		arg.ResponseMs,
 		arg.ObservedAts,
 	)
 	if err != nil {
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const runHTTPResponses = `-- name: RunHTTPResponses :many
+WITH prev AS (
+    SELECT r.id FROM runs r, runs t
+    WHERE t.id = $1 AND r.profile_id = t.profile_id AND r.status = 'done' AND r.id <> t.id
+      AND (COALESCE(r.started_at, '-infinity'::timestamptz), r.id)
+          < (COALESCE(t.started_at, '-infinity'::timestamptz), t.id)
+    ORDER BY r.started_at DESC NULLS LAST, r.id DESC LIMIT 1
+)
+SELECT c.ip, c.port::int AS port,
+    COALESCE(bool_or(o.run_id = $1), false)::bool AS cur_http,
+    COALESCE(max(o.response_ms) FILTER (WHERE o.run_id = $1), -1)::int AS cur_ms,
+    COALESCE(bool_or(o.run_id <> $1), false)::bool AS prev_http,
+    COALESCE(max(o.response_ms) FILTER (WHERE o.run_id <> $1), -1)::int AS prev_ms
+FROM run_observations c
+JOIN services s ON s.ip = c.ip AND s.port = c.port AND s.proto = 'tcp'
+JOIN http_observations o ON o.service_id = s.id
+WHERE c.run_id = $1 AND c.port IS NOT NULL AND c.up
+  AND (o.run_id = $1 OR o.run_id = (SELECT id FROM prev))
+GROUP BY c.ip, c.port
+`
+
+type RunHTTPResponsesRow struct {
+	Ip       netip.Addr `json:"ip"`
+	Port     int32      `json:"port"`
+	CurHttp  bool       `json:"cur_http"`
+	CurMs    int32      `json:"cur_ms"`
+	PrevHttp bool       `json:"prev_http"`
+	PrevMs   int32      `json:"prev_ms"`
+}
+
+// V7: per open service of a run, whether httpx answered in this run and in the
+// previous finished run of the same profile, and the slowest URL's response
+// time in each (-1 if unknown).
+func (q *Queries) RunHTTPResponses(ctx context.Context, runID *int64) ([]RunHTTPResponsesRow, error) {
+	rows, err := q.db.Query(ctx, runHTTPResponses, runID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []RunHTTPResponsesRow{}
+	for rows.Next() {
+		var i RunHTTPResponsesRow
+		if err := rows.Scan(
+			&i.Ip,
+			&i.Port,
+			&i.CurHttp,
+			&i.CurMs,
+			&i.PrevHttp,
+			&i.PrevMs,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

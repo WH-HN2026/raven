@@ -1323,7 +1323,9 @@ components:
           description: |
             Scan list stats (candidates, not_included, excluded, rejected, warnings, batch_size) from the start;
             when finished also batches, batches_done/failed/stopped, duration_ms_sum, duration_ms_max,
-            services_open; `reason` for an empty scan list.
+            services_open; `reason` for an empty scan list. Runs with the httpx stage add http_slow (open
+            services with a slow response) and http_unresponsive (open services that answered HTTP in the
+            previous run of the profile and not in this one).
     RunList:
       type: object
       required: [items, total]
@@ -1447,12 +1449,14 @@ components:
       allOf:
         - $ref: "#/components/schemas/Service"
         - type: object
-          required: [hostnames, technologies, cve_count, cve_severity]
+          required: [hostnames, technologies, cve_count, cve_severity, response_ms, slow]
           properties:
             hostnames: { type: array, items: { type: string } }
             technologies: { type: array, items: { type: string } }
             cve_count: { type: integer }
             cve_severity: { type: string, enum: ["", Info, Low, Medium, High, Critical] }
+            response_ms: { type: [integer, "null"], description: "slowest latest HTTP response time of the service in ms (httpx); null if unknown" }
+            slow: { type: boolean, description: "response_ms is at least 2000 ms, or at least 3x the previous observation's and 500 ms" }
     ServiceList:
       type: object
       required: [items, total]
@@ -1481,7 +1485,7 @@ components:
       description: |
         Decrypted on read. Storage format (for the S4 ingest): headers_enc = JSON object of strings,
         cookies_enc = JSON array of strings, tls_cert_enc = text; redirects jsonb = array of strings.
-      required: [id, service_id, url, status, title, headers, cookies, tls_cert, redirects, technologies, favicon_hash, run_id, observed_at]
+      required: [id, service_id, url, status, title, headers, cookies, tls_cert, redirects, technologies, favicon_hash, run_id, observed_at, response_ms, slow]
       properties:
         id: { type: integer, format: int64 }
         service_id: { type: integer, format: int64 }
@@ -1496,6 +1500,8 @@ components:
         favicon_hash: { type: string }
         run_id: { type: [integer, "null"], format: int64 }
         observed_at: { type: string, format: date-time }
+        response_ms: { type: [integer, "null"], description: "httpx response time in ms; null if unknown" }
+        slow: { type: boolean, description: "response_ms is at least 2000 ms, or at least 3x the previous observation's of this URL and 500 ms" }
 
     CveHit:
       type: object
@@ -1588,6 +1594,8 @@ components:
         services_new: { type: integer }
         services_gone: { type: integer }
         services_changed: { type: integer }
+        services_slow: { type: integer, description: "changed services with the `slow` field" }
+        services_http_unresponsive: { type: integer, description: "changed services with the `http_unresponsive` field" }
     HostChange:
       type: object
       required: [ip, other_run, ports]
@@ -1604,6 +1612,7 @@ components:
         version: { type: string }
         title: { type: string }
         technologies: { type: array, items: { type: string } }
+        response_ms: { type: integer, description: "slowest URL's httpx response time in ms; absent without an HTTP answer" }
     ServiceChange:
       type: object
       required: [ip, port, proto, before, after, fields]
@@ -1615,8 +1624,11 @@ components:
         after: { oneOf: [{ $ref: "#/components/schemas/ServiceFingerprint" }, { type: "null" }], description: "null for gone services" }
         fields:
           type: array
-          items: { type: string, enum: [name, product, version, title, technologies] }
-          description: changed fields (only for changed services)
+          items: { type: string, enum: [name, product, version, title, technologies, slow, http_unresponsive] }
+          description: |
+            changed fields (only for changed services). `slow`: the response time became slow (at least
+            2000 ms, or 3x the previous run's and 500 ms); `http_unresponsive`: the port is still open but
+            gave no HTTP answer in this run, after one in the previous run.
     RunDiff:
       type: object
       required: [from, to, summary, hosts_new, hosts_gone, services_new, services_gone, services_changed, truncated]

@@ -32,7 +32,7 @@ SELECT raven_dec(content_enc)::text AS content FROM artifacts
 WHERE run_id = $1 AND scanner = 'nmap' ORDER BY id;
 
 -- name: ListRunHTTPObservations :many
-SELECT s.ip, s.port, s.proto, o.url, o.title, o.technologies
+SELECT s.ip, s.port, s.proto, o.url, o.title, o.technologies, o.response_ms
 FROM http_observations o JOIN services s ON s.id = o.service_id
 WHERE o.run_id = $1
 ORDER BY s.ip, s.port, s.proto, o.url, o.observed_at DESC;

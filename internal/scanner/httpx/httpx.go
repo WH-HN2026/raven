@@ -26,6 +26,28 @@ var _ scanner.Scanner = (*Scanner)(nil)
 func (*Scanner) Name() string         { return "httpx" }
 func (*Scanner) DojoScanType() string { return "httpx Scan" }
 
+// TimeoutSeconds is httpx's per-request timeout. A URL that sends no answer
+// in this time is reported as failed (no HTTP answer) for the run.
+const TimeoutSeconds = 10
+
+// Slowness thresholds (V7). A service is slow when its response time is at
+// least SlowMS, or at least SlowFactor times its previous run's and at least
+// SlowMinMS (so a 1 ms → 4 ms jitter on a fast service doesn't count).
+const (
+	SlowMS     = 2000
+	SlowFactor = 3
+	SlowMinMS  = 500
+)
+
+// Slow reports whether a response time of ms is slow given the previous
+// run's prev. Negative values mean "unknown".
+func Slow(ms, prev int) bool {
+	if ms < 0 {
+		return false
+	}
+	return ms >= SlowMS || (prev >= 0 && ms >= SlowMinMS && ms >= SlowFactor*prev)
+}
+
 // BuildArgs is the complete flag allowlist. Targets go over stdin. Restrict
 // redirects to the original hostname and every dial to the eligible batch IPs,
 // including dials for favicons linked in response bodies.
@@ -56,7 +78,7 @@ func BuildArgs(ips, resolvers []netip.Addr, opt scanner.Options) ([]string, erro
 	return []string{
 		"-silent", "-json", "-title", "-sc", "-irh", "-tls-grab", "-favicon", "-td",
 		"-fhr", "-include-chain", "-nfs", "-disable-update-check", "-auth=false", "-cdn=false",
-		"-rl", strconv.Itoa(opt.RateLimit), "-allow", strings.Join(addresses, ","),
+		"-rl", strconv.Itoa(opt.RateLimit), "-timeout", strconv.Itoa(TimeoutSeconds), "-allow", strings.Join(addresses, ","),
 		"-r", strings.Join(nameservers, ","),
 	}, nil
 }
