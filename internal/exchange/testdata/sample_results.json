@@ -1,0 +1,83 @@
+{
+  "format": "asi-results",
+  "version": 1,
+  "scanned_at": "2026-11-21T14:00:00Z",
+  "hosts": [
+    {
+      "ip": "172.30.0.10",
+      "up": true,
+      "hostnames": [
+        "web.lab"
+      ],
+      "services": [
+        {
+          "port": 80,
+          "proto": "tcp",
+          "name": "http",
+          "product": "nginx",
+          "version": "1.24.0",
+          "cpe": "igor_sysoev:nginx:1.24.0",
+          "http": [
+            {
+              "url": "http://172.30.0.10:80",
+              "status": 200,
+              "title": "Welcome to Lab",
+              "headers": {
+                "Server": "nginx/1.24.0"
+              },
+              "cookies": [
+                "session=demo; HttpOnly"
+              ],
+              "redirects": [
+                "http://172.30.0.10:80/"
+              ],
+              "technologies": [
+                "nginx"
+              ],
+              "favicon_hash": "12345678"
+            }
+          ],
+          "matches": [
+            {
+              "template_id": "nginx-version-header",
+              "name": "Nginx Version Header",
+              "severity": "info",
+              "tags": [
+                "nginx",
+                "tech"
+              ],
+              "matcher": "header",
+              "url": "http://172.30.0.10:80/",
+              "source_url": "http://172.30.0.10:80",
+              "tech": "nginx",
+              "cpe": "igor_sysoev:nginx",
+              "version": "1.24.0",
+              "extracted": [
+                "1.24.0"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "ip": "172.30.0.11",
+      "up": true,
+      "services": [
+        {
+          "port": 22,
+          "proto": "tcp",
+          "name": "ssh",
+          "product": "OpenSSH",
+          "version": "9.6",
+          "cpe": "openbsd:openssh:9.6",
+          "banner": "SSH-2.0-OpenSSH_9.6"
+        }
+      ]
+    },
+    {
+      "ip": "172.30.0.20",
+      "up": false
+    }
+  ]
+}

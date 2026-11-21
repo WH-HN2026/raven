@@ -1,0 +1,4 @@
+ip,up,hostnames,port,proto,name,product,version,cpe,banner,url,http_status,http_title,technologies,favicon_hash,redirects,match_template_id,match_name,match_severity,match_tags,match_matcher,match_url,match_tech,match_extracted
+172.30.0.10,true,web.lab,80,tcp,http,nginx,1.24.0,igor_sysoev:nginx:1.24.0,,http://172.30.0.10:80,200,Welcome to Lab,nginx,12345678,http://172.30.0.10:80/,nginx-version-header,Nginx Version Header,info,nginx;tech,header,http://172.30.0.10:80/,nginx,1.24.0
+172.30.0.11,true,,22,tcp,ssh,OpenSSH,9.6,openbsd:openssh:9.6,SSH-2.0-OpenSSH_9.6,,,,,,,,,,,,,,
+172.30.0.20,false,,,,,,,,,,,,,,,,,,,,,,
