@@ -23,22 +23,23 @@ const TimelineRows = 20
 
 // Host is one list item (and the base of the detail).
 type Host struct {
-	IP           netip.Addr      `json:"ip"`
-	Hostnames    []string        `json:"hostnames"`
-	State        string          `json:"state"`
-	FirstSeen    time.Time       `json:"first_seen"`
-	LastSeen     time.Time       `json:"last_seen"`
-	MissCount    int32           `json:"miss_count"`
-	DojoAssetID  *int64          `json:"dojo_asset_id"`
-	OpenServices int64           `json:"open_service_count"`
-	OpenPorts    []int32         `json:"open_ports"`
-	Technologies []string        `json:"technologies"`
-	Owner        string          `json:"owner"`
-	Criticality  string          `json:"criticality"`
-	UserTags     []string        `json:"user_tags"`
-	Overrides    json.RawMessage `json:"overrides"`
-	EditedBy     *string         `json:"edited_by"`
-	EditedAt     *time.Time      `json:"edited_at"`
+	IP                 netip.Addr      `json:"ip"`
+	Hostnames          []string        `json:"hostnames"`
+	State              string          `json:"state"`
+	FirstSeen          time.Time       `json:"first_seen"`
+	LastSeen           time.Time       `json:"last_seen"`
+	MissCount          int32           `json:"miss_count"`
+	DojoAssetID        *int64          `json:"dojo_asset_id"`
+	OpenServices       int64           `json:"open_service_count"`
+	ActiveFindingCount int64           `json:"active_finding_count"`
+	OpenPorts          []int32         `json:"open_ports"`
+	Technologies       []string        `json:"technologies"`
+	Owner              string          `json:"owner"`
+	Criticality        string          `json:"criticality"`
+	UserTags           []string        `json:"user_tags"`
+	Overrides          json.RawMessage `json:"overrides"`
+	EditedBy           *string         `json:"edited_by"`
+	EditedAt           *time.Time      `json:"edited_at"`
 }
 
 // Service is a service with the user overrides applied: Name/Product/Version
@@ -121,7 +122,8 @@ func List(ctx context.Context, pool *pgxpool.Pool, f Filter) ([]Host, int64, err
 	items, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (Host, error) {
 		var h Host
 		err := r.Scan(&h.IP, &h.Hostnames, &h.State, &h.FirstSeen, &h.LastSeen, &h.MissCount, &h.DojoAssetID,
-			&h.Owner, &h.Criticality, &h.UserTags, &h.Overrides, &h.EditedBy, &h.EditedAt, &h.OpenServices, &h.OpenPorts, &h.Technologies)
+			&h.Owner, &h.Criticality, &h.UserTags, &h.Overrides, &h.EditedBy, &h.EditedAt,
+			&h.OpenServices, &h.OpenPorts, &h.Technologies, &h.ActiveFindingCount)
 		h.Overrides = objectOrEmpty(h.Overrides)
 		return h, err
 	})
@@ -159,6 +161,7 @@ func Get(ctx context.Context, pool *pgxpool.Pool, ip netip.Addr) (*Detail, error
 			MissCount: h.MissCount, DojoAssetID: h.DojoAssetID, Owner: h.Owner, Criticality: h.Criticality,
 			UserTags: h.UserTags, Overrides: objectOrEmpty(h.Overrides), EditedBy: editedBy, EditedAt: h.EditedAt,
 			OpenPorts: []int32{}, Technologies: []string{},
+			ActiveFindingCount: h.ActiveFindingCount,
 		},
 		Notes: h.Notes,
 	}

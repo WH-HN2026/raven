@@ -75,7 +75,7 @@ func TestDashboardAPI(t *testing.T) {
 	exec(`INSERT INTO dojo_findings (id, ip, title, severity, active) VALUES
 		(1, '172.30.0.10', 'a', 'Critical', true), (2, '172.30.0.10', 'b', 'High', true),
 		(3, '172.30.0.12', 'c', 'High', true), (4, '172.30.0.12', 'New device found', 'Info', true),
-		(5, '172.30.0.10', 'closed', 'Critical', false)`)
+		(5, '172.30.0.10', 'closed', 'Critical', false), (6, NULL, 'No IP', 'Info', true)`)
 	exec(`INSERT INTO cve_matches (ip, port, proto, product, cpe, version, cve_ids, hits, max_cvss, kev, distro, confidence, severity, matched_at, updated_at) VALUES
 		('172.30.0.12', 8080, 'tcp', 'nginx', 'f5:nginx', '1.18.0', '{CVE-2021-23017}', '[]', 7.7, 0, false, 'high', 'High', now(), now()),
 		('172.30.0.10', 80, 'tcp', 'Apache httpd', 'apache:http_server', '2.4.49', '{CVE-2021-42013,CVE-2021-41773}', '[]', 9.8, 2, false, 'high', 'Critical', now(), now())`)
@@ -133,7 +133,7 @@ func TestDashboardAPI(t *testing.T) {
 	for _, s := range d.Findings.BySeverity {
 		sev[s.Severity] = s.Count
 	}
-	if want := map[string]int{"Critical": 1, "High": 2, "Medium": 0, "Low": 0, "Info": 1}; !reflect.DeepEqual(sev, want) || d.Findings.Total != 4 {
+	if want := map[string]int{"Critical": 1, "High": 2, "Medium": 0, "Low": 0, "Info": 2}; !reflect.DeepEqual(sev, want) || d.Findings.Total != 5 {
 		t.Errorf("findings %+v", d.Findings)
 	}
 	if want := (dashboard.Hosts{Active: 2, Unstable: 1, Inactive: 1, ServicesOpen: 2}); d.Hosts != want {

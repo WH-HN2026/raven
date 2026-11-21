@@ -22,7 +22,7 @@ import {
   buttonClass,
 } from '../../components/ui'
 import { HostDetailsPanel, ServiceEditCells, detailKey } from './HostEdit'
-import { fmtTime, stateTone } from './ui'
+import { fmtTime, hostFindingsLink, stateTone } from './ui'
 
 type Service = Schemas['Service']
 type HttpObservation = Schemas['HttpObservation']
@@ -66,6 +66,7 @@ export function HostDetailPage() {
             <div>
               First seen {fmtTime(h.first_seen)} · last seen {fmtTime(h.last_seen)}
             </div>
+            <Link to={hostFindingsLink(h.ip)}>Active findings: {h.active_finding_count}</Link>
           </>
         }
       >

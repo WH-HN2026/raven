@@ -1308,7 +1308,7 @@ components:
     # ── hosts / services ──
     Host:
       type: object
-      required: [ip, hostnames, state, first_seen, last_seen, miss_count, dojo_asset_id, open_service_count, open_ports, technologies, owner, criticality, user_tags, overrides]
+      required: [ip, hostnames, state, first_seen, last_seen, miss_count, dojo_asset_id, open_service_count, active_finding_count, open_ports, technologies, owner, criticality, user_tags, overrides]
       properties:
         ip: { type: string }
         hostnames: { type: array, items: { type: string } }
@@ -1318,6 +1318,7 @@ components:
         miss_count: { type: integer }
         dojo_asset_id: { type: [integer, "null"], format: int64 }
         open_service_count: { type: integer, description: "services in state open (port/proto pairs)" }
+        active_finding_count: { type: integer, format: int64, description: "findings with active=true in the Dojo mirror for this IP" }
         open_ports: { type: array, items: { type: integer }, description: "distinct open ports, ascending" }
         technologies: { type: array, items: { type: string }, description: "from HTTP observations, sorted" }
         # user-owned
@@ -1607,7 +1608,7 @@ components:
       required: [by_severity, total]
       properties:
         by_severity: { type: array, items: { $ref: "#/components/schemas/DashboardSeverityCount" }, description: "all five, Critical first" }
-        total: { type: integer }
+        total: { type: integer, description: "total findings with active=true in the Dojo mirror" }
     DashboardHosts:
       type: object
       required: [active, unstable, inactive, services_open]

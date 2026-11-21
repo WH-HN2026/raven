@@ -19,6 +19,7 @@ const host: Schemas['Host'] = {
   miss_count: 0,
   dojo_asset_id: null,
   open_service_count: 0,
+  active_finding_count: 0,
   open_ports: [],
   technologies: [],
   owner: '',

@@ -82,11 +82,12 @@ const listColumns = `h.ip, h.hostnames, h.state, h.first_seen, h.last_seen, h.mi
 	(SELECT count(*) FROM services s WHERE s.ip = h.ip AND s.state = 'open') AS open_services,
 	ARRAY(SELECT DISTINCT s.port FROM services s WHERE s.ip = h.ip AND s.state = 'open' ORDER BY s.port) AS open_ports,
 	ARRAY(SELECT DISTINCT t FROM services s JOIN http_observations o ON o.service_id = s.id,
-		unnest(o.technologies) AS t WHERE s.ip = h.ip ORDER BY t) AS technologies`
+		unnest(o.technologies) AS t WHERE s.ip = h.ip ORDER BY t) AS technologies,
+	(SELECT count(*) FROM dojo_findings f WHERE f.ip = h.ip AND f.active) AS active_finding_count`
 
 // buildList returns the page query and the count query; the count query
 // uses args without the trailing limit/offset. Paginating in a subquery before
-// computing the correlated service/technology aggregates ensures Postgres only
+// computing the correlated service, technology and findings aggregates ensures Postgres only
 // evaluates them for the returned page, not for all offset+limit rows.
 func buildList(f Filter) (list, count string, args []any) {
 	where, args := buildWhere(f)
