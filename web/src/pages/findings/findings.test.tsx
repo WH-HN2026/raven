@@ -237,4 +237,41 @@ describe('Findings page', () => {
     renderAs('viewer', <FindingsPage />, { path: '/findings?ip=x', route: '/findings' })
     expect(await screen.findByText(/Cannot load findings: ip must be an IP address or CIDR/)).toBeInTheDocument()
   })
+
+  it('shows pagination controls both above and below the findings table', async () => {
+    const spy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input)
+      if (url.includes('limit=1')) return json({ items: [finding], total: 120 })
+      if (url.includes('offset=50')) return json({ items: [{ ...finding, id: 8, title: 'Page 2 finding' }], total: 120 })
+      return json({ items: [finding], total: 120 })
+    })
+    renderAs('viewer', <FindingsPage />, { path: '/findings', route: '/findings' })
+    expect(await screen.findByText('Telnet service exposed')).toBeInTheDocument()
+
+    const table = screen.getByRole('table')
+    const ranges = screen.getAllByText('1–50 of 120')
+    const prevButtons = screen.getAllByRole('button', { name: 'Previous' })
+    const nextButtons = screen.getAllByRole('button', { name: 'Next' })
+    expect(ranges).toHaveLength(2)
+    expect(prevButtons).toHaveLength(2)
+    expect(nextButtons).toHaveLength(2)
+    expect(prevButtons[0]).toBeDisabled()
+    expect(prevButtons[1]).toBeDisabled()
+    expect(nextButtons[0]).toBeEnabled()
+    expect(nextButtons[1]).toBeEnabled()
+    // First Pagination sits before the table, second sits after it.
+    expect(ranges[0]!.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(table.compareDocumentPosition(ranges[1]!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+
+    // Clicking the top Next button advances to page 2.
+    fireEvent.click(nextButtons[0]!)
+    expect(await screen.findByText('Page 2 finding')).toBeInTheDocument()
+    expect(screen.getAllByText('51–100 of 120')).toHaveLength(2)
+    expect(urls(spy)).toContain('/api/findings?limit=50&offset=50')
+
+    // Clicking the bottom Previous button returns to page 1.
+    fireEvent.click(screen.getAllByRole('button', { name: 'Previous' })[1]!)
+    expect(await screen.findByText('Telnet service exposed')).toBeInTheDocument()
+    expect(screen.getAllByText('1–50 of 120')).toHaveLength(2)
+  })
 })

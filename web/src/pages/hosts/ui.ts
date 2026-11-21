@@ -9,7 +9,7 @@ export type HostState = Schemas['HostState']
 export const hostStates: HostState[] = ['active', 'unstable', 'inactive']
 export const hostStateLabel: Record<HostState, string> = {
   active: 'Active',
-  unstable: 'Intermittent',
+  unstable: 'Unstable',
   inactive: 'Inactive',
 }
 

@@ -64,6 +64,7 @@ describe('WorkflowBuilder', () => {
 
     expect(nmap).toBeChecked()
     expect(nmap).toBeDisabled()
+    expect(screen.queryByText('Always on')).not.toBeInTheDocument()
     expect(httpx).toBeChecked()
     expect(httpx).toBeEnabled()
     expect(nuclei).toBeChecked()

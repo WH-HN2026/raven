@@ -19,7 +19,7 @@ describe('Dashboard per role', () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(json(dashboard))
     renderAs(role, <DashboardPage />)
     expect(await screen.findByRole('heading', { name: 'Changes since run #41' })).toBeInTheDocument()
-    for (const name of ['Active findings by severity', 'New devices', 'Top web technologies', 'CVE matches', 'Intermittent hosts', 'Recent runs']) {
+    for (const name of ['Active findings by severity', 'New devices', 'Top web technologies', 'CVE matches', 'Unstable hosts', 'Recent runs']) {
       expect(screen.getByRole('heading', { name })).toBeInTheDocument()
     }
     expect(screen.queryAllByRole('button').filter((b) => !b.closest('th[aria-sort]'))).toEqual([])

@@ -353,7 +353,6 @@ function ApiTokensSection({ users }: { users: User[] }) {
         <div role="status" className="flex flex-col gap-3 border border-line-strong bg-band p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge tone="new">Shown once</Badge>
               <span className="font-medium">{issued.name}</span>
               <span className="text-muted">
                 {issued.username} ({issued.role})
