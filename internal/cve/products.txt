@@ -1,0 +1,114 @@
+# Curated products for offline CVE matching (architecture §11).
+#
+# One product per line:   <Display name> = <nvd vendor:product> [...] [| <alias vendor:product> ...]
+#   - the names before "|" are fetched from NVD by `make cve-db`;
+#   - the names after "|" are CPEs our scanners report for the same product
+#     (nmap / Wappalyzer use some old vendor names) and are only mapped.
+# Blank lines and "#" comments are ignored. Keep the list to products we detect.
+
+# Web servers / proxies
+Apache httpd = apache:http_server | apache:httpd
+nginx = f5:nginx nginx:nginx | igor_sysoev:nginx
+Microsoft IIS = microsoft:internet_information_services | microsoft:iis
+lighttpd = lighttpd:lighttpd
+Apache Tomcat = apache:tomcat
+Jetty = eclipse:jetty | mortbay:jetty
+Caddy = caddyserver:caddy
+OpenResty = openresty:openresty
+Squid = squid-cache:squid
+HAProxy = haproxy:haproxy
+Varnish Cache = varnish_cache_project:varnish_cache | varnish-software:varnish_cache varnish:varnish
+Traefik = traefik:traefik | containous:traefik
+Envoy = envoyproxy:envoy
+Node.js = nodejs:node.js
+Werkzeug = palletsprojects:werkzeug | pocoo:werkzeug
+Gunicorn = gunicorn:gunicorn
+Apache Traffic Server = apache:traffic_server
+
+# Languages / frameworks
+PHP = php:php
+OpenSSL = openssl:openssl
+Express = openjsf:express | expressjs:express
+Django = djangoproject:django
+Ruby on Rails = rubyonrails:rails
+Spring Boot = vmware:spring_boot | pivotal_software:spring_boot
+Apache Struts = apache:struts
+jQuery = jquery:jquery
+
+# CMS / web apps
+WordPress = wordpress:wordpress
+Joomla = joomla:joomla\! | joomla:joomla
+Drupal = drupal:drupal
+phpMyAdmin = phpmyadmin:phpmyadmin
+Jenkins = jenkins:jenkins
+Grafana = grafana:grafana
+GitLab = gitlab:gitlab
+Gitea = gitea:gitea
+Kibana = elastic:kibana
+Elasticsearch = elastic:elasticsearch | elasticsearch:elasticsearch
+Nextcloud = nextcloud:nextcloud_server | nextcloud:nextcloud
+Roundcube = roundcube:webmail | roundcube:roundcube_webmail
+Zabbix = zabbix:zabbix
+Nagios = nagios:nagios
+SonarQube = sonarsource:sonarqube
+MediaWiki = mediawiki:mediawiki
+Moodle = moodle:moodle
+Confluence = atlassian:confluence_server atlassian:confluence_data_center | atlassian:confluence
+Jira = atlassian:jira_server atlassian:jira_data_center | atlassian:jira
+Webmin = webmin:webmin
+Apache ActiveMQ = apache:activemq
+Apache Solr = apache:solr
+MinIO = minio:minio
+RabbitMQ = vmware:rabbitmq | pivotal_software:rabbitmq rabbitmq:rabbitmq
+Keycloak = redhat:keycloak | keycloak:keycloak
+Prometheus = prometheus:prometheus
+Portainer = portainer:portainer
+Docker Engine = docker:engine | docker:docker
+Kubernetes = kubernetes:kubernetes
+Microsoft Exchange Server = microsoft:exchange_server
+Zimbra = zimbra:collaboration | synacor:zimbra_collaboration_suite
+
+# Remote access
+OpenSSH = openbsd:openssh
+Dropbear SSH = dropbear_ssh_project:dropbear_ssh | matt_johnston:dropbear_ssh_server
+libssh = libssh:libssh
+TightVNC = tightvnc:tightvnc
+RealVNC = realvnc:vnc_server | realvnc:vnc
+OpenVPN = openvpn:openvpn
+
+# FTP / mail / DNS / file
+vsftpd = beasts:vsftpd
+ProFTPD = proftpd:proftpd
+Pure-FTPd = pureftpd:pure-ftpd
+FileZilla Server = filezilla-project:filezilla_server
+Exim = exim:exim
+Postfix = postfix:postfix
+Sendmail = sendmail:sendmail
+Dovecot = dovecot:dovecot
+ISC BIND = isc:bind
+dnsmasq = thekelleys:dnsmasq
+Samba = samba:samba
+Net-SNMP = net-snmp:net-snmp
+CUPS = apple:cups | cups:cups
+
+# Databases / caches
+MySQL = oracle:mysql | mysql:mysql
+MariaDB = mariadb:mariadb
+PostgreSQL = postgresql:postgresql
+Redis = redis:redis | redislabs:redis
+MongoDB = mongodb:mongodb
+Memcached = memcached:memcached
+Microsoft SQL Server = microsoft:sql_server
+Apache CouchDB = apache:couchdb
+InfluxDB = influxdata:influxdb
+
+# Appliances / network devices
+FortiOS = fortinet:fortios
+Pulse Connect Secure = ivanti:connect_secure pulsesecure:pulse_connect_secure
+Citrix ADC = citrix:netscaler_application_delivery_controller citrix:application_delivery_controller_firmware | citrix:application_delivery_controller
+MikroTik RouterOS = mikrotik:routeros
+Cisco IOS XE = cisco:ios_xe
+SonicOS = sonicwall:sonicos
+PAN-OS = paloaltonetworks:pan-os
+Synology DSM = synology:diskstation_manager
+QNAP QTS = qnap:qts
