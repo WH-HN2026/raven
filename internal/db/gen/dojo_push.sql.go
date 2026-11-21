@@ -104,3 +104,19 @@ func (q *Queries) SetHostDojoAsset(ctx context.Context, arg SetHostDojoAssetPara
 	_, err := q.db.Exec(ctx, setHostDojoAsset, arg.DojoAssetID, arg.Ip)
 	return err
 }
+
+const setHostDojoAssets = `-- name: SetHostDojoAssets :exec
+UPDATE hosts h SET dojo_asset_id = m.asset_id
+FROM (SELECT unnest($1::inet[]) AS ip, unnest($2::bigint[]) AS asset_id) AS m
+WHERE h.ip = m.ip
+`
+
+type SetHostDojoAssetsParams struct {
+	Ips      []netip.Addr `json:"ips"`
+	AssetIds []int64      `json:"asset_ids"`
+}
+
+func (q *Queries) SetHostDojoAssets(ctx context.Context, arg SetHostDojoAssetsParams) error {
+	_, err := q.db.Exec(ctx, setHostDojoAssets, arg.Ips, arg.AssetIds)
+	return err
+}

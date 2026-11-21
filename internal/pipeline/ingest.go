@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/netip"
 	"time"
@@ -19,16 +20,34 @@ type IngestInput struct {
 	Seen           time.Time
 }
 
+type obsServiceFP struct {
+	Proto   string `json:"proto,omitempty"`
+	Name    string `json:"name,omitempty"`
+	Product string `json:"product,omitempty"`
+	Version string `json:"version,omitempty"`
+	Title   string `json:"title,omitempty"`
+}
+
 // Ingest writes a batch into hosts / services / run_observations /
 // artifacts using q (the caller's transaction). Only scan-owned columns
 // are written (architecture §5): see internal/db/queries/ingest.sql.
 func Ingest(ctx context.Context, q *gen.Queries, in IngestInput) error {
 	p := in.Plan
-	for _, h := range p.Hosts {
-		if err := q.UpsertScannedHost(ctx, gen.UpsertScannedHostParams{
-			Ip: h.IP, Hostnames: nonNil(h.Hostnames), Seen: in.Seen,
+	if len(p.Hosts) > 0 {
+		ips := make([]netip.Addr, len(p.Hosts))
+		hostnamesJSON := make([]string, len(p.Hosts))
+		for i, h := range p.Hosts {
+			ips[i] = h.IP
+			b, err := json.Marshal(nonNil(h.Hostnames))
+			if err != nil {
+				return fmt.Errorf("ingest host %s hostnames: %w", h.IP, err)
+			}
+			hostnamesJSON[i] = string(b)
+		}
+		if err := q.UpsertScannedHosts(ctx, gen.UpsertScannedHostsParams{
+			Seen: in.Seen, Ips: ips, HostnamesJson: hostnamesJSON,
 		}); err != nil {
-			return fmt.Errorf("ingest host %s: %w", h.IP, err)
+			return fmt.Errorf("ingest hosts: %w", err)
 		}
 	}
 
@@ -48,12 +67,43 @@ func Ingest(ctx context.Context, q *gen.Queries, in IngestInput) error {
 		}
 	}
 
-	for _, s := range p.Services {
-		if err := q.UpsertScannedService(ctx, gen.UpsertScannedServiceParams{
-			Ip: s.IP, Port: int32(s.Port), Proto: s.Proto, Name: s.Name, Product: s.Product,
-			Version: s.Version, Cpe: s.CPE, Banner: s.Banner, Seen: in.Seen,
-		}); err != nil {
-			return fmt.Errorf("ingest service %s/%d: %w", s.IP, s.Port, err)
+	type ipPort struct {
+		ip   netip.Addr
+		port uint16
+	}
+	fpBySvc := make(map[ipPort]string, len(p.Services))
+	if len(p.Services) > 0 {
+		n := len(p.Services)
+		params := gen.UpsertScannedServicesParams{
+			Seen:     in.Seen,
+			Ips:      make([]netip.Addr, n),
+			Ports:    make([]int32, n),
+			Protos:   make([]string, n),
+			Names:    make([]string, n),
+			Products: make([]string, n),
+			Versions: make([]string, n),
+			Cpes:     make([]string, n),
+			Banners:  make([]string, n),
+		}
+		for i, s := range p.Services {
+			params.Ips[i] = s.IP
+			params.Ports[i] = int32(s.Port)
+			params.Protos[i] = s.Proto
+			params.Names[i] = s.Name
+			params.Products[i] = s.Product
+			params.Versions[i] = s.Version
+			params.Cpes[i] = s.CPE
+			params.Banners[i] = s.Banner
+			b, err := json.Marshal(obsServiceFP{
+				Proto: s.Proto, Name: s.Name, Product: s.Product, Version: s.Version, Title: s.Title,
+			})
+			if err != nil {
+				return fmt.Errorf("ingest service %s/%d fp: %w", s.IP, s.Port, err)
+			}
+			fpBySvc[ipPort{s.IP, s.Port}] = string(b)
+		}
+		if err := q.UpsertScannedServices(ctx, params); err != nil {
+			return fmt.Errorf("ingest services: %w", err)
 		}
 	}
 
@@ -61,14 +111,17 @@ func Ingest(ctx context.Context, q *gen.Queries, in IngestInput) error {
 		ips := make([]netip.Addr, len(p.Observations))
 		ports := make([]int32, len(p.Observations))
 		ups := make([]bool, len(p.Observations))
+		fps := make([]string, len(p.Observations))
 		for i, o := range p.Observations {
 			ips[i], ups[i], ports[i] = o.IP, o.Up, int32(o.Port)
 			if o.HostLevel {
 				ports[i] = -1
+			} else if o.Up {
+				fps[i] = fpBySvc[ipPort{o.IP, o.Port}]
 			}
 		}
 		if err := q.InsertRunObservations(ctx, gen.InsertRunObservationsParams{
-			RunID: in.RunID, ObservedAt: in.Seen, Ips: ips, Ports: ports, Ups: ups,
+			RunID: in.RunID, ObservedAt: in.Seen, Ips: ips, Ports: ports, Ups: ups, ServiceFps: fps,
 		}); err != nil {
 			return fmt.Errorf("ingest: run observations: %w", err)
 		}

@@ -45,6 +45,45 @@ func (q *Queries) MergeNucleiTechnologies(ctx context.Context, arg MergeNucleiTe
 	return result.RowsAffected(), nil
 }
 
+const mergeNucleiTechnologiesBatch = `-- name: MergeNucleiTechnologiesBatch :execrows
+UPDATE http_observations AS h
+SET technologies = ARRAY(
+    SELECT DISTINCT tech
+    FROM unnest(h.technologies || COALESCE(ARRAY(SELECT jsonb_array_elements_text(m.technologies::jsonb)), '{}'::text[])) AS tech
+    ORDER BY tech
+)
+FROM (
+    SELECT unnest($2::inet[]) AS ip,
+           unnest($3::int[]) AS port,
+           unnest($4::text[]) AS url,
+           unnest($5::text[]) AS technologies
+) AS m
+JOIN services AS s ON s.ip = m.ip AND s.port = m.port AND s.proto = 'tcp'
+WHERE h.service_id = s.id AND h.run_id = $1 AND h.url = m.url
+`
+
+type MergeNucleiTechnologiesBatchParams struct {
+	RunID            *int64       `json:"run_id"`
+	Ips              []netip.Addr `json:"ips"`
+	Ports            []int32      `json:"ports"`
+	Urls             []string     `json:"urls"`
+	TechnologiesJson []string     `json:"technologies_json"`
+}
+
+func (q *Queries) MergeNucleiTechnologiesBatch(ctx context.Context, arg MergeNucleiTechnologiesBatchParams) (int64, error) {
+	result, err := q.db.Exec(ctx, mergeNucleiTechnologiesBatch,
+		arg.RunID,
+		arg.Ips,
+		arg.Ports,
+		arg.Urls,
+		arg.TechnologiesJson,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const recordNucleiMatches = `-- name: RecordNucleiMatches :execrows
 UPDATE run_observations
 SET nuclei_matches = $1::jsonb,
@@ -67,6 +106,41 @@ func (q *Queries) RecordNucleiMatches(ctx context.Context, arg RecordNucleiMatch
 		arg.RunID,
 		arg.Ip,
 		arg.Port,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const recordNucleiMatchesBatch = `-- name: RecordNucleiMatchesBatch :execrows
+UPDATE run_observations AS ro
+SET nuclei_matches = m.matches::jsonb,
+    nuclei_evidence_enc = raven_enc(m.evidence)
+FROM (
+    SELECT unnest($2::inet[]) AS ip,
+           unnest($3::int[]) AS port,
+           unnest($4::text[]) AS matches,
+           unnest($5::text[]) AS evidence
+) AS m
+WHERE ro.run_id = $1 AND ro.ip = m.ip AND ro.port = m.port AND ro.up
+`
+
+type RecordNucleiMatchesBatchParams struct {
+	RunID     int64        `json:"run_id"`
+	Ips       []netip.Addr `json:"ips"`
+	Ports     []int32      `json:"ports"`
+	Matches   []string     `json:"matches"`
+	Evidences []string     `json:"evidences"`
+}
+
+func (q *Queries) RecordNucleiMatchesBatch(ctx context.Context, arg RecordNucleiMatchesBatchParams) (int64, error) {
+	result, err := q.db.Exec(ctx, recordNucleiMatchesBatch,
+		arg.RunID,
+		arg.Ips,
+		arg.Ports,
+		arg.Matches,
+		arg.Evidences,
 	)
 	if err != nil {
 		return 0, err

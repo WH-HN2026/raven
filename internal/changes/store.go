@@ -2,6 +2,7 @@ package changes
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -149,27 +150,46 @@ func one[T gen.LatestDoneRunRow | gen.PreviousDoneRunRow](r T, err error) (RunRe
 }
 
 // LoadSnapshot reads one run's state (see the package doc for the sources).
+// When run_observations carries service_fp (written by pipeline.Ingest), it
+// skips decrypting and XML-parsing the run's nmap artifacts; otherwise it
+// falls back to parsing artifacts for legacy/seeded runs.
 func LoadSnapshot(ctx context.Context, q *gen.Queries, runID int64) (Snapshot, error) {
 	rows, err := q.ListRunObservations(ctx, runID)
 	if err != nil {
 		return Snapshot{}, fmt.Errorf("run %d observations: %w", runID, err)
 	}
 	obs := make([]ObsRow, len(rows))
+	missingFP := false
 	for i, r := range rows {
-		obs[i] = ObsRow{IP: r.Ip, Port: r.Port, Up: r.Up}
-	}
-	arts, err := q.ListRunNmapArtifacts(ctx, runID)
-	if err != nil {
-		return Snapshot{}, fmt.Errorf("run %d artifacts: %w", runID, err)
+		row := ObsRow{IP: r.Ip, Port: r.Port, Up: r.Up}
+		if r.Port >= 0 && r.Up {
+			if len(r.ServiceFp) > 0 {
+				var fp ServiceFP
+				if err := json.Unmarshal(r.ServiceFp, &fp); err == nil {
+					row.FP = &fp
+				} else {
+					missingFP = true
+				}
+			} else {
+				missingFP = true
+			}
+		}
+		obs[i] = row
 	}
 	var nmapObs []scanner.Observation
-	for _, a := range arts {
-		res, err := nmap.Parse([]byte(a))
-		if err != nil { // a broken artifact only loses fingerprints, not the diff
-			slog.Warn("changes: skip unparsable nmap artifact", "run", runID, "err", err)
-			continue
+	if missingFP {
+		arts, err := q.ListRunNmapArtifacts(ctx, runID)
+		if err != nil {
+			return Snapshot{}, fmt.Errorf("run %d artifacts: %w", runID, err)
 		}
-		nmapObs = append(nmapObs, res.Observations...)
+		for _, a := range arts {
+			res, err := nmap.Parse([]byte(a))
+			if err != nil { // a broken artifact only loses fingerprints, not the diff
+				slog.Warn("changes: skip unparsable nmap artifact", "run", runID, "err", err)
+				continue
+			}
+			nmapObs = append(nmapObs, res.Observations...)
+		}
 	}
 	hrows, err := q.ListRunHTTPObservations(ctx, &runID)
 	if err != nil {

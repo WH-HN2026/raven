@@ -13,6 +13,11 @@ WHERE ip = ANY(@ips::inet[]);
 -- name: SetHostDojoAsset :exec
 UPDATE hosts SET dojo_asset_id = @dojo_asset_id WHERE ip = @ip;
 
+-- name: SetHostDojoAssets :exec
+UPDATE hosts h SET dojo_asset_id = m.asset_id
+FROM (SELECT unnest(@ips::inet[]) AS ip, unnest(@asset_ids::bigint[]) AS asset_id) AS m
+WHERE h.ip = m.ip;
+
 -- name: AddRunDojoPushStats :exec
 -- Increments stats.dojo_push {ok, failed}; FinishRun merges its own keys with
 -- ||, so neither overwrites the other.

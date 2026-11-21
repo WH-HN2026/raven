@@ -35,6 +35,9 @@ type HTTPClient struct {
 	opt   Options
 	sem   chan struct{}
 	locks [64]sync.Mutex // serialises get-or-create per name (striped)
+
+	ttMu      sync.RWMutex
+	testTypes map[string]int64 // scan_type -> test_type id cache
 }
 
 func NewHTTPClient(baseURL, token string) *HTTPClient {
@@ -54,12 +57,16 @@ func NewHTTPClientOpts(baseURL, token string, o Options) *HTTPClient {
 	if o.Backoff <= 0 {
 		o.Backoff = 500 * time.Millisecond
 	}
+	tr := http.DefaultTransport.(*http.Transport).Clone()
+	tr.MaxIdleConnsPerHost = max(16, o.Concurrency*2)
+	tr.MaxIdleConns = max(32, o.Concurrency*4)
 	return &HTTPClient{
-		base:  strings.TrimRight(baseURL, "/"),
-		token: token,
-		hc:    &http.Client{},
-		opt:   o,
-		sem:   make(chan struct{}, o.Concurrency),
+		base:      strings.TrimRight(baseURL, "/"),
+		token:     token,
+		hc:        &http.Client{Transport: tr},
+		opt:       o,
+		sem:       make(chan struct{}, o.Concurrency),
+		testTypes: make(map[string]int64),
 	}
 }
 
@@ -309,21 +316,15 @@ func (c *HTTPClient) GetOrCreateTest(ctx context.Context, t TestSpec) (*Test, er
 	}
 	// Tests have no unique key in Dojo, so the in-process lock is all the
 	// race protection there is; RAVEN is the only writer of its tests.
-	var types Page[struct {
-		ID   int64  `json:"id"`
-		Name string `json:"name"`
-	}]
-	if err := c.do(ctx, http.MethodGet, "/api/v2/test_types/", url.Values{"name": {t.ScanType}}, nil, &types); err != nil {
-		return nil, fmt.Errorf("dojo test type %q: %w", t.ScanType, err)
-	}
-	if len(types.Results) == 0 {
-		return nil, fmt.Errorf("dojo test type %q: not found", t.ScanType)
+	typeID, err := c.testTypeID(ctx, t.ScanType)
+	if err != nil {
+		return nil, err
 	}
 	now := time.Now().UTC().Format(time.RFC3339)
 	var out Test
 	if err := c.do(ctx, http.MethodPost, "/api/v2/tests/", nil, map[string]any{
 		"engagement":   t.EngagementID,
-		"test_type":    types.Results[0].ID,
+		"test_type":    typeID,
 		"scan_type":    t.ScanType,
 		"title":        t.Title,
 		"target_start": now,
@@ -332,6 +333,30 @@ func (c *HTTPClient) GetOrCreateTest(ctx context.Context, t TestSpec) (*Test, er
 		return nil, fmt.Errorf("dojo create test %q (engagement %d): %w", t.ScanType, t.EngagementID, err)
 	}
 	return &out, nil
+}
+
+func (c *HTTPClient) testTypeID(ctx context.Context, scanType string) (int64, error) {
+	c.ttMu.RLock()
+	id, ok := c.testTypes[scanType]
+	c.ttMu.RUnlock()
+	if ok {
+		return id, nil
+	}
+	var types Page[struct {
+		ID   int64  `json:"id"`
+		Name string `json:"name"`
+	}]
+	if err := c.do(ctx, http.MethodGet, "/api/v2/test_types/", url.Values{"name": {scanType}}, nil, &types); err != nil {
+		return 0, fmt.Errorf("dojo test type %q: %w", scanType, err)
+	}
+	if len(types.Results) == 0 {
+		return 0, fmt.Errorf("dojo test type %q: not found", scanType)
+	}
+	id = types.Results[0].ID
+	c.ttMu.Lock()
+	c.testTypes[scanType] = id
+	c.ttMu.Unlock()
+	return id, nil
 }
 
 func (c *HTTPClient) ListFindings(ctx context.Context, q FindingQuery) (*Page[Finding], error) {

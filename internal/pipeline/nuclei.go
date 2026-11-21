@@ -9,7 +9,6 @@ import (
 	"net/url"
 	"os"
 
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/WH-HN2026/raven/internal/db/gen"
@@ -109,29 +108,51 @@ func (s *Service) ingestNuclei(ctx context.Context, q *gen.Queries, b gen.Batch,
 			tech[uk] = append(tech[uk], o.Tech)
 		}
 	}
-	for k, m := range byService {
-		facts, _ := json.Marshal(m.facts)
-		evidence, _ := json.Marshal(m.evidence)
-		n, err := q.RecordNucleiMatches(ctx, gen.RecordNucleiMatchesParams{
-			RunID: b.RunID, Ip: k.ip, Port: pgtype.Int4{Int32: int32(k.port), Valid: true},
-			Matches: facts, Evidence: string(evidence),
-		})
-		if err != nil {
-			return fmt.Errorf("ingest nuclei matches for %s/%d: %w", k.ip, k.port, err)
+	if len(byService) > 0 {
+		params := gen.RecordNucleiMatchesBatchParams{
+			RunID:     b.RunID,
+			Ips:       make([]netip.Addr, 0, len(byService)),
+			Ports:     make([]int32, 0, len(byService)),
+			Matches:   make([]string, 0, len(byService)),
+			Evidences: make([]string, 0, len(byService)),
 		}
-		if n != 1 {
-			return fmt.Errorf("ingest nuclei matches for %s/%d: open service observation missing", k.ip, k.port)
+		for k, m := range byService {
+			facts, _ := json.Marshal(m.facts)
+			evidence, _ := json.Marshal(m.evidence)
+			params.Ips = append(params.Ips, k.ip)
+			params.Ports = append(params.Ports, int32(k.port))
+			params.Matches = append(params.Matches, string(facts))
+			params.Evidences = append(params.Evidences, string(evidence))
+		}
+		n, err := q.RecordNucleiMatchesBatch(ctx, params)
+		if err != nil {
+			return fmt.Errorf("ingest nuclei matches: %w", err)
+		}
+		if n != int64(len(byService)) {
+			return fmt.Errorf("ingest nuclei matches: updated %d of %d (open service observation missing)", n, len(byService))
 		}
 	}
-	for k, technologies := range tech {
-		n, err := q.MergeNucleiTechnologies(ctx, gen.MergeNucleiTechnologiesParams{
-			RunID: &b.RunID, Ip: k.ip, Port: int32(k.port), Url: k.url, Technologies: technologies,
-		})
-		if err != nil {
-			return fmt.Errorf("ingest nuclei technologies for %s/%d: %w", k.ip, k.port, err)
+	if len(tech) > 0 {
+		params := gen.MergeNucleiTechnologiesBatchParams{
+			RunID:            &b.RunID,
+			Ips:              make([]netip.Addr, 0, len(tech)),
+			Ports:            make([]int32, 0, len(tech)),
+			Urls:             make([]string, 0, len(tech)),
+			TechnologiesJson: make([]string, 0, len(tech)),
 		}
-		if n == 0 {
-			return fmt.Errorf("ingest nuclei technologies for %s/%d: HTTP observation missing", k.ip, k.port)
+		for k, technologies := range tech {
+			tj, _ := json.Marshal(technologies)
+			params.Ips = append(params.Ips, k.ip)
+			params.Ports = append(params.Ports, int32(k.port))
+			params.Urls = append(params.Urls, k.url)
+			params.TechnologiesJson = append(params.TechnologiesJson, string(tj))
+		}
+		n, err := q.MergeNucleiTechnologiesBatch(ctx, params)
+		if err != nil {
+			return fmt.Errorf("ingest nuclei technologies: %w", err)
+		}
+		if n < int64(len(tech)) {
+			return fmt.Errorf("ingest nuclei technologies: updated %d of %d (HTTP observation missing)", n, len(tech))
 		}
 	}
 	if res.Raw != nil {

@@ -153,21 +153,26 @@ func (s *PushService) run(ctx context.Context, p *Pusher, a PushArgs, last bool)
 	ok, failed := 0, 0
 	newDevices := 0
 	q := gen.New(s.pool)
+	ips := make([]netip.Addr, 0, len(results))
+	assetIDs := make([]int64, 0, len(results))
 	for _, r := range results {
 		if r.Err != nil {
 			failed++
 			slog.Warn("dojo push failed", "run", a.RunID, "batch", a.BatchID, "ip", r.IP, "last", last, "err", r.Err)
 			continue
 		}
-		id := r.AssetID
-		if err := q.SetHostDojoAsset(ctx, gen.SetHostDojoAssetParams{Ip: r.IP, DojoAssetID: &id}); err != nil {
-			failed++
-			slog.Warn("dojo push: store asset id", "run", a.RunID, "batch", a.BatchID, "ip", r.IP, "err", err)
-			continue
-		}
-		ok++
+		ips = append(ips, r.IP)
+		assetIDs = append(assetIDs, r.AssetID)
 		if r.NewDevice {
 			newDevices++
+		}
+	}
+	if len(ips) > 0 {
+		if err := q.SetHostDojoAssets(ctx, gen.SetHostDojoAssetsParams{Ips: ips, AssetIds: assetIDs}); err != nil {
+			failed += len(ips)
+			slog.Warn("dojo push: store asset ids", "run", a.RunID, "batch", a.BatchID, "count", len(ips), "err", err)
+		} else {
+			ok = len(ips)
 		}
 	}
 	slog.Info("dojo push done", "run", a.RunID, "batch", a.BatchID, "ok", ok, "failed", failed,
