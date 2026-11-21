@@ -112,12 +112,22 @@ describe('RunsPage', () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) =>
       String(input).startsWith('/api/profiles')
         ? json(profiles)
-        : json({ items: [run(), run({ id: 6, status: 'done', batches_done: 4, batches_failed: 0 })], total: 2 }),
+        : json({
+            items: [
+              run({ stages: ['nmap', 'httpx', 'nuclei'] }),
+              run({ id: 6, status: 'done', batches_done: 4, batches_failed: 0, stages: ['nmap', 'httpx'] }),
+            ],
+            total: 2,
+          }),
     )
     wrap(<RunsPage />)
     const table = await screen.findByRole('table')
     expect(await within(table).findByText('#7')).toBeInTheDocument()
+    expect(within(table).getByRole('columnheader', { name: 'Workflow' })).toBeInTheDocument()
     expect(within(table).getAllByText('default')).toHaveLength(2)
+    expect(within(table).getByText('Default')).toBeInTheDocument()
+    expect(within(table).getByText('nmap')).toBeInTheDocument()
+    expect(within(table).getByText('httpx')).toBeInTheDocument()
     expect(within(table).getByText('running')).toBeInTheDocument()
     expect(within(table).getByText('done')).toBeInTheDocument()
     expect(within(table).getAllByText('1 / 3')).toHaveLength(2)
@@ -194,13 +204,15 @@ describe('RunDetailPage', () => {
           items: [batch(), batch({ id: 2, seq: 2, status: 'failed', attempts: 3, error: 'nmap: exit 1', duration_ms: 850 })],
           total: 2,
         })
-      return json(run({ status: 'failed', finished_at: '2026-11-21T10:02:00Z' }))
+      return json(run({ status: 'failed', finished_at: '2026-11-21T10:02:00Z', stages: ['nmap', 'httpx'] }))
     })
     wrap(<RunsPage />, ADMIN, '/runs/7')
     expect(await screen.findByText('12 s')).toBeInTheDocument()
     expect(screen.getByText('850 ms')).toBeInTheDocument()
     expect(screen.getByText('nmap: exit 1')).toBeInTheDocument()
     expect(screen.getByText('default')).toBeInTheDocument()
+    expect(screen.getByText('nmap')).toBeInTheDocument()
+    expect(screen.getByText('httpx')).toBeInTheDocument()
     expect(screen.getByText('2 min 0 s')).toBeInTheDocument()
   })
 
