@@ -1,0 +1,59 @@
+// Package httpapi is the thin HTTP layer: parse → call the domain package →
+// write JSON. Each area mounts its routes from its own file; keep this file
+// to one mount line per area.
+package httpapi
+
+import (
+	"net/http"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/WH-HN2026/zadanie-agh-asi/internal/auth"
+	"github.com/WH-HN2026/zadanie-agh-asi/internal/db/gen"
+	"github.com/WH-HN2026/zadanie-agh-asi/internal/httpx"
+)
+
+// Deps are the services handlers call.
+type Deps struct {
+	Pool         *pgxpool.Pool
+	Queries      *gen.Queries
+	Auth         *auth.Service
+	CookieSecure bool
+}
+
+type api struct{ Deps }
+
+func NewRouter(d Deps) http.Handler {
+	a := &api{d}
+	r := chi.NewRouter()
+	r.Use(middleware.RealIP, middleware.Recoverer, requestLog)
+
+	r.Route("/api", func(r chi.Router) {
+		r.Use(auth.CSRF, auth.Sessions(d.Auth))
+		r.NotFound(func(w http.ResponseWriter, r *http.Request) {
+			httpx.Error(w, http.StatusNotFound, "not_found", "no such endpoint")
+		})
+		r.MethodNotAllowed(func(w http.ResponseWriter, r *http.Request) {
+			httpx.Error(w, http.StatusMethodNotAllowed, "method_not_allowed", "method not allowed")
+		})
+		r.Get("/healthz", a.healthz)
+
+		a.mountAuth(r)
+		a.mountTargets(r)
+		a.mountScope(r)
+		a.mountRuns(r)
+		a.mountHosts(r)
+		a.mountFindings(r)
+		a.mountChanges(r)
+		a.mountProfiles(r)
+		a.mountSchedules(r)
+		a.mountSignatures(r)
+		a.mountExchange(r)
+		a.mountUsers(r)
+	})
+
+	r.Handle("/*", spaHandler())
+	return r
+}
