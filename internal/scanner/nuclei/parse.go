@@ -81,6 +81,11 @@ func (r record) observation() (scanner.Observation, bool) {
 		return scanner.Observation{}, false
 	}
 	matchedURL, port, ok := webURL(matched)
+	if !ok && r.Type == "http" && r.URL != "" {
+		// Active/fuzzing templates can echo unescaped payload characters in matched-at.
+		// Fall back to the clean input URL so valid matches are not dropped from PerIP.
+		matchedURL, port, ok = webURL(r.URL)
+	}
 	if !ok {
 		return scanner.Observation{}, false
 	}

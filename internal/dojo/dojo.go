@@ -177,7 +177,8 @@ type Finding struct {
 // FindingRelated is Dojo's related_fields=true block: test → engagement → asset.
 type FindingRelated struct {
 	Test *struct {
-		ID         int64 `json:"id"`
+		ID         int64  `json:"id"`
+		Title      string `json:"title"`
 		Engagement *struct {
 			ID      int64 `json:"id"`
 			Product *struct {
@@ -186,6 +187,14 @@ type FindingRelated struct {
 			} `json:"product"`
 		} `json:"engagement"`
 	} `json:"test"`
+}
+
+// TestTitle returns the finding's test title from RelatedFields ("" if absent).
+func (f *Finding) TestTitle() string {
+	if f.RelatedFields == nil || f.RelatedFields.Test == nil {
+		return ""
+	}
+	return f.RelatedFields.Test.Title
 }
 
 // Asset returns the finding's asset id and name from RelatedFields (0, "" if absent).

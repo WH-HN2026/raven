@@ -64,6 +64,20 @@ docker run --rm --network raven_lab raven-lab-tools:local nmap -n -sS -sV \
   --max-rate 100 -p 22,80,443,3306,8080 172.30.0.16/28
 ```
 
+## Aggressive stage: `nuclei_active`
+
+Reproduce the `nuclei_active` lab test against the three web fixtures (`172.30.0.17` WordPress, `172.30.0.21` Tomcat, `172.30.0.25` simulated Apache 2.4.49) on `raven_lab` only:
+
+1. Start the lab (`make lab-up`) and run the RAVEN image attached to `raven_lab` (and the shared Postgres/DefectDojo network).
+2. As `admin`, create an aggressive profile with ports `80,8080`, `nuclei_rate: 150`, and stages `["nmap", "httpx", "nuclei", "nuclei_active"]`.
+3. Add profile-level `include` scope entries for `172.30.0.17/32`, `172.30.0.21/32`, and `172.30.0.25/32`, and add those three IPs as targets.
+4. Start the run with explicit confirmation (`POST /api/runs` with `{"profile_id": <id>, "confirm_aggressive": true}`).
+5. Verify:
+   - the run finishes with `status: "done"`, `aggressive: true`, and `stats.nuclei_active_errors: 0`;
+   - an encrypted artifact with `scanner = 'nuclei_active'` is stored in `artifacts`;
+   - DefectDojo creates a separate `RAVEN: nuclei_active` Test (scan type `Nuclei Scan`) per responding IP alongside `RAVEN: nuclei`, containing findings such as `WordPress REST API User Enumeration` (`172.30.0.17`) and `Tomcat Stack Traces Enabled` (`172.30.0.21`);
+   - after Dojo sync, `/api/findings?scanner=nuclei_active` and the Findings UI show those findings with source `nuclei_active`.
+
 ## WPScan
 
 The `wpscan` aggressive stage enumerates WordPress core, plugins, themes, config backups, database exports and passive users without password attacks, login attempts or an external API token (`--no-update`, offline metadata DB baked into the RAVEN image). It runs only on live HTTP(S) URLs of the batch where `httpx` or `nuclei` detected WordPress.

@@ -59,9 +59,14 @@ func TestValidateStages(t *testing.T) {
 			wantErr: `duplicate stage "nmap"`,
 		},
 		{
-			name:    "aggressive nuclei_active rejected as unavailable",
-			in:      []string{StageNmap, StageHTTPX, StageNucleiActive},
-			wantErr: "stage nuclei_active is not available",
+			name: "aggressive nuclei_active accepted when httpx present",
+			in:   []string{StageNmap, StageHTTPX, StageNucleiActive},
+			want: []string{StageNmap, StageHTTPX, StageNucleiActive},
+		},
+		{
+			name:    "aggressive nuclei_active requires httpx",
+			in:      []string{StageNmap, StageNucleiActive},
+			wantErr: "stage nuclei_active requires httpx",
 		},
 		{
 			name:    "aggressive nikto rejected as unavailable",

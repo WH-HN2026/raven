@@ -225,6 +225,13 @@ func (s *PushService) load(ctx context.Context, a PushArgs) (PushBatch, error) {
 			return PushBatch{}, err
 		}
 	}
+	var activeNuclei *scanner.Result
+	if pipeline.HasStage(stages, pipeline.StageNucleiActive) {
+		activeNuclei, err = s.loadArtifact(ctx, q, a.BatchID, pipeline.StageNucleiActive)
+		if err != nil {
+			return PushBatch{}, err
+		}
+	}
 	var wp *scanner.Result
 	if pipeline.HasStage(stages, pipeline.StageWPScan) {
 		wp, err = s.loadArtifact(ctx, q, a.BatchID, pipeline.StageWPScan)
@@ -233,6 +240,7 @@ func (s *PushService) load(ctx context.Context, a PushArgs) (PushBatch, error) {
 		}
 	}
 	reports, tags := webReports(a.IPs, stages, web, detection)
+	appendNucleiActiveReports(reports, tags, a.IPs, stages, web, activeNuclei)
 	appendWPScanReports(a.IPs, stages, wp, reports, tags)
 	if pipeline.HasStage(stages, pipeline.StageZAP) {
 		zapRes, err := s.loadArtifact(ctx, q, a.BatchID, pipeline.StageZAP)

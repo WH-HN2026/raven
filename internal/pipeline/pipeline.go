@@ -65,15 +65,16 @@ func (nopHook) AfterBatch(context.Context, BatchResult) error { return nil }
 
 // Config wires the pipeline's collaborators.
 type Config struct {
-	Scanner   scanner.Scanner  // nmap
-	HTTPX     scanner.Scanner  // nil = ProjectDiscovery httpx from PATH
-	Nuclei    scanner.Scanner  // nil = ProjectDiscovery nuclei from PATH
-	WPScan    scanner.Scanner  // nil = wpscan from PATH
-	ZAP       scanner.Scanner  // nil = ZAP stage unconfigured
-	Resolver  targets.Resolver // net.DefaultResolver in production
-	Hook      BatchHook        // nil = no-op
-	BatchSize int              // 0 = adaptive sizing (S5); > 0 = fixed batch size
-	Workers   int              // 0 = maxWorkers (global concurrency cap)
+	Scanner      scanner.Scanner  // nmap
+	HTTPX        scanner.Scanner  // nil = ProjectDiscovery httpx from PATH
+	Nuclei       scanner.Scanner  // nil = ProjectDiscovery nuclei from PATH
+	NucleiActive scanner.Scanner  // nil = ProjectDiscovery nuclei aggressive mode
+	WPScan       scanner.Scanner  // nil = wpscan from PATH
+	ZAP          scanner.Scanner  // nil = ZAP stage unconfigured
+	Resolver     targets.Resolver // net.DefaultResolver in production
+	Hook         BatchHook        // nil = no-op
+	BatchSize    int              // 0 = adaptive sizing (S5); > 0 = fixed batch size
+	Workers      int              // 0 = maxWorkers (global concurrency cap)
 }
 
 type Service struct {
@@ -89,6 +90,9 @@ func New(pool *pgxpool.Pool, cfg Config) (*Service, error) {
 	}
 	if cfg.Nuclei == nil {
 		cfg.Nuclei = defaultNuclei(pool)
+	}
+	if cfg.NucleiActive == nil {
+		cfg.NucleiActive = defaultNucleiActive()
 	}
 	if cfg.WPScan == nil {
 		cfg.WPScan = defaultWPScan()

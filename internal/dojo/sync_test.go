@@ -83,6 +83,32 @@ func TestScannerFromScanType(t *testing.T) {
 	}
 }
 
+func TestScannerFromTest(t *testing.T) {
+	for _, tc := range []struct {
+		scanType, title, want string
+	}{
+		{"Nuclei Scan", "RAVEN: nuclei", "nuclei"},
+		{"Nuclei Scan", "RAVEN: nuclei_active", "nuclei_active"},
+		{"Nuclei Scan", "", "nuclei"},
+		{"Nmap Scan", "RAVEN: nmap", "nmap"},
+		{"Generic Findings Import", "RAVEN lifecycle", "raven"},
+	} {
+		if got := ScannerFromTest(tc.scanType, tc.title); got != tc.want {
+			t.Errorf("ScannerFromTest(%q, %q) = %q, want %q", tc.scanType, tc.title, got, tc.want)
+		}
+	}
+	var f Finding
+	if err := json.Unmarshal([]byte(strings.ReplaceAll(
+		strings.Replace(findingJSON, `"Nmap Scan"`, `"Nuclei Scan"`, 1),
+		`"title": "nmap"`, `"title": "RAVEN: nuclei_active"`,
+	)), &f); err != nil {
+		t.Fatal(err)
+	}
+	if p := mirrorFinding(f, time.Now().UTC()); p.Scanner != "nuclei_active" {
+		t.Fatalf("mirrorFinding scanner = %q, want nuclei_active", p.Scanner)
+	}
+}
+
 func TestPageAll(t *testing.T) {
 	data := make([]int, 600)
 	var offsets []int

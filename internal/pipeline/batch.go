@@ -131,6 +131,14 @@ func (s *Service) runBatch(ctx context.Context, a BatchArgs, jobID int64, attemp
 	if err == nil && HasStage(stages, StageNuclei) {
 		detection, err = s.scanNuclei(ctx, b, prof, web)
 	}
+	var extraIngests []batchExtraIngest
+	if err == nil && HasStage(stages, StageNucleiActive) {
+		if fn, serr := s.runNucleiActiveStage(ctx, b, prof, web); serr != nil {
+			err = serr
+		} else if fn != nil {
+			extraIngests = append(extraIngests, fn)
+		}
+	}
 	var wp *wpscanStageResult
 	if err == nil && HasStage(stages, StageWPScan) {
 		wp, err = s.scanWPScan(ctx, b, prof, web, detection)
@@ -142,7 +150,8 @@ func (s *Service) runBatch(ctx context.Context, a BatchArgs, jobID int64, attemp
 	if err == nil {
 		var plan Plan
 		plan, err = s.ingestBatch(ctx, b, prof, hostnames, res, web, detection, wp, start,
-			func(ctx context.Context, q *gen.Queries) error { return s.ingestZAP(ctx, q, b, zapRes) })
+			append(extraIngests,
+				func(ctx context.Context, q *gen.Queries) error { return s.ingestZAP(ctx, q, b, zapRes) })...)
 		if err == nil {
 			s.afterBatch(jobCtx, b, prof, stages, plan, res)
 			return nil
