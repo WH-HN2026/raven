@@ -1,0 +1,245 @@
+[
+  {
+    "end_time": "2026-11-21 20:59:20 +0000",
+    "host": "172.30.0.19",
+    "ip": "172.30.0.19",
+    "port": 80,
+    "server_banner": null,
+    "start_time": "2026-11-21 20:58:59 +0000",
+    "vulnerabilities": [
+      {
+        "id": "999967",
+        "method": "SUHCMUPC",
+        "msg": "Web Server returns a valid response with junk HTTP methods which may cause false positives.",
+        "references": "",
+        "url": "/"
+      },
+      {
+        "id": "013587",
+        "method": "GET",
+        "msg": "Suggested security header missing: permissions-policy.",
+        "references": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Permissions-Policy",
+        "url": "/"
+      },
+      {
+        "id": "013587",
+        "method": "GET",
+        "msg": "Suggested security header missing: strict-transport-security.",
+        "references": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Strict-Transport-Security",
+        "url": "/"
+      },
+      {
+        "id": "013587",
+        "method": "GET",
+        "msg": "Suggested security header missing: content-security-policy.",
+        "references": "https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP",
+        "url": "/"
+      },
+      {
+        "id": "013587",
+        "method": "GET",
+        "msg": "Suggested security header missing: x-content-type-options.",
+        "references": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Content-Type-Options",
+        "url": "/"
+      },
+      {
+        "id": "013587",
+        "method": "GET",
+        "msg": "Suggested security header missing: referrer-policy.",
+        "references": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Referrer-Policy",
+        "url": "/"
+      },
+      {
+        "id": "600575",
+        "method": "HEAD",
+        "msg": "nginx/1.30.7 appears to be outdated (current is at least 1.31.3).",
+        "references": "",
+        "url": "/"
+      }
+    ]
+  },
+  {
+    "end_time": "2026-11-21 20:59:41 +0000",
+    "host": "172.30.0.20",
+    "ip": "172.30.0.20",
+    "port": 80,
+    "server_banner": null,
+    "start_time": "2026-11-21 20:59:20 +0000",
+    "vulnerabilities": [
+      {
+        "id": "999100",
+        "method": "GET",
+        "msg": "Uncommon header(s) 'x-environment' found, with contents: staging.",
+        "references": "",
+        "url": "/"
+      },
+      {
+        "id": "999967",
+        "method": "NECJAIVN",
+        "msg": "Web Server returns a valid response with junk HTTP methods which may cause false positives.",
+        "references": "",
+        "url": "/"
+      },
+      {
+        "id": "013587",
+        "method": "GET",
+        "msg": "Suggested security header missing: referrer-policy.",
+        "references": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Referrer-Policy",
+        "url": "/"
+      },
+      {
+        "id": "013587",
+        "method": "GET",
+        "msg": "Suggested security header missing: strict-transport-security.",
+        "references": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Strict-Transport-Security",
+        "url": "/"
+      },
+      {
+        "id": "013587",
+        "method": "GET",
+        "msg": "Suggested security header missing: x-content-type-options.",
+        "references": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Content-Type-Options",
+        "url": "/"
+      },
+      {
+        "id": "013587",
+        "method": "GET",
+        "msg": "Suggested security header missing: permissions-policy.",
+        "references": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Permissions-Policy",
+        "url": "/"
+      },
+      {
+        "id": "013587",
+        "method": "GET",
+        "msg": "Suggested security header missing: content-security-policy.",
+        "references": "https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP",
+        "url": "/"
+      }
+    ]
+  },
+  {
+    "end_time": "2026-11-21 21:00:02 +0000",
+    "host": "172.30.0.21",
+    "ip": "172.30.0.21",
+    "port": 8080,
+    "server_banner": null,
+    "start_time": "2026-11-21 20:59:41 +0000",
+    "vulnerabilities": [
+      {
+        "id": "999990",
+        "method": "OPTIONS",
+        "msg": "OPTIONS: Allowed HTTP Methods: GET, HEAD, POST, OPTIONS .",
+        "references": "",
+        "url": "/"
+      },
+      {
+        "id": "500645",
+        "method": "GET",
+        "msg": "identifies this app/server as: Apache Tomcat (possibly 5.5.26 through 8.0.15), Alfresco Community.",
+        "references": "https://en.wikipedia.org/wiki/Favicon",
+        "url": "/favicon.ico"
+      },
+      {
+        "id": "013587",
+        "method": "GET",
+        "msg": "Suggested security header missing: x-content-type-options.",
+        "references": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Content-Type-Options",
+        "url": "/"
+      },
+      {
+        "id": "013587",
+        "method": "GET",
+        "msg": "Suggested security header missing: content-security-policy.",
+        "references": "https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP",
+        "url": "/"
+      },
+      {
+        "id": "013587",
+        "method": "GET",
+        "msg": "Suggested security header missing: referrer-policy.",
+        "references": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Referrer-Policy",
+        "url": "/"
+      },
+      {
+        "id": "013587",
+        "method": "GET",
+        "msg": "Suggested security header missing: permissions-policy.",
+        "references": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Permissions-Policy",
+        "url": "/"
+      },
+      {
+        "id": "013587",
+        "method": "GET",
+        "msg": "Suggested security header missing: strict-transport-security.",
+        "references": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Strict-Transport-Security",
+        "url": "/"
+      }
+    ]
+  },
+  {
+    "end_time": "2026-11-21 21:00:23 +0000",
+    "host": "172.30.0.23",
+    "ip": "172.30.0.23",
+    "port": 443,
+    "server_banner": null,
+    "ssl_info": {
+      "altnames": "",
+      "ciphers": "TLS_AES_128_GCM_SHA256",
+      "cn": "tls-selfsigned.asi.lab",
+      "issuer": "/CN=tls-selfsigned.asi.lab",
+      "subject": "/CN=tls-selfsigned.asi.lab"
+    },
+    "start_time": "2026-11-21 21:00:02 +0000",
+    "vulnerabilities": [
+      {
+        "id": "999967",
+        "method": "QSKOFGOT",
+        "msg": "Web Server returns a valid response with junk HTTP methods which may cause false positives.",
+        "references": "",
+        "url": "/"
+      },
+      {
+        "id": "013587",
+        "method": "GET",
+        "msg": "Suggested security header missing: permissions-policy.",
+        "references": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Permissions-Policy",
+        "url": "/"
+      },
+      {
+        "id": "013587",
+        "method": "GET",
+        "msg": "Suggested security header missing: x-content-type-options.",
+        "references": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Content-Type-Options",
+        "url": "/"
+      },
+      {
+        "id": "013587",
+        "method": "GET",
+        "msg": "Suggested security header missing: referrer-policy.",
+        "references": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Referrer-Policy",
+        "url": "/"
+      },
+      {
+        "id": "013587",
+        "method": "GET",
+        "msg": "Suggested security header missing: content-security-policy.",
+        "references": "https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP",
+        "url": "/"
+      },
+      {
+        "id": "013587",
+        "method": "GET",
+        "msg": "Suggested security header missing: strict-transport-security.",
+        "references": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Strict-Transport-Security",
+        "url": "/"
+      },
+      {
+        "id": "999993",
+        "method": "GET",
+        "msg": "Hostname '172.30.0.23' does not match certificate names (CN: tls-selfsigned.asi.lab, SAN: none).",
+        "references": "https://cwe.mitre.org/data/definitions/297.html",
+        "url": "/"
+      }
+    ]
+  }
+]
