@@ -354,3 +354,24 @@ func TestParseMultipleCPEs(t *testing.T) {
 		t.Fatalf("service CPEs = %v, want %v", got, want)
 	}
 }
+
+func TestPerIPCompactCapacity(t *testing.T) {
+	var b bytes.Buffer
+	b.WriteString(`<?xml version="1.0"?><nmaprun start="1700000000">` + "\n")
+	for i := range 200 {
+		ip := netip.AddrFrom4([4]byte{10, 65, byte(i / 256), byte(i % 256)})
+		b.WriteString(`<host starttime="1" endtime="2"><status state="up"/><address addr="` + ip.String() + `" addrtype="ipv4"/><hostnames></hostnames><ports><port protocol="tcp" portid="80"><state state="open"/><service name="http" product="nginx"/></port></ports></host>` + "\n")
+	}
+	b.WriteString("</nmaprun>\n")
+	raw := b.Bytes()
+	res, err := Parse(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	target := netip.MustParseAddr("10.65.0.100")
+	one := res.PerIP(target)
+	checkDojoShape(t, one, target)
+	if cap(one) > len(one)*2+128 {
+		t.Fatalf("PerIP over-allocated backing buffer: len=%d cap=%d (raw=%d)", len(one), cap(one), len(raw))
+	}
+}
