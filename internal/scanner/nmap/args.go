@@ -21,9 +21,9 @@ var AllowedScripts = []string{"http-title", "http-headers", "ssl-cert", "banner"
 type valueKind int
 
 const (
-	noValue    valueKind = iota // -sS
-	separate                    // -p 80, --max-rate 100 (or --max-rate=100 for long flags)
-	attached                    // -PS22,80 (value glued to the flag)
+	noValue  valueKind = iota // -sS
+	separate                  // -p 80, --max-rate 100 (or --max-rate=100 for long flags)
+	attached                  // -PS22,80 (value glued to the flag)
 )
 
 type flagRule struct {
