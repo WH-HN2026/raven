@@ -508,7 +508,7 @@ paths:
     get:
       tags: [profiles]
       operationId: listProfiles
-      description: stub
+      description: All scan profiles, ordered by name (read). Used by the Runs page to pick a profile.
       parameters:
         - { $ref: "#/components/parameters/Limit" }
         - { $ref: "#/components/parameters/Offset" }
@@ -1247,9 +1247,10 @@ components:
       allOf:
         - $ref: "#/components/schemas/ProfileInput"
         - type: object
-          required: [id]
+          required: [id, nmap_max_rate, enabled]
           properties:
             id: { type: integer, format: int64 }
+            created_at: { type: string, format: date-time }
     ProfileList:
       type: object
       required: [items, total]

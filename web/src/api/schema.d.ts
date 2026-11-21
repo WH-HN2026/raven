@@ -421,7 +421,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description stub */
+        /** @description All scan profiles, ordered by name (read). Used by the Runs page to pick a profile. */
         get: operations["listProfiles"];
         put?: never;
         /** @description stub */
@@ -985,6 +985,8 @@ export interface components {
         Profile: components["schemas"]["ProfileInput"] & {
             /** Format: int64 */
             id: number;
+            /** Format: date-time */
+            created_at?: string;
         };
         ProfileList: {
             items: components["schemas"]["Profile"][];

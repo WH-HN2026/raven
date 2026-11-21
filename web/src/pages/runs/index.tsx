@@ -1,11 +1,13 @@
-import { Placeholder } from '../../components/Placeholder'
 import type { AppRoute } from '../types'
+import { RunDetailPage } from './RunDetailPage'
+import { RunsPage } from './RunsPage'
 
 export const routes: AppRoute[] = [
   {
     path: '/runs',
-    element: <Placeholder title="Runs" task="W2" />,
+    element: <RunsPage />,
     perm: 'read',
     nav: { label: 'Runs', order: 60 },
   },
+  { path: '/runs/:id', element: <RunDetailPage />, perm: 'read' },
 ]

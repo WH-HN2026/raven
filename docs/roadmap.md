@@ -65,7 +65,7 @@ M0 is sequential and blocking. Do it in **one** worktree, as fast as possible, t
 
 **Track W — Web UI**
 - [x] **W1 Targets & Scope pages.** (needs S1 API) Manual form, CSV/JSON upload with a preview of parsed entries + errors, black/whitelist editor.
-- [ ] **W2 Runs page.** (needs S3 API) Start a run for a profile, live progress (polling), batches with durations, stop button.
+- [x] **W2 Runs page.** (needs S3 API) Start a run for a profile, live progress (polling), batches with durations, stop button.
 - [ ] **W3 Hosts list + detail.** (needs S3 API) Filterable list (state, port, tech, tag), detail with services and HTTP observations.
 
 ## M2 — Scored features
