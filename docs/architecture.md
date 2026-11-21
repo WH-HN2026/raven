@@ -332,7 +332,8 @@ The rules come in three layers. **Always** holds for every workflow. **Default w
 ### Always (every workflow)
 
 - **Scope:** only in-scope targets of the run's profile are scanned: no target is scanned unless it matches some include entry of that profile. The global blacklist (exclude list) is applied after every expansion step (CIDR, domain resolution, vhost URLs), and exclusions always win.
-- **Lab only from dev machines:** scan only the local lab (`compose.lab.yml`) or the organizers' lab. Never the internet, the host network, or AGH ranges.
+- **Lab only from dev machines:** Scan targets (dev machines): only (1) our lab (`make lab-up`, raven_lab 172.30.0.0/24), (2) the organizers' stacks from lab/organizers/, reached at the Docker host's bridge address (172.17.0.1) on their published ports only, through the "Organizers' lab" profile, or (3) the organizers' lab at the event. Never the internet, other hosts on the LAN, the host's LAN address, or AGH ranges.
+- **Organizers' files are verbatim:** never edit anything in `lab/organizers/` (`make lab-verify` checks `SHA256SUMS`). Adapt RAVEN around them (ports, profiles, networks), never the other way round.
 - **Intensity:** every tool runs with a rate limit and a time cap (the batch `ctx` deadline plus a per-tool limit). Cancelling `ctx` kills the process.
 - **Credentials:** no login attempts and no credential or password brute-forcing anywhere (wpscan password attack off, nikto credential tests off).
 - **No DoS:** no DoS templates, DoS tuning or flood options.
@@ -382,7 +383,8 @@ Gating:
 compose.yml                 # the deployment: raven + raven-db + DefectDojo (via include)
 deploy/dojo.compose.yml     # DefectDojo 3.5.202 services copied from its repo, images pinned
 deploy/Dockerfile           # multi-stage: node (web build) → go (binary) → runtime with nmap + httpx + nuclei + templates (+ nikto, wpscan, pinned; AG3/AG4)
-compose.lab.yml             # local test lab (task L1), separate network, never needed in prod
+compose.lab.yml             # our test lab (task L1), separate network, never needed in prod
+lab/organizers/             # the organizers' lab configs, verbatim (SHA256SUMS), never needed in prod
 .env.example                # every variable, with safe defaults; copied to .env
 scripts/gen-env.sh          # creates .env with random secrets (encryption key, passwords, Dojo secret key)
 ```
@@ -392,12 +394,28 @@ scripts/gen-env.sh          # creates .env with random secrets (encryption key, 
 | `raven` | built from `deploy/Dockerfile` | 8000 | `cap_add: [NET_RAW, NET_ADMIN]`; on the default network and the lab network; runs migrations on start |
 | `raven-db` | `postgres:18` | 5433 (dev only) | volume `raven-db-data`; `log_statement=none`; healthcheck |
 | `zap` (compose profile `aggressive`, AG5) | official ZAP image, pinned tag | none (internal only) | started only with `--profile aggressive`; `raven` drives it over its API on the internal network; attached to the lab network to reach targets |
-| DefectDojo (`nginx`, `uwsgi`, `celeryworker`, `celerybeat`, `initializer`, `postgres`, `valkey`) | official `defectdojo/*:3.5.202` | 8080 | unchanged from upstream except the pinned tag and `DD_ADMIN_PASSWORD` coming from `.env` |
+| DefectDojo (`nginx`, `uwsgi`, `celeryworker`, `celerybeat`, `initializer`, `postgres`, `valkey`) | official `defectdojo/*:3.5.202` | 18080 (`DD_PORT`) | unchanged from upstream except the pinned tag and `DD_ADMIN_PASSWORD` coming from `.env` |
 
 - **No manual Dojo token.** If `RAVEN_DOJO_TOKEN` is empty, `raven` waits for Dojo to be healthy and gets a token via `POST /api/v2/api-token-auth/` with `DD_ADMIN_USER`/`DD_ADMIN_PASSWORD`. It then creates the `RAVEN` organization and the `RAVEN Planning` asset if they're missing.
 - **Startup order:** `depends_on` with `condition: service_healthy` on `raven-db`. The Dojo wait is a retry loop inside `raven`, because Dojo's first boot (migrations) takes minutes.
 - **Dev:** `make infra-up` = `docker compose up -d raven-db nginx uwsgi celeryworker celerybeat initializer postgres valkey` (everything except `raven`). The Go binary then runs on the host via `make dev`.
-- **Scanning network:** by default `raven` scans from the bridge network; it is attached to the lab network for the local lab. If the organizers' lab needs L2 host discovery (ARP), set `network_mode: host` on `raven` and point `RAVEN_DOJO_URL` at `localhost:8080`. That's a one-line override and is documented in the README.
+- **Dojo host port** defaults to 18080, not 8080: the organizers' `modern` stack needs 8080 (and 80/81/443). `DD_TLS_PORT` stays 8443.
+- **Scanning network:** by default `raven` scans from the bridge network; it is attached to `raven_lab` for our lab (see "Lab scenarios").
+
+### Lab scenarios
+
+Two scenarios, chosen with `make`. Only one lab stack runs at a time.
+
+| | Ours (default, `LAB=ours`) | Organizers' (`LAB=organizers`) |
+|---|---|---|
+| Files | `compose.lab.yml` (task L1) | their files, verbatim, in `lab/organizers/` (`README.md`, `quickstart.sh`, `docker-compose-*.yml`, `traefik/`), guarded by `SHA256SUMS` + `make lab-verify` |
+| Start / stop | `make lab-up` / `make lab-down` | `make lab-up LAB=organizers STACK=quickstart\|custom-network\|modern\|modern-proxy\|vulnerable` (default `quickstart` = their `./quickstart.sh up`), `make lab-down LAB=organizers STACK=…`, `make lab-change` (= their `./quickstart.sh change`). Make only `cd`s into `lab/organizers/` and runs their own commands; for `modern-proxy`: `cp -n .env.example .env`, then `docker compose --env-file .env -f docker-compose-modern-proxy.yml up -d` (`lab/organizers/.env` is gitignored) |
+| Network | internal `raven_lab`, 172.30.0.0/24; `raven` is attached to it | their own networks; ports published on the Docker host (0.0.0.0) |
+| What RAVEN scans | 172.30.0.0/24 | only 172.17.0.1, on their published ports, through the seeded profile "Organizers' lab" |
+
+- **"Organizers' lab" profile:** seeded, **not** aggressive, target `172.17.0.1`, ports `21,80,81,443,2223,3001,5673,6379,8080,8081,8085,8086,8088-8090,8474,8787,8888,15432,15673`. RAVEN's 8000 and Dojo's port are not in the list, so RAVEN never scans itself; Postgres is bound to 127.0.0.1.
+- **172.17.0.1** is the `docker0` gateway (check with `docker network inspect bridge`). It is reachable from the `raven` container and from `make dev` on the host; loopback stays rejected by `internal/targets`.
+- **Known risks:** a host firewall may block container→host traffic to 172.17.0.1. Their stacks publish on 0.0.0.0 with default credentials, as their README warns: run them only on a machine that isn't exposed to the network.
 
 Configuration (env, all in `.env`):
 

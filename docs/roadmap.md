@@ -34,7 +34,7 @@ M0 is sequential and blocking. Do it in **one** worktree, as fast as possible, t
   - `.env.example` + `scripts/gen-env.sh`.
   - `raven` gets its Dojo token itself from the admin credentials.
   - `make infra-up` starts everything except `raven`.
-  - Done when `docker compose up -d --build` on a clean clone gives a working app on :8000 and Dojo on :8080, with no manual steps.
+  - Done when `docker compose up -d --build` on a clean clone gives a working app on :8000 and Dojo on :18080 (default `DD_PORT`; was :8080 before LB1), with no manual steps.
 - [x] **F2 DB baseline.**
   - goose (timestamp names, embedded) + sqlc config; pgx pool with `raven.enc_key` set in `AfterConnect`.
   - Baseline migration: `pgcrypto`, `raven_enc`/`raven_dec`, and **all core tables** from architecture §5, so later tasks rarely touch the same migration.
@@ -122,7 +122,7 @@ M0 is sequential and blocking. Do it in **one** worktree, as fast as possible, t
 - [x] **W12 Import/Export page.** UI for P3: upload scan results (RAVEN JSON/CSV, nmap XML, nuclei JSONL, .nessus) with the import result; export buttons (JSON/CSV with the current filters) on Hosts, Findings, Changes and Targets.
 
 **Track L — Lab**
-- [x] **L1 Local test lab.** `compose.lab.yml` on an isolated docker network: WordPress, Joomla or Drupal, nginx with `/admin`, an app with `X-Environment: staging`, Tomcat, a fake IoT banner (e.g. a small Go service), a TLS service with a self-signed/expired cert, **two or three services that only announce known-vulnerable versions** (e.g. a tiny Go server sending `Server: Apache/2.4.49`, an SSH banner `OpenSSH_7.4`) so CVE matching can be demoed without real vulnerable software, and **one flapping container** (toggled by a script) for unstable-host testing. Until the organizers' lab arrives, **all dev scans target only this network.**
+- [x] **L1 Local test lab.** `compose.lab.yml` on an isolated docker network: WordPress, Joomla or Drupal, nginx with `/admin`, an app with `X-Environment: staging`, Tomcat, a fake IoT banner (e.g. a small Go service), a TLS service with a self-signed/expired cert, **two or three services that only announce known-vulnerable versions** (e.g. a tiny Go server sending `Server: Apache/2.4.49`, an SSH banner `OpenSSH_7.4`) so CVE matching can be demoed without real vulnerable software, and **one flapping container** (toggled by a script) for unstable-host testing. Dev scans target only this network or the organizers' stacks run verbatim from `lab/organizers/` (Track LB, architecture §9).
 
 ## M3 — Polish & extras
 
@@ -151,16 +151,22 @@ M0 is sequential and blocking. Do it in **one** worktree, as fast as possible, t
 - [x] **AG4 wpscan.** (needs AG1) Pinned in the image, WordPress URLs only, enumeration without passwords or API token, "Wpscan" push, versions into offline CVE matching, lab test against the lab WordPress.
 - [x] **AG5 ZAP.** (needs AG1) ZAP service under compose profile `aggressive`, API-driven spider + capped active scan, "ZAP Scan" push, lab test.
 
-**Track V — vuln_lab (organizers' example lab)** · design and task specs: [`vuln-lab.md`](vuln-lab.md)
-- [x] **V0 vuln_lab design + roadmap track V.** Organizers' files kept verbatim in `lab/vuln/organizers/`; `docs/vuln-lab.md` with topology (`raven_vlab`, 10.77.0.0/16), service inventory, scenarios mapped to the jury test points, scale layer, one-command demo, safety, task specs.
-- [x] **V1 RAVEN-safe vuln lab.** All four organizers' stacks together on the internal `raven_vlab` network: `compose.vlab.yml` with static IPs, no published ports, pinned images, healthchecks and an init job; `lab/vuln/` attach override, `targets.csv`, `ports.txt`; `scripts/lib/raven-api.sh`; `make vlab-pull/vlab-up/vlab-down/vlab-ps`. (needs V0)
-- [x] **V2 Scenario driver.** `scripts/vlab-scenario.sh` with every scenario step (service gone/back, upgrade, new device, host off/on, Toxiproxy toxics, signature, edits, import/export, roles, time window, Dojo planned engagement, `walk`), idempotent, printing what to check. (needs V1)
+**Track V — vuln_lab (superseded by Track LB, reverted 2026-11-21)**
+- [x] **V0 vuln_lab design + roadmap track V.** Organizers' files kept verbatim in `lab/vuln/organizers/`; `docs/vuln-lab.md` with topology (`raven_vlab`, 10.77.0.0/16), service inventory, scenarios mapped to the jury test points, scale layer, one-command demo, safety, task specs. — *reverted in LB1*
+- [x] **V1 RAVEN-safe vuln lab.** All four organizers' stacks together on the internal `raven_vlab` network: `compose.vlab.yml` with static IPs, no published ports, pinned images, healthchecks and an init job; `lab/vuln/` attach override, `targets.csv`, `ports.txt`; `scripts/lib/raven-api.sh`; `make vlab-pull/vlab-up/vlab-down/vlab-ps`. (needs V0) — *reverted in LB1*
+- [x] **V2 Scenario driver.** `scripts/vlab-scenario.sh` with every scenario step (service gone/back, upgrade, new device, host off/on, Toxiproxy toxics, signature, edits, import/export, roles, time window, Dojo planned engagement, `walk`), idempotent, printing what to check. (needs V1) — *reverted in LB1*
 - [x] **V3 Fingerprint coverage for the vuln lab.** Built-in signatures with recorded fixtures for NPM, Traefik, Toxiproxy, RabbitMQ, Adminer, phpMyAdmin at `/`, DVWA and the Gitea version; CVE aliases (`vsftpd:vsftpd`, …) and `CPEForTech` synonyms; migration adding the lab ports to the default profile. (needs V1)
-- [x] **V4 Scale layer + real-scan measurements.** One multi-address container serving up to 4,096 persona hosts in `10.77.64.0/18`, deterministic churn with expected counts, `scripts/vlab-scale.sh`; real two-run scans at 256 and 1,024 hosts measured into `docs/scale.md`. (needs V1)
-- [x] **V5 One-command demo.** `make demo` / `scripts/demo.sh`: gen-env if missing, RAVEN + Dojo + vuln lab up and attached, wait for Dojo, seed blacklist/targets/profiles/demo users through the API, Run 1; `make demo-down`, `make demo-reset`; README Demo section. (needs V1; uses V4's script when present)
-- [ ] **V6 Acceptance pass on the vuln lab.** Fresh clone, `make demo`, every scenario step as the jury would, expected-vs-actual tables in `docs/vuln-lab.md`, follow-ups. (needs V2, V3, V4, V5)
+- [x] **V4 Scale layer + real-scan measurements.** One multi-address container serving up to 4,096 persona hosts in `10.77.64.0/18`, deterministic churn with expected counts, `scripts/vlab-scale.sh`; real two-run scans at 256 and 1,024 hosts measured into `docs/scale.md`. (needs V1) — *reverted in LB1*
+- [x] **V5 One-command demo.** `make demo` / `scripts/demo.sh`: gen-env if missing, RAVEN + Dojo + vuln lab up and attached, wait for Dojo, seed blacklist/targets/profiles/demo users through the API, Run 1; `make demo-down`, `make demo-reset`; README Demo section. (needs V1; uses V4's script when present) — *reverted in LB1*
+- [ ] **V6 Acceptance pass on the vuln lab.** Fresh clone, `make demo`, every scenario step as the jury would, expected-vs-actual tables in `docs/vuln-lab.md`, follow-ups. (needs V2, V3, V4, V5) — *superseded by LB2*
 - [x] **V7 Response time and slow hosts.** httpx response time stored per HTTP observation and shown; "slow" and "HTTP unresponsive" services in run stats and Changes (organizers' Toxiproxy scenario). (needs V1)
-- [ ] **V8 Aggressive stages on the vuln lab.** Admin-made aggressive profile limited to WordPress 4.7.5 and DVWA; nuclei-active/nikto/wpscan/ZAP results documented. (needs V2, AG2–AG5)
+- [ ] **V8 Aggressive stages on the vuln lab.** Admin-made aggressive profile limited to WordPress 4.7.5 and DVWA; nuclei-active/nikto/wpscan/ZAP results documented. (needs V2, AG2–AG5) — *superseded by LB3*
+
+**Track LB — Lab scenarios** (supersedes Track V)
+- [x] **LB0 Guardrails + docs for the two lab scenarios.**
+- [ ] **LB1 Revert vuln_lab + two scenarios via make.** Revert V0/V1/V2/V4/V5 infra, `lab/organizers/` verbatim + `SHA256SUMS`, `make lab-up/lab-down/lab-change/lab-verify LAB=… STACK=…`, Dojo default port 18080, seeded "Organizers' lab" profile, real scan of each organizers' stack. (needs LB0 for docs only)
+- [ ] **LB2 Acceptance on the organizers' scenarios.** Their README steps exactly (quickstart up → change → up: 8787 gone/back in Changes; modern-proxy with `ENABLE_LATENCY=true LATENCY_MS=500`: slow host; vulnerable stack: WordPress 4.7, vsftpd, DVWA, Adminer fingerprints + CVEs; modern stack), expected-vs-actual table in `docs/acceptance.md`. (needs LB1)
+- [ ] **LB3 Aggressive on the organizers' vulnerable stack.** Admin-made aggressive profile limited to 172.17.0.1 ports 8088 (WordPress 4.7) and 8090 (DVWA); nuclei_active/nikto/wpscan/ZAP results documented. Open issue: ZAP is on internal-only networks and may not reach 172.17.0.1. (needs LB1, AG2–AG5)
 
 ## M4 — MCP (last)
 
@@ -179,7 +185,7 @@ M1:     ├─ S1 ─┬─ S3 ─┬─ D2          W1 (S1)  W2/W3 (S3)
 M2:  S7 (S3) → S4 · S5, S6 (S3) · D4 (S7,S4,S6) · S8 (S2) · D5 (D1) · D6 (D3) · P1..P4 · C1 (S3) · C2 · C3 (S8) · W4..W11 · L1 (anytime)
 M3:  after the relevant M2 parts     M4: after P2
 WF:  WF0 → WF1 → WF2 · AG1 (WF1) → AG2..AG5
-V:   V0 → V1 → { V2 · V3 · V4 · V5 · V7 } (parallel; disjoint files) → V6 · V8 (V2, AG2..AG5)
+LB:  LB0 → LB1 → LB2 · LB3 (LB1, AG2..AG5)
 ```
 
 L1 (lab) has no dependencies and is a good first task for whoever is free while M0 is being built.
