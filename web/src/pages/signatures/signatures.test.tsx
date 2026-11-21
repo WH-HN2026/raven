@@ -169,17 +169,55 @@ describe('editor', () => {
     expect(screen.getByRole('checkbox', { name: 'Enabled raven-admin-path' })).toBeChecked()
   })
 
-  it('disables Test with "Not available yet" when the API answers 501', async () => {
+  it('tests a signature against a URL and displays match output', async () => {
+    mockApi({
+      'GET /api/signatures/7': () => json(builtin),
+      'POST /api/signatures/7/test': () =>
+        json({
+          matched: true,
+          url: 'http://172.30.0.19:80',
+          matches: [
+            {
+              template_id: 'raven-admin-path',
+              name: 'Admin page at /admin',
+              severity: 'low',
+              matcher: 'admin-title',
+              matched_at: 'http://172.30.0.19:80/admin',
+              extracted: ['Admin Panel'],
+            },
+          ],
+        }),
+    })
+    renderAs('editor', <SignatureEditorPage />, { path: '/signatures/7', route: '/signatures/:id' })
+    fireEvent.change(await screen.findByLabelText('Lab URL'), { target: { value: 'http://172.30.0.19/' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Test' }))
+    const status = await screen.findByRole('status')
+    expect(status).toHaveTextContent('Matched')
+    expect(status).toHaveTextContent('admin-title')
+    expect(status).toHaveTextContent('http://172.30.0.19:80/admin')
+    expect(status).toHaveTextContent('Admin Panel')
+  })
+
+  it('shows no match and out-of-scope errors from signature test', async () => {
+    let call = 0
     mockApi({
       'GET /api/signatures/9': () => json(custom),
-      'POST /api/signatures/9/test': () => json({ error: { code: 'not_implemented', message: 'not implemented' } }, 501),
+      'POST /api/signatures/9/test': () => {
+        call++
+        if (call === 1) return json({ matched: false, url: 'http://172.30.0.20:80', matches: [] })
+        return json({ error: { code: 'out_of_scope', message: 'target URL is out of scope' } }, 400)
+      },
     })
     renderAs('editor', <SignatureEditorPage />, { path: '/signatures/9', route: '/signatures/:id' })
-    fireEvent.change(await screen.findByLabelText('Lab URL'), { target: { value: 'http://172.30.0.10/' } })
+    const input = await screen.findByLabelText('Lab URL')
+    fireEvent.change(input, { target: { value: 'http://172.30.0.20/' } })
     fireEvent.click(screen.getByRole('button', { name: 'Test' }))
-    expect(await screen.findByText('Not available yet')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Test' })).toBeDisabled()
-    expect(screen.getByLabelText('Lab URL')).toBeDisabled()
+    expect(await screen.findByText('No match')).toBeInTheDocument()
+
+    fireEvent.change(input, { target: { value: 'http://198.51.100.1/' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Test' }))
+    expect(await screen.findByText('target URL is out of scope')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Test' })).not.toBeDisabled()
   })
 
   it('deletes a custom signature', async () => {

@@ -2,9 +2,11 @@
 package nuclei
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/netip"
 	"os"
 	"os/exec"
@@ -13,7 +15,10 @@ import (
 	"strconv"
 	"strings"
 
+	"go.yaml.in/yaml/v3"
+
 	"github.com/WH-HN2026/raven/internal/scanner"
+	"github.com/WH-HN2026/raven/internal/signatures"
 )
 
 const (
@@ -179,6 +184,61 @@ func (s *Scanner) Run(ctx context.Context, in scanner.Input, opt scanner.Options
 		}
 	}
 	return parse(raw, scope)
+}
+
+// RunTemplate runs one validated custom signature template against a single
+// in-scope HTTP(S) URL using the exact same BuildArgs safety allowlist as the
+// pipeline (-no-interactsh, -disable-redirects, rate limit, excluded tags/types,
+// timeout via ctx).
+func (s *Scanner) RunTemplate(ctx context.Context, templateYAML, rawURL string, targetIP netip.Addr, rateLimit int) (*scanner.Result, error) {
+	if rateLimit < 1 {
+		return nil, errors.New("nuclei: rate limit must be positive")
+	}
+	if !targetIP.IsValid() || !targetIP.Unmap().Is4() {
+		return nil, errors.New("nuclei: target IP must be a valid IPv4 address")
+	}
+	targetIP = targetIP.Unmap()
+	u, _, ok := webURL(rawURL)
+	if !ok {
+		return nil, errors.New("nuclei: expected an HTTP(S) URL")
+	}
+	if u.Path == "/" && !u.ForceQuery && u.RawQuery == "" && u.Fragment == "" {
+		u.Path, u.RawPath = "", ""
+	}
+	data := []byte(templateYAML)
+	tpl, issues := signatures.Validate(data)
+	decoder := yaml.NewDecoder(bytes.NewReader(data))
+	var doc yaml.Node
+	if len(issues) != 0 || decoder.Decode(&doc) != nil || decoder.Decode(&doc) != io.EOF {
+		return nil, errors.New("nuclei: signature failed validation")
+	}
+	excluded := strings.Split(excludedTags, ",")
+	if slices.ContainsFunc(tpl.Tags, func(tag string) bool {
+		return slices.Contains(excluded, strings.ToLower(tag))
+	}) {
+		return nil, errors.New("nuclei: signature uses an excluded tag")
+	}
+
+	dir, err := os.MkdirTemp("", "raven-nuclei-test-")
+	if err != nil {
+		return nil, fmt.Errorf("nuclei: create workspace: %w", err)
+	}
+	defer os.RemoveAll(dir)
+
+	tplFile := tpl.ID + ".yaml"
+	if err := os.WriteFile(filepath.Join(dir, tplFile), data, 0600); err != nil {
+		return nil, fmt.Errorf("nuclei: stage signature: %w", err)
+	}
+	args, err := BuildArgs(scanner.Options{RateLimit: rateLimit}, "http", []string{tplFile}, true)
+	if err != nil {
+		return nil, err
+	}
+	out, err := s.run(ctx, dir, args, []string{u.String()})
+	if err != nil {
+		return nil, err
+	}
+	scope := map[string]netip.Addr{originOf(u): targetIP}
+	return parse(out, scope)
 }
 
 func (s *Scanner) run(ctx context.Context, dir string, args, urls []string) ([]byte, error) {

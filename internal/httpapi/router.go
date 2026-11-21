@@ -15,18 +15,22 @@ import (
 	"github.com/WH-HN2026/raven/internal/dojo"
 	"github.com/WH-HN2026/raven/internal/httpx"
 	"github.com/WH-HN2026/raven/internal/pipeline"
+	"github.com/WH-HN2026/raven/internal/signatures"
+	"github.com/WH-HN2026/raven/internal/targets"
 )
 
 // Deps are the services handlers call.
 type Deps struct {
-	Pool          *pgxpool.Pool
-	Queries       *gen.Queries
-	Auth          *auth.Service
-	CookieSecure  bool
-	DojoPublicURL string            // browser base URL of Dojo, for finding links
-	Pipeline      *pipeline.Service // nil = runs API answers 503
-	Dojo          *dojo.Lazy        // write-through client; unset = finding edits answer 503
-	DojoPush      *dojo.PushService // optional: provides Pusher for .nessus imports
+	Pool            *pgxpool.Pool
+	Queries         *gen.Queries
+	Auth            *auth.Service
+	CookieSecure    bool
+	DojoPublicURL   string                    // browser base URL of Dojo, for finding and engagement links
+	Pipeline        *pipeline.Service         // nil = runs API answers 503
+	Dojo            *dojo.Lazy                // write-through client; unset = finding edits answer 503
+	DojoPush        *dojo.PushService         // optional: provides Pusher for .nessus imports
+	SignatureTester signatures.TemplateRunner // optional: defaults to &nuclei.Scanner{}
+	Resolver        targets.Resolver          // optional: defaults to net.DefaultResolver
 }
 
 type api struct{ Deps }
