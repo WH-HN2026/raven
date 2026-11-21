@@ -61,7 +61,8 @@ export function ChangesPage() {
     placeholderData: keepPreviousData,
     retry: (n, err) => !(err instanceof ApiError && err.status < 500) && n < 2,
   })
-  const d = diff.error ? undefined : diff.data
+  // Ignore a body that is not a diff (e.g. a stubbed fetch).
+  const d = diff.error || !diff.data?.to ? undefined : diff.data
 
   const profiles = useQuery({
     queryKey: [...changesKey, 'profiles'],
