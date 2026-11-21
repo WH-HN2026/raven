@@ -84,6 +84,8 @@ The organizers' lab files are in [`lab/organizers/`](../lab/organizers/README.md
 
 The target is not seeded because a profile without include rules scans every target. The seeded `default` profile excludes `172.17.0.1`. Give every other profile an include scope, or an exclude for `172.17.0.1`, so that only **Organizers' lab** scans the Docker host. It works the same from the `raven` container on the default compose network (no `lab/raven.compose.yml` needed) and from `make dev`.
 
+**`modern` stack result** (2026-11-22, run of **Organizers' lab**, 28 s): 6 open services on `172.17.0.1`: 80 and 443 Nginx Proxy Manager (OpenResty, default site), 81 NPM admin, 6379 Redis 7.4.12, 8080 WordPress (Apache 2.4.71, PHP 8.3.37, install page), 8081 phpMyAdmin; 20 findings in Dojo (2 Medium, 2 Low, 16 Info).
+
 **Port collisions.** DefectDojo's default host port is 18080 because the `modern` stack needs 8080 (and 80, 81, 443). Anything else on the host that uses one of their ports must be stopped before that stack starts; on a dev machine with a local service on 8080, `modern` fails to start.
 
 **Host firewall.** A host firewall (ufw, firewalld, nftables) may drop container → host traffic to `172.17.0.1`. If the run finds no hosts but `curl http://172.17.0.1:8787/` works on the host, allow the Docker bridge to reach the published ports. Their stacks publish on `0.0.0.0` with default credentials: use them only on a machine that isn't exposed to a network.
