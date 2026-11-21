@@ -414,7 +414,7 @@ Two scenarios, chosen with `make`. Only one lab stack runs at a time.
 | What RAVEN scans | 172.30.0.0/24 | only 172.17.0.1, on their published ports, through the seeded profile "Organizers' lab" |
 
 - **"Organizers' lab" profile:** seeded, **not** aggressive, target `172.17.0.1`, ports `21,80,81,443,2223,3001,5673,6379,8080,8081,8085,8086,8088-8090,8474,8787,8888,15432,15673`. RAVEN's 8000 and Dojo's port are not in the list, so RAVEN never scans itself; Postgres is bound to 127.0.0.1.
-- **172.17.0.1** is the `docker0` gateway (check with `docker network inspect bridge`). It is reachable from the `raven` container and from `make dev` on the host; loopback stays rejected by `internal/targets`.
+- **172.17.0.1** is the `docker0` gateway (check with `docker network inspect bridge`). It is reachable from the `raven` container and from `make dev` on the host.
 - **Known risks:** a host firewall may block container→host traffic to 172.17.0.1. Their stacks publish on 0.0.0.0 with default credentials, as their README warns: run them only on a machine that isn't exposed to the network.
 
 Configuration (env, all in `.env`):

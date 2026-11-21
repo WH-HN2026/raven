@@ -29,8 +29,8 @@ type Scope struct {
 
 // Limits bound the expansion; zero fields take the defaults.
 type Limits struct {
-	MaxHostBits int // largest target CIDR, in host bits (default 16 = a /16)
-	MaxIPs      int // largest scan list before filtering (default 1<<20)
+	MaxHostBits int // largest target CIDR, in host bits (default 24 = a /8)
+	MaxIPs      int // most addresses from all targets, overlaps counted, before de-dup and filtering (default 1<<25)
 }
 
 func (l Limits) withDefaults() Limits {
@@ -38,7 +38,7 @@ func (l Limits) withDefaults() Limits {
 		l.MaxHostBits = DefaultMaxHostBits
 	}
 	if l.MaxIPs == 0 {
-		l.MaxIPs = 1 << 20
+		l.MaxIPs = 1 << 25
 	}
 	return l
 }
@@ -53,7 +53,7 @@ type ScanList struct {
 		Candidates  int // unique IPs from the targets
 		NotIncluded int // dropped: matched no include rule
 		Excluded    int // dropped: matched an exclude rule
-		Rejected    int // dropped: loopback/multicast/… (see checkAddr)
+		Rejected    int // dropped: IPv6 (see checkAddr)
 	}
 }
 
@@ -76,12 +76,32 @@ type ScanList struct {
 func Expand(ctx context.Context, targets []Entry, scope Scope, r Resolver, lim Limits) (*ScanList, error) {
 	lim = lim.withDefaults()
 	sl := &ScanList{Hostnames: map[netip.Addr][]string{}, Domains: map[string][]netip.Addr{}}
-	cand := map[netip.Addr]struct{}{}
-	add := func(a netip.Addr) error {
-		cand[a] = struct{}{}
-		if len(cand) > lim.MaxIPs {
+	// A slice, sorted and de-duplicated below, not a map: a /8 is 2^24
+	// addresses and a map of that size costs several times the memory.
+	// Sized up front so a /8 is allocated once (domains may still grow it).
+	size := 0
+	for _, t := range targets {
+		if p, err := netip.ParsePrefix(t.Value); t.Kind == KindCIDR && err == nil {
+			if hb := p.Addr().BitLen() - p.Bits(); hb <= lim.MaxHostBits {
+				size += 1 << hb
+			}
+		} else if t.Kind == KindIP {
+			size++
+		}
+	}
+	cand := make([]netip.Addr, 0, min(size, lim.MaxIPs))
+	grow := func(n int) error {
+		if len(cand)+n > lim.MaxIPs {
 			return fmt.Errorf("expand targets: more than %d IPs", lim.MaxIPs)
 		}
+		cand = slices.Grow(cand, n)
+		return nil
+	}
+	add := func(a netip.Addr) error {
+		if err := grow(1); err != nil {
+			return err
+		}
+		cand = append(cand, a)
 		return nil
 	}
 
@@ -101,13 +121,15 @@ func Expand(ctx context.Context, targets []Entry, scope Scope, r Resolver, lim L
 				return nil, fmt.Errorf("expand target %q: %w", t.Value, err)
 			}
 			p = p.Masked()
-			if hb := p.Addr().BitLen() - p.Bits(); hb > lim.MaxHostBits {
+			hb := p.Addr().BitLen() - p.Bits()
+			if hb > lim.MaxHostBits {
 				return nil, fmt.Errorf("expand target %s: 2^%d addresses exceeds the limit of 2^%d", p, hb, lim.MaxHostBits)
 			}
+			if err := grow(1 << hb); err != nil {
+				return nil, err
+			}
 			for a := p.Addr(); a.IsValid() && p.Contains(a); a = a.Next() {
-				if err := add(a); err != nil {
-					return nil, err
-				}
+				cand = append(cand, a)
 			}
 			if err := ctx.Err(); err != nil {
 				return nil, err
@@ -134,6 +156,8 @@ func Expand(ctx context.Context, targets []Entry, scope Scope, r Resolver, lim L
 			return nil, fmt.Errorf("expand target %q: unknown kind %q", t.Value, t.Kind)
 		}
 	}
+	slices.SortFunc(cand, netip.Addr.Compare)
+	cand = slices.Compact(cand)
 	sl.Stats.Candidates = len(cand)
 
 	inc, err := newMatcher(ctx, scope.Include, r, sl)
@@ -144,8 +168,8 @@ func Expand(ctx context.Context, targets []Entry, scope Scope, r Resolver, lim L
 	if err != nil {
 		return nil, err
 	}
-	sl.IPs = make([]netip.Addr, 0, len(cand))
-	for a := range cand {
+	sl.IPs = cand[:0] // filtered in place: cand is not used after this
+	for _, a := range cand {
 		names := sl.Hostnames[a]
 		switch {
 		case !inc.empty() && !inc.match(a, names):
@@ -160,9 +184,9 @@ func Expand(ctx context.Context, targets []Entry, scope Scope, r Resolver, lim L
 		}
 		delete(sl.Hostnames, a)
 	}
-	slices.SortFunc(sl.IPs, netip.Addr.Compare)
+	sl.IPs = slices.Clip(sl.IPs)
 	if sl.Stats.Rejected > 0 {
-		sl.Warnings = append(sl.Warnings, fmt.Sprintf("dropped %d loopback/link-local/multicast/IPv6 addresses", sl.Stats.Rejected))
+		sl.Warnings = append(sl.Warnings, fmt.Sprintf("dropped %d IPv6 addresses", sl.Stats.Rejected))
 	}
 	return sl, nil
 }

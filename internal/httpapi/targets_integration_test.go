@@ -99,8 +99,8 @@ func TestTargetsAndScopeAPI(t *testing.T) {
 	// manual targets
 	code, body := js("POST", "/api/targets", admin, `{"targets":[{"value":"10.0.0.1","tags":["web"]},{"value":"10.0.1.0/24"},{"value":"wordpress.lab","note":"cms"}]}`)
 	expect("admin POST 3 targets", code, body, 201, `"total":3`)
-	code, body = js("POST", "/api/targets", admin, `{"targets":[{"value":"10.0.0.2"},{"value":"10.0.0.0/8"}]}`)
-	expect("POST with a /8", code, body, 400, `"line":2`)
+	code, body = js("POST", "/api/targets", admin, `{"targets":[{"value":"10.0.0.2"},{"value":"10.0.0.0/7"}]}`)
+	expect("POST with a /7", code, body, 400, `"line":2`)
 	code, body = js("POST", "/api/targets", admin, `{"targets":[{"value":"10.0.0.2"},{"value":"WORDPRESS.LAB","note":"replacement"}]}`)
 	expect("duplicate existing target rolls back a batch", code, body, 409, `"message":"Target already exists"`)
 	code, body = js("POST", "/api/targets", admin, `{"targets":[{"value":"10.0.0.2"},{"value":"10.0.0.2"}]}`)

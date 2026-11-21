@@ -98,8 +98,7 @@ export interface paths {
          * @description Manual entry of one or more targets (permission targets:write). Kind is auto-detected
          *     (ip / cidr / domain); if `kind` is given it must match. All items must be valid, otherwise
          *     nothing is written and the 400 response lists `errors` (line = 1-based item index).
-         *     Target rules: IPv4 only; no loopback,
-         *     link-local, multicast or unspecified addresses; CIDRs at most a /16.
+         *     Target rules: IPv4 only (IPv6 is rejected); CIDRs at most a /8.
          */
         post: operations["createTargets"];
         delete?: never;
