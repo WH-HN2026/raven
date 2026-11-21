@@ -7,6 +7,7 @@ package gen
 
 import (
 	"context"
+	"encoding/json"
 	"net/netip"
 	"time"
 )
@@ -38,7 +39,7 @@ func (q *Queries) FinishBatch(ctx context.Context, arg FinishBatchParams) error 
 }
 
 const getBatch = `-- name: GetBatch :one
-SELECT id, run_id, seq, ips, status, attempts, started_at, finished_at, duration_ms, job_id, hosts_up, error FROM batches WHERE id = $1
+SELECT id, run_id, seq, ips, status, attempts, started_at, finished_at, duration_ms, job_id, hosts_up, error, hostnames FROM batches WHERE id = $1
 `
 
 func (q *Queries) GetBatch(ctx context.Context, id int64) (Batch, error) {
@@ -57,29 +58,37 @@ func (q *Queries) GetBatch(ctx context.Context, id int64) (Batch, error) {
 		&i.JobID,
 		&i.HostsUp,
 		&i.Error,
+		&i.Hostnames,
 	)
 	return i, err
 }
 
 const insertBatch = `-- name: InsertBatch :one
-INSERT INTO batches (run_id, seq, ips) VALUES ($1, $2, $3) RETURNING id
+INSERT INTO batches (run_id, seq, ips, hostnames)
+VALUES ($1, $2, $3, COALESCE($4::jsonb, '{}'::jsonb)) RETURNING id
 `
 
 type InsertBatchParams struct {
-	RunID int64        `json:"run_id"`
-	Seq   int32        `json:"seq"`
-	Ips   []netip.Addr `json:"ips"`
+	RunID     int64        `json:"run_id"`
+	Seq       int32        `json:"seq"`
+	Ips       []netip.Addr `json:"ips"`
+	Hostnames []byte       `json:"hostnames"`
 }
 
 func (q *Queries) InsertBatch(ctx context.Context, arg InsertBatchParams) (int64, error) {
-	row := q.db.QueryRow(ctx, insertBatch, arg.RunID, arg.Seq, arg.Ips)
+	row := q.db.QueryRow(ctx, insertBatch,
+		arg.RunID,
+		arg.Seq,
+		arg.Ips,
+		arg.Hostnames,
+	)
 	var id int64
 	err := row.Scan(&id)
 	return id, err
 }
 
 const listBatches = `-- name: ListBatches :many
-SELECT id, run_id, seq, ips, status, attempts, started_at, finished_at, duration_ms, job_id, hosts_up, error FROM batches WHERE run_id = $1 ORDER BY seq
+SELECT id, run_id, seq, ips, status, attempts, started_at, finished_at, duration_ms, job_id, hosts_up, error, hostnames FROM batches WHERE run_id = $1 ORDER BY seq
 `
 
 func (q *Queries) ListBatches(ctx context.Context, runID int64) ([]Batch, error) {
@@ -104,7 +113,37 @@ func (q *Queries) ListBatches(ctx context.Context, runID int64) ([]Batch, error)
 			&i.JobID,
 			&i.HostsUp,
 			&i.Error,
+			&i.Hostnames,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPendingBatches = `-- name: ListPendingBatches :many
+SELECT id, hostnames FROM batches WHERE run_id = $1 AND status = 'pending' ORDER BY seq
+`
+
+type ListPendingBatchesRow struct {
+	ID        int64           `json:"id"`
+	Hostnames json.RawMessage `json:"hostnames"`
+}
+
+func (q *Queries) ListPendingBatches(ctx context.Context, runID int64) ([]ListPendingBatchesRow, error) {
+	rows, err := q.db.Query(ctx, listPendingBatches, runID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListPendingBatchesRow{}
+	for rows.Next() {
+		var i ListPendingBatchesRow
+		if err := rows.Scan(&i.ID, &i.Hostnames); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -158,6 +197,16 @@ func (q *Queries) ListProfileBatchSamples(ctx context.Context, arg ListProfileBa
 	return items, nil
 }
 
+const resetWindowBatches = `-- name: ResetWindowBatches :exec
+UPDATE batches SET status = 'pending', job_id = NULL, started_at = NULL
+WHERE run_id = $1 AND status IN ('pending', 'running')
+`
+
+func (q *Queries) ResetWindowBatches(ctx context.Context, runID int64) error {
+	_, err := q.db.Exec(ctx, resetWindowBatches, runID)
+	return err
+}
+
 const retryBatch = `-- name: RetryBatch :exec
 UPDATE batches SET status = 'pending', error = $2 WHERE id = $1 AND status = 'running'
 `
@@ -191,7 +240,7 @@ const startBatch = `-- name: StartBatch :one
 UPDATE batches SET status = 'running', attempts = attempts + 1, started_at = now(),
     finished_at = NULL, duration_ms = NULL, error = ''
 WHERE id = $1 AND status IN ('pending', 'running')
-RETURNING id, run_id, seq, ips, status, attempts, started_at, finished_at, duration_ms, job_id, hosts_up, error
+RETURNING id, run_id, seq, ips, status, attempts, started_at, finished_at, duration_ms, job_id, hosts_up, error, hostnames
 `
 
 // 'running' is accepted too: a job rescued after a crash starts over.
@@ -211,6 +260,7 @@ func (q *Queries) StartBatch(ctx context.Context, id int64) (Batch, error) {
 		&i.JobID,
 		&i.HostsUp,
 		&i.Error,
+		&i.Hostnames,
 	)
 	return i, err
 }

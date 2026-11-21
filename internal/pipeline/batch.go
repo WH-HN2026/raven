@@ -34,7 +34,7 @@ type batchWorker struct {
 func (w *batchWorker) Timeout(*river.Job[BatchArgs]) time.Duration { return jobTimeout }
 
 func (w *batchWorker) Work(ctx context.Context, job *river.Job[BatchArgs]) error {
-	return w.s.runBatch(ctx, job.Args, job.Attempt, job.MaxAttempts)
+	return w.s.runBatch(ctx, job.Args, job.ID, job.Attempt, job.MaxAttempts)
 }
 
 func isActive(status string) bool { return status == "pending" || status == "running" }
@@ -43,10 +43,12 @@ func isActive(status string) bool { return status == "pending" || status == "run
 // already finished); the job ends without error.
 var errSkip = errors.New("skip batch")
 
-func (s *Service) runBatch(ctx context.Context, a BatchArgs, attempt, maxAttempts int) error {
+func (s *Service) runBatch(ctx context.Context, a BatchArgs, jobID int64, attempt, maxAttempts int) error {
 	var (
-		b    gen.Batch
-		prof gen.Profile
+		b      gen.Batch
+		prof   gen.Profile
+		window gen.Run
+		closed bool
 	)
 	err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
 		q := gen.New(tx)
@@ -56,6 +58,20 @@ func (s *Service) runBatch(ctx context.Context, a BatchArgs, attempt, maxAttempt
 		}
 		if !isActive(run.Status) {
 			return errSkip
+		}
+		if run.ScheduleID != nil {
+			owned, err := scheduledJobOwnsBatch(ctx, q, a.BatchID, &jobID)
+			if err != nil {
+				return err
+			}
+			if !owned {
+				return errSkip
+			}
+			window = run
+			if run.ScheduleWindowEnd != nil && !time.Now().Before(*run.ScheduleWindowEnd) {
+				closed = true
+				return suspendLockedRun(ctx, q, run)
+			}
 		}
 		b, err = q.StartBatch(ctx, a.BatchID)
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -79,6 +95,17 @@ func (s *Service) runBatch(ctx context.Context, a BatchArgs, attempt, maxAttempt
 	}
 	if err != nil {
 		return err
+	}
+
+	if closed {
+		return nil
+	}
+
+	jobCtx := ctx
+	if window.ScheduleWindowEnd != nil {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithDeadlineCause(ctx, *window.ScheduleWindowEnd, errWindowClosed)
+		defer cancel()
 	}
 
 	start := time.Now()
@@ -106,12 +133,17 @@ func (s *Service) runBatch(ctx context.Context, a BatchArgs, attempt, maxAttempt
 		var plan Plan
 		plan, err = s.ingestBatch(ctx, b, prof, hostnames, res, web, detection, start)
 		if err == nil {
-			s.afterBatch(ctx, b, prof, plan, res)
+			s.afterBatch(jobCtx, b, prof, plan, res)
 			return nil
 		}
-		if errors.Is(err, errSkip) {
-			return river.JobCancel(errors.New("run stopped"))
-		}
+	}
+	if errors.Is(context.Cause(ctx), errWindowClosed) {
+		recordCtx, cancel := context.WithTimeout(context.WithoutCancel(jobCtx), 30*time.Second)
+		defer cancel()
+		return s.pauseScheduledRun(recordCtx, window)
+	}
+	if errors.Is(err, errSkip) {
+		return river.JobCancel(errSkip)
 	}
 	return s.batchFailed(ctx, b, start, err, attempt, maxAttempts)
 }
@@ -135,6 +167,15 @@ func (s *Service) ingestBatch(ctx context.Context, b gen.Batch, prof gen.Profile
 		}
 		if !isActive(run.Status) {
 			return errSkip
+		}
+		if run.ScheduleID != nil {
+			owned, err := scheduledJobOwnsBatch(ctx, q, b.ID, b.JobID)
+			if err != nil {
+				return err
+			}
+			if !owned {
+				return errSkip
+			}
 		}
 		bs, err := q.RunBatchStats(ctx, run.ID)
 		if err != nil {
@@ -224,6 +265,7 @@ func (s *Service) batchFailed(ctx context.Context, b gen.Batch, start time.Time,
 	defer cancel()
 	msg := cause.Error()
 	last := attempt >= maxAttempts
+	var suspended bool
 	err := pgx.BeginFunc(dctx, s.pool, func(tx pgx.Tx) error {
 		q := gen.New(tx)
 		run, err := q.LockRun(dctx, b.RunID)
@@ -232,6 +274,19 @@ func (s *Service) batchFailed(ctx context.Context, b gen.Batch, start time.Time,
 		}
 		if !isActive(run.Status) {
 			return errSkip // StopRun already marked the batch stopped
+		}
+		if run.ScheduleID != nil {
+			owned, err := scheduledJobOwnsBatch(dctx, q, b.ID, b.JobID)
+			if err != nil {
+				return err
+			}
+			if !owned {
+				return errSkip
+			}
+			if run.ScheduleWindowEnd != nil && !time.Now().Before(*run.ScheduleWindowEnd) {
+				suspended = true
+				return suspendLockedRun(dctx, q, run)
+			}
 		}
 		if !last {
 			return q.RetryBatch(dctx, gen.RetryBatchParams{ID: b.ID, Error: msg})
@@ -251,6 +306,9 @@ func (s *Service) batchFailed(ctx context.Context, b gen.Batch, start time.Time,
 		return river.JobCancel(cause)
 	case err != nil:
 		slog.Error("record batch failure", "run", b.RunID, "batch", b.ID, "err", err)
+	}
+	if err == nil && suspended {
+		return nil
 	}
 	slog.Warn("batch failed", "run", b.RunID, "batch", b.ID, "attempt", attempt, "last", last, "err", cause)
 	return fmt.Errorf("batch %d: %w", b.ID, cause)

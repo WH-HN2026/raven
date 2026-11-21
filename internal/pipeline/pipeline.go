@@ -218,6 +218,10 @@ func (s *Service) ListBatches(ctx context.Context, runID int64) ([]Batch, error)
 // one pending/running run (ErrConflict). An empty scan list gives a run that
 // is done immediately, with the reason in stats.
 func (s *Service) StartRun(ctx context.Context, u *auth.User, profileID int64) (Run, error) {
+	return s.startRun(ctx, u, profileID, nil)
+}
+
+func (s *Service) startRun(ctx context.Context, u *auth.User, profileID int64, scheduleID *int64) (Run, error) {
 	q := gen.New(s.pool)
 	prof, err := q.GetProfile(ctx, profileID)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -230,6 +234,9 @@ func (s *Service) StartRun(ctx context.Context, u *auth.User, profileID int64) (
 		return Run{}, fmt.Errorf("%w: %v", ErrInvalid, err)
 	}
 	if !prof.Enabled {
+		if scheduleID != nil {
+			return Run{}, fmt.Errorf("%w: profile %q is disabled", ErrConflict, prof.Name)
+		}
 		return Run{}, fmt.Errorf("%w: profile %q is disabled", ErrInvalid, prof.Name)
 	}
 	// Resolve outside the transaction: DNS can be slow.
@@ -265,8 +272,19 @@ func (s *Service) StartRun(ctx context.Context, u *auth.User, profileID int64) (
 	var run gen.Run
 	err = pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
 		q := gen.New(tx)
-		if _, err := q.LockProfile(ctx, profileID); err != nil {
+		lockedProfile, err := q.LockProfile(ctx, profileID)
+		if err != nil {
 			return fmt.Errorf("lock profile %d: %w", profileID, err)
+		}
+		var windowEnd *time.Time
+		if scheduleID != nil {
+			if !lockedProfile.Enabled {
+				return fmt.Errorf("%w: profile %q is disabled", ErrConflict, prof.Name)
+			}
+			now, windowEnd, err = prepareScheduledStart(ctx, q, *scheduleID, profileID)
+			if err != nil {
+				return err
+			}
 		}
 		n, err := q.CountActiveRuns(ctx, profileID)
 		if err != nil {
@@ -278,6 +296,7 @@ func (s *Service) StartRun(ctx context.Context, u *auth.User, profileID int64) (
 		run, err = q.InsertRun(ctx, gen.InsertRunParams{
 			ProfileID: profileID, Status: status, CreatedBy: userID(u),
 			StartedAt: &now, FinishedAt: finished, HostsTotal: int32(len(sl.IPs)), Stats: statsJSON,
+			ScheduleID: scheduleID, ScheduleWindowEnd: windowEnd,
 		})
 		if err != nil {
 			return fmt.Errorf("insert run: %w", err)
@@ -285,35 +304,33 @@ func (s *Service) StartRun(ctx context.Context, u *auth.User, profileID int64) (
 		params := make([]river.InsertManyParams, 0, len(batches))
 		ids := make([]int64, 0, len(batches))
 		for i, ips := range batches {
-			id, err := q.InsertBatch(ctx, gen.InsertBatchParams{RunID: run.ID, Seq: int32(i + 1), Ips: ips})
-			if err != nil {
-				return fmt.Errorf("insert batch %d: %w", i+1, err)
-			}
 			hn := map[string][]string{}
 			for _, ip := range ips {
 				if names := sl.Hostnames[ip]; len(names) > 0 {
 					hn[ip.String()] = names
 				}
 			}
-			ids = append(ids, id)
-			params = append(params, river.InsertManyParams{
-				Args:       BatchArgs{BatchID: id, RunID: run.ID, Hostnames: hn},
-				InsertOpts: &river.InsertOpts{MaxAttempts: maxAttempts},
-			})
-		}
-		if len(params) > 0 {
-			res, err := s.river.InsertManyTx(ctx, tx, params)
-			if err != nil {
-				return fmt.Errorf("enqueue batches: %w", err)
-			}
-			for i, r := range res {
-				if err := q.SetBatchJob(ctx, gen.SetBatchJobParams{ID: ids[i], JobID: &r.Job.ID}); err != nil {
-					return fmt.Errorf("set batch job: %w", err)
+			var names json.RawMessage
+			if scheduleID != nil {
+				names, err = json.Marshal(hn)
+				if err != nil {
+					return fmt.Errorf("encode batch hostnames: %w", err)
 				}
 			}
+			id, err := q.InsertBatch(ctx, gen.InsertBatchParams{
+				RunID: run.ID, Seq: int32(i + 1), Ips: ips, Hostnames: names,
+			})
+			if err != nil {
+				return fmt.Errorf("insert batch %d: %w", i+1, err)
+			}
+			ids = append(ids, id)
+			params = append(params, newBatchJob(run.ID, id, hn))
+		}
+		if err := s.enqueueBatches(ctx, tx, ids, params); err != nil {
+			return err
 		}
 		return audit.Log(ctx, q, userID(u), "runs.start", "run", strconv.FormatInt(run.ID, 10),
-			map[string]any{"profile_id": profileID, "hosts_total": len(sl.IPs), "batches": len(batches), "batch_size": plan.Size})
+			map[string]any{"profile_id": profileID, "schedule_id": scheduleID, "hosts_total": len(sl.IPs), "batches": len(batches), "batch_size": plan.Size})
 	})
 	if err != nil {
 		return Run{}, err
@@ -335,7 +352,7 @@ func (s *Service) StopRun(ctx context.Context, u *auth.User, id int64) (Run, err
 		if err != nil {
 			return fmt.Errorf("lock run %d: %w", id, err)
 		}
-		if run.Status != "pending" && run.Status != "running" {
+		if !isActive(run.Status) && run.Status != "suspended" {
 			return fmt.Errorf("%w: run %d is %s", ErrConflict, id, run.Status)
 		}
 		stopped, err := q.StopUnfinishedBatches(ctx, id)

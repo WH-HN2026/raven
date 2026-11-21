@@ -20,6 +20,59 @@ func (q *Queries) CountProfiles(ctx context.Context) (int64, error) {
 	return count, err
 }
 
+const createProfile = `-- name: CreateProfile :one
+INSERT INTO profiles (name, ports, nmap_max_rate, nuclei_rate, nuclei_tags, miss_threshold, target_batch_seconds, enabled)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING id, name, ports, nmap_max_rate, nuclei_rate, nuclei_tags, miss_threshold, target_batch_seconds, enabled, created_at
+`
+
+type CreateProfileParams struct {
+	Name               string   `json:"name"`
+	Ports              string   `json:"ports"`
+	NmapMaxRate        int32    `json:"nmap_max_rate"`
+	NucleiRate         int32    `json:"nuclei_rate"`
+	NucleiTags         []string `json:"nuclei_tags"`
+	MissThreshold      int32    `json:"miss_threshold"`
+	TargetBatchSeconds int32    `json:"target_batch_seconds"`
+	Enabled            bool     `json:"enabled"`
+}
+
+func (q *Queries) CreateProfile(ctx context.Context, arg CreateProfileParams) (Profile, error) {
+	row := q.db.QueryRow(ctx, createProfile,
+		arg.Name,
+		arg.Ports,
+		arg.NmapMaxRate,
+		arg.NucleiRate,
+		arg.NucleiTags,
+		arg.MissThreshold,
+		arg.TargetBatchSeconds,
+		arg.Enabled,
+	)
+	var i Profile
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Ports,
+		&i.NmapMaxRate,
+		&i.NucleiRate,
+		&i.NucleiTags,
+		&i.MissThreshold,
+		&i.TargetBatchSeconds,
+		&i.Enabled,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const deleteProfile = `-- name: DeleteProfile :exec
+DELETE FROM profiles WHERE id = $1
+`
+
+func (q *Queries) DeleteProfile(ctx context.Context, id int64) error {
+	_, err := q.db.Exec(ctx, deleteProfile, id)
+	return err
+}
+
 const listProfiles = `-- name: ListProfiles :many
 SELECT id, name, ports, nmap_max_rate, nuclei_rate, nuclei_tags, miss_threshold, target_batch_seconds, enabled, created_at FROM profiles ORDER BY name LIMIT $1 OFFSET $2
 `
@@ -58,4 +111,73 @@ func (q *Queries) ListProfiles(ctx context.Context, arg ListProfilesParams) ([]P
 		return nil, err
 	}
 	return items, nil
+}
+
+const lockProfileForDelete = `-- name: LockProfileForDelete :one
+SELECT id FROM profiles WHERE id = $1 FOR UPDATE
+`
+
+func (q *Queries) LockProfileForDelete(ctx context.Context, id int64) (int64, error) {
+	row := q.db.QueryRow(ctx, lockProfileForDelete, id)
+	var id_2 int64
+	err := row.Scan(&id_2)
+	return id_2, err
+}
+
+const profileHasSchedules = `-- name: ProfileHasSchedules :one
+SELECT EXISTS (SELECT 1 FROM schedules WHERE profile_id = $1)
+`
+
+func (q *Queries) ProfileHasSchedules(ctx context.Context, profileID int64) (bool, error) {
+	row := q.db.QueryRow(ctx, profileHasSchedules, profileID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
+const updateProfile = `-- name: UpdateProfile :one
+UPDATE profiles SET name = $2, ports = $3, nmap_max_rate = $4, nuclei_rate = $5,
+    nuclei_tags = $6, miss_threshold = $7, target_batch_seconds = $8, enabled = $9
+WHERE id = $1
+RETURNING id, name, ports, nmap_max_rate, nuclei_rate, nuclei_tags, miss_threshold, target_batch_seconds, enabled, created_at
+`
+
+type UpdateProfileParams struct {
+	ID                 int64    `json:"id"`
+	Name               string   `json:"name"`
+	Ports              string   `json:"ports"`
+	NmapMaxRate        int32    `json:"nmap_max_rate"`
+	NucleiRate         int32    `json:"nuclei_rate"`
+	NucleiTags         []string `json:"nuclei_tags"`
+	MissThreshold      int32    `json:"miss_threshold"`
+	TargetBatchSeconds int32    `json:"target_batch_seconds"`
+	Enabled            bool     `json:"enabled"`
+}
+
+func (q *Queries) UpdateProfile(ctx context.Context, arg UpdateProfileParams) (Profile, error) {
+	row := q.db.QueryRow(ctx, updateProfile,
+		arg.ID,
+		arg.Name,
+		arg.Ports,
+		arg.NmapMaxRate,
+		arg.NucleiRate,
+		arg.NucleiTags,
+		arg.MissThreshold,
+		arg.TargetBatchSeconds,
+		arg.Enabled,
+	)
+	var i Profile
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Ports,
+		&i.NmapMaxRate,
+		&i.NucleiRate,
+		&i.NucleiTags,
+		&i.MissThreshold,
+		&i.TargetBatchSeconds,
+		&i.Enabled,
+		&i.CreatedAt,
+	)
+	return i, err
 }

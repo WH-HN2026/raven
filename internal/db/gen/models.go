@@ -41,18 +41,19 @@ type AuditLog struct {
 }
 
 type Batch struct {
-	ID         int64        `json:"id"`
-	RunID      int64        `json:"run_id"`
-	Seq        int32        `json:"seq"`
-	Ips        []netip.Addr `json:"ips"`
-	Status     string       `json:"status"`
-	Attempts   int32        `json:"attempts"`
-	StartedAt  *time.Time   `json:"started_at"`
-	FinishedAt *time.Time   `json:"finished_at"`
-	DurationMs *int64       `json:"duration_ms"`
-	JobID      *int64       `json:"job_id"`
-	HostsUp    int32        `json:"hosts_up"`
-	Error      string       `json:"error"`
+	ID         int64           `json:"id"`
+	RunID      int64           `json:"run_id"`
+	Seq        int32           `json:"seq"`
+	Ips        []netip.Addr    `json:"ips"`
+	Status     string          `json:"status"`
+	Attempts   int32           `json:"attempts"`
+	StartedAt  *time.Time      `json:"started_at"`
+	FinishedAt *time.Time      `json:"finished_at"`
+	DurationMs *int64          `json:"duration_ms"`
+	JobID      *int64          `json:"job_id"`
+	HostsUp    int32           `json:"hosts_up"`
+	Error      string          `json:"error"`
+	Hostnames  json.RawMessage `json:"hostnames"`
 }
 
 type CveMatch struct {
@@ -150,17 +151,18 @@ type Profile struct {
 }
 
 type Run struct {
-	ID         int64           `json:"id"`
-	ProfileID  int64           `json:"profile_id"`
-	ScheduleID *int64          `json:"schedule_id"`
-	Status     string          `json:"status"`
-	CreatedBy  *int64          `json:"created_by"`
-	CreatedAt  time.Time       `json:"created_at"`
-	StartedAt  *time.Time      `json:"started_at"`
-	FinishedAt *time.Time      `json:"finished_at"`
-	HostsTotal int32           `json:"hosts_total"`
-	HostsUp    int32           `json:"hosts_up"`
-	Stats      json.RawMessage `json:"stats"`
+	ID                int64           `json:"id"`
+	ProfileID         int64           `json:"profile_id"`
+	ScheduleID        *int64          `json:"schedule_id"`
+	Status            string          `json:"status"`
+	CreatedBy         *int64          `json:"created_by"`
+	CreatedAt         time.Time       `json:"created_at"`
+	StartedAt         *time.Time      `json:"started_at"`
+	FinishedAt        *time.Time      `json:"finished_at"`
+	HostsTotal        int32           `json:"hosts_total"`
+	HostsUp           int32           `json:"hosts_up"`
+	Stats             json.RawMessage `json:"stats"`
+	ScheduleWindowEnd *time.Time      `json:"schedule_window_end"`
 }
 
 type RunObservation struct {

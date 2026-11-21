@@ -43,3 +43,46 @@ ORDER BY s.id, r.id DESC;
 UPDATE runs
 SET stats = jsonb_set(stats, '{dojo_engagement_status}', to_jsonb(@status::text))
 WHERE id = @id;
+
+-- name: GetSchedule :one
+SELECT * FROM schedules WHERE id = $1;
+
+-- name: LockSchedule :one
+SELECT * FROM schedules WHERE id = $1 FOR UPDATE;
+
+-- name: ListEnabledScheduleIDs :many
+SELECT id FROM schedules WHERE enabled ORDER BY id;
+
+-- name: ListSchedules :many
+SELECT * FROM schedules ORDER BY id LIMIT $1 OFFSET $2;
+
+-- name: CountSchedules :one
+SELECT count(*) FROM schedules;
+
+-- name: CreateSchedule :one
+INSERT INTO schedules (profile_id, source, cron, window_start, window_end, timezone, enabled)
+VALUES (@profile_id, 'ui', sqlc.narg(cron), sqlc.narg(window_start), sqlc.narg(window_end), @timezone, @enabled)
+RETURNING *;
+
+-- name: UpdateUISchedule :one
+UPDATE schedules SET profile_id = @profile_id, cron = sqlc.narg(cron),
+    window_start = sqlc.narg(window_start), window_end = sqlc.narg(window_end),
+    timezone = @timezone, enabled = @enabled
+WHERE id = @id AND source = 'ui'
+RETURNING *;
+
+-- name: DeleteUISchedule :exec
+DELETE FROM schedules WHERE id = $1 AND source = 'ui';
+
+-- name: GetLatestScheduledRun :one
+SELECT * FROM runs WHERE schedule_id = $1 ORDER BY id DESC LIMIT 1;
+
+-- name: HasActiveScheduledRun :one
+SELECT EXISTS (SELECT 1 FROM runs WHERE schedule_id = $1
+    AND status IN ('pending', 'running', 'suspended'));
+
+-- name: SuspendScheduledRun :exec
+UPDATE runs SET status = 'suspended' WHERE id = $1;
+
+-- name: ResumeScheduledRun :exec
+UPDATE runs SET status = 'running', schedule_window_end = $2 WHERE id = $1;

@@ -8,7 +8,69 @@ package gen
 import (
 	"context"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
+
+const countSchedules = `-- name: CountSchedules :one
+SELECT count(*) FROM schedules
+`
+
+func (q *Queries) CountSchedules(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, countSchedules)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const createSchedule = `-- name: CreateSchedule :one
+INSERT INTO schedules (profile_id, source, cron, window_start, window_end, timezone, enabled)
+VALUES ($1, 'ui', $2, $3, $4, $5, $6)
+RETURNING id, profile_id, source, dojo_engagement_id, cron, window_start, window_end, timezone, enabled, created_at
+`
+
+type CreateScheduleParams struct {
+	ProfileID   int64       `json:"profile_id"`
+	Cron        pgtype.Text `json:"cron"`
+	WindowStart *time.Time  `json:"window_start"`
+	WindowEnd   *time.Time  `json:"window_end"`
+	Timezone    string      `json:"timezone"`
+	Enabled     bool        `json:"enabled"`
+}
+
+func (q *Queries) CreateSchedule(ctx context.Context, arg CreateScheduleParams) (Schedule, error) {
+	row := q.db.QueryRow(ctx, createSchedule,
+		arg.ProfileID,
+		arg.Cron,
+		arg.WindowStart,
+		arg.WindowEnd,
+		arg.Timezone,
+		arg.Enabled,
+	)
+	var i Schedule
+	err := row.Scan(
+		&i.ID,
+		&i.ProfileID,
+		&i.Source,
+		&i.DojoEngagementID,
+		&i.Cron,
+		&i.WindowStart,
+		&i.WindowEnd,
+		&i.Timezone,
+		&i.Enabled,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const deleteUISchedule = `-- name: DeleteUISchedule :exec
+DELETE FROM schedules WHERE id = $1 AND source = 'ui'
+`
+
+func (q *Queries) DeleteUISchedule(ctx context.Context, id int64) error {
+	_, err := q.db.Exec(ctx, deleteUISchedule, id)
+	return err
+}
 
 const disableStaleDojoSchedules = `-- name: DisableStaleDojoSchedules :execrows
 UPDATE schedules s
@@ -25,6 +87,52 @@ func (q *Queries) DisableStaleDojoSchedules(ctx context.Context, activeEngagemen
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const getLatestScheduledRun = `-- name: GetLatestScheduledRun :one
+SELECT id, profile_id, schedule_id, status, created_by, created_at, started_at, finished_at, hosts_total, hosts_up, stats, schedule_window_end FROM runs WHERE schedule_id = $1 ORDER BY id DESC LIMIT 1
+`
+
+func (q *Queries) GetLatestScheduledRun(ctx context.Context, scheduleID *int64) (Run, error) {
+	row := q.db.QueryRow(ctx, getLatestScheduledRun, scheduleID)
+	var i Run
+	err := row.Scan(
+		&i.ID,
+		&i.ProfileID,
+		&i.ScheduleID,
+		&i.Status,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.StartedAt,
+		&i.FinishedAt,
+		&i.HostsTotal,
+		&i.HostsUp,
+		&i.Stats,
+		&i.ScheduleWindowEnd,
+	)
+	return i, err
+}
+
+const getSchedule = `-- name: GetSchedule :one
+SELECT id, profile_id, source, dojo_engagement_id, cron, window_start, window_end, timezone, enabled, created_at FROM schedules WHERE id = $1
+`
+
+func (q *Queries) GetSchedule(ctx context.Context, id int64) (Schedule, error) {
+	row := q.db.QueryRow(ctx, getSchedule, id)
+	var i Schedule
+	err := row.Scan(
+		&i.ID,
+		&i.ProfileID,
+		&i.Source,
+		&i.DojoEngagementID,
+		&i.Cron,
+		&i.WindowStart,
+		&i.WindowEnd,
+		&i.Timezone,
+		&i.Enabled,
+		&i.CreatedAt,
+	)
+	return i, err
 }
 
 const getScheduleByDojoEngagement = `-- name: GetScheduleByDojoEngagement :one
@@ -47,6 +155,18 @@ func (q *Queries) GetScheduleByDojoEngagement(ctx context.Context, dojoEngagemen
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const hasActiveScheduledRun = `-- name: HasActiveScheduledRun :one
+SELECT EXISTS (SELECT 1 FROM runs WHERE schedule_id = $1
+    AND status IN ('pending', 'running', 'suspended'))
+`
+
+func (q *Queries) HasActiveScheduledRun(ctx context.Context, scheduleID *int64) (bool, error) {
+	row := q.db.QueryRow(ctx, hasActiveScheduledRun, scheduleID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
 }
 
 const listAllProfileNames = `-- name: ListAllProfileNames :many
@@ -128,6 +248,106 @@ func (q *Queries) ListDojoScheduleRunStatuses(ctx context.Context) ([]ListDojoSc
 	return items, nil
 }
 
+const listEnabledScheduleIDs = `-- name: ListEnabledScheduleIDs :many
+SELECT id FROM schedules WHERE enabled ORDER BY id
+`
+
+func (q *Queries) ListEnabledScheduleIDs(ctx context.Context) ([]int64, error) {
+	rows, err := q.db.Query(ctx, listEnabledScheduleIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []int64{}
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSchedules = `-- name: ListSchedules :many
+SELECT id, profile_id, source, dojo_engagement_id, cron, window_start, window_end, timezone, enabled, created_at FROM schedules ORDER BY id LIMIT $1 OFFSET $2
+`
+
+type ListSchedulesParams struct {
+	Limit  int32 `json:"limit"`
+	Offset int32 `json:"offset"`
+}
+
+func (q *Queries) ListSchedules(ctx context.Context, arg ListSchedulesParams) ([]Schedule, error) {
+	rows, err := q.db.Query(ctx, listSchedules, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Schedule{}
+	for rows.Next() {
+		var i Schedule
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProfileID,
+			&i.Source,
+			&i.DojoEngagementID,
+			&i.Cron,
+			&i.WindowStart,
+			&i.WindowEnd,
+			&i.Timezone,
+			&i.Enabled,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const lockSchedule = `-- name: LockSchedule :one
+SELECT id, profile_id, source, dojo_engagement_id, cron, window_start, window_end, timezone, enabled, created_at FROM schedules WHERE id = $1 FOR UPDATE
+`
+
+func (q *Queries) LockSchedule(ctx context.Context, id int64) (Schedule, error) {
+	row := q.db.QueryRow(ctx, lockSchedule, id)
+	var i Schedule
+	err := row.Scan(
+		&i.ID,
+		&i.ProfileID,
+		&i.Source,
+		&i.DojoEngagementID,
+		&i.Cron,
+		&i.WindowStart,
+		&i.WindowEnd,
+		&i.Timezone,
+		&i.Enabled,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const resumeScheduledRun = `-- name: ResumeScheduledRun :exec
+UPDATE runs SET status = 'running', schedule_window_end = $2 WHERE id = $1
+`
+
+type ResumeScheduledRunParams struct {
+	ID                int64      `json:"id"`
+	ScheduleWindowEnd *time.Time `json:"schedule_window_end"`
+}
+
+func (q *Queries) ResumeScheduledRun(ctx context.Context, arg ResumeScheduledRunParams) error {
+	_, err := q.db.Exec(ctx, resumeScheduledRun, arg.ID, arg.ScheduleWindowEnd)
+	return err
+}
+
 const setRunDojoEngagementStatus = `-- name: SetRunDojoEngagementStatus :exec
 UPDATE runs
 SET stats = jsonb_set(stats, '{dojo_engagement_status}', to_jsonb($1::text))
@@ -142,6 +362,59 @@ type SetRunDojoEngagementStatusParams struct {
 func (q *Queries) SetRunDojoEngagementStatus(ctx context.Context, arg SetRunDojoEngagementStatusParams) error {
 	_, err := q.db.Exec(ctx, setRunDojoEngagementStatus, arg.Status, arg.ID)
 	return err
+}
+
+const suspendScheduledRun = `-- name: SuspendScheduledRun :exec
+UPDATE runs SET status = 'suspended' WHERE id = $1
+`
+
+func (q *Queries) SuspendScheduledRun(ctx context.Context, id int64) error {
+	_, err := q.db.Exec(ctx, suspendScheduledRun, id)
+	return err
+}
+
+const updateUISchedule = `-- name: UpdateUISchedule :one
+UPDATE schedules SET profile_id = $1, cron = $2,
+    window_start = $3, window_end = $4,
+    timezone = $5, enabled = $6
+WHERE id = $7 AND source = 'ui'
+RETURNING id, profile_id, source, dojo_engagement_id, cron, window_start, window_end, timezone, enabled, created_at
+`
+
+type UpdateUIScheduleParams struct {
+	ProfileID   int64       `json:"profile_id"`
+	Cron        pgtype.Text `json:"cron"`
+	WindowStart *time.Time  `json:"window_start"`
+	WindowEnd   *time.Time  `json:"window_end"`
+	Timezone    string      `json:"timezone"`
+	Enabled     bool        `json:"enabled"`
+	ID          int64       `json:"id"`
+}
+
+func (q *Queries) UpdateUISchedule(ctx context.Context, arg UpdateUIScheduleParams) (Schedule, error) {
+	row := q.db.QueryRow(ctx, updateUISchedule,
+		arg.ProfileID,
+		arg.Cron,
+		arg.WindowStart,
+		arg.WindowEnd,
+		arg.Timezone,
+		arg.Enabled,
+		arg.ID,
+	)
+	var i Schedule
+	err := row.Scan(
+		&i.ID,
+		&i.ProfileID,
+		&i.Source,
+		&i.DojoEngagementID,
+		&i.Cron,
+		&i.WindowStart,
+		&i.WindowEnd,
+		&i.Timezone,
+		&i.Enabled,
+		&i.CreatedAt,
+	)
+	return i, err
 }
 
 const upsertDojoSchedule = `-- name: UpsertDojoSchedule :one

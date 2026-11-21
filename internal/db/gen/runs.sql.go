@@ -81,7 +81,7 @@ func (q *Queries) GetProfile(ctx context.Context, id int64) (Profile, error) {
 }
 
 const getRunView = `-- name: GetRunView :one
-SELECT r.id, r.profile_id, r.schedule_id, r.status, r.created_by, r.created_at, r.started_at, r.finished_at, r.hosts_total, r.hosts_up, r.stats,
+SELECT r.id, r.profile_id, r.schedule_id, r.status, r.created_by, r.created_at, r.started_at, r.finished_at, r.hosts_total, r.hosts_up, r.stats, r.schedule_window_end,
     (SELECT count(*) FROM batches b WHERE b.run_id = r.id) AS batches_total,
     (SELECT count(*) FROM batches b WHERE b.run_id = r.id AND b.status = 'done') AS batches_done,
     (SELECT count(*) FROM batches b WHERE b.run_id = r.id AND b.status = 'failed') AS batches_failed
@@ -110,6 +110,7 @@ func (q *Queries) GetRunView(ctx context.Context, id int64) (GetRunViewRow, erro
 		&i.Run.HostsTotal,
 		&i.Run.HostsUp,
 		&i.Run.Stats,
+		&i.Run.ScheduleWindowEnd,
 		&i.BatchesTotal,
 		&i.BatchesDone,
 		&i.BatchesFailed,
@@ -118,19 +119,21 @@ func (q *Queries) GetRunView(ctx context.Context, id int64) (GetRunViewRow, erro
 }
 
 const insertRun = `-- name: InsertRun :one
-INSERT INTO runs (profile_id, status, created_by, started_at, finished_at, hosts_total, stats)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, profile_id, schedule_id, status, created_by, created_at, started_at, finished_at, hosts_total, hosts_up, stats
+INSERT INTO runs (profile_id, status, created_by, started_at, finished_at, hosts_total, stats, schedule_id, schedule_window_end)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, profile_id, schedule_id, status, created_by, created_at, started_at, finished_at, hosts_total, hosts_up, stats, schedule_window_end
 `
 
 type InsertRunParams struct {
-	ProfileID  int64           `json:"profile_id"`
-	Status     string          `json:"status"`
-	CreatedBy  *int64          `json:"created_by"`
-	StartedAt  *time.Time      `json:"started_at"`
-	FinishedAt *time.Time      `json:"finished_at"`
-	HostsTotal int32           `json:"hosts_total"`
-	Stats      json.RawMessage `json:"stats"`
+	ProfileID         int64           `json:"profile_id"`
+	Status            string          `json:"status"`
+	CreatedBy         *int64          `json:"created_by"`
+	StartedAt         *time.Time      `json:"started_at"`
+	FinishedAt        *time.Time      `json:"finished_at"`
+	HostsTotal        int32           `json:"hosts_total"`
+	Stats             json.RawMessage `json:"stats"`
+	ScheduleID        *int64          `json:"schedule_id"`
+	ScheduleWindowEnd *time.Time      `json:"schedule_window_end"`
 }
 
 func (q *Queries) InsertRun(ctx context.Context, arg InsertRunParams) (Run, error) {
@@ -142,6 +145,8 @@ func (q *Queries) InsertRun(ctx context.Context, arg InsertRunParams) (Run, erro
 		arg.FinishedAt,
 		arg.HostsTotal,
 		arg.Stats,
+		arg.ScheduleID,
+		arg.ScheduleWindowEnd,
 	)
 	var i Run
 	err := row.Scan(
@@ -156,12 +161,13 @@ func (q *Queries) InsertRun(ctx context.Context, arg InsertRunParams) (Run, erro
 		&i.HostsTotal,
 		&i.HostsUp,
 		&i.Stats,
+		&i.ScheduleWindowEnd,
 	)
 	return i, err
 }
 
 const listRunViews = `-- name: ListRunViews :many
-SELECT r.id, r.profile_id, r.schedule_id, r.status, r.created_by, r.created_at, r.started_at, r.finished_at, r.hosts_total, r.hosts_up, r.stats,
+SELECT r.id, r.profile_id, r.schedule_id, r.status, r.created_by, r.created_at, r.started_at, r.finished_at, r.hosts_total, r.hosts_up, r.stats, r.schedule_window_end,
     (SELECT count(*) FROM batches b WHERE b.run_id = r.id) AS batches_total,
     (SELECT count(*) FROM batches b WHERE b.run_id = r.id AND b.status = 'done') AS batches_done,
     (SELECT count(*) FROM batches b WHERE b.run_id = r.id AND b.status = 'failed') AS batches_failed
@@ -205,6 +211,7 @@ func (q *Queries) ListRunViews(ctx context.Context, arg ListRunViewsParams) ([]L
 			&i.Run.HostsTotal,
 			&i.Run.HostsUp,
 			&i.Run.Stats,
+			&i.Run.ScheduleWindowEnd,
 			&i.BatchesTotal,
 			&i.BatchesDone,
 			&i.BatchesFailed,
@@ -220,7 +227,7 @@ func (q *Queries) ListRunViews(ctx context.Context, arg ListRunViewsParams) ([]L
 }
 
 const lockProfile = `-- name: LockProfile :one
-SELECT id, name, ports, nmap_max_rate, nuclei_rate, nuclei_tags, miss_threshold, target_batch_seconds, enabled, created_at FROM profiles WHERE id = $1 FOR UPDATE
+SELECT id, name, ports, nmap_max_rate, nuclei_rate, nuclei_tags, miss_threshold, target_batch_seconds, enabled, created_at FROM profiles WHERE id = $1 FOR NO KEY UPDATE
 `
 
 // Serializes run starts of one profile (one active run per profile).
@@ -243,7 +250,7 @@ func (q *Queries) LockProfile(ctx context.Context, id int64) (Profile, error) {
 }
 
 const lockRun = `-- name: LockRun :one
-SELECT id, profile_id, schedule_id, status, created_by, created_at, started_at, finished_at, hosts_total, hosts_up, stats FROM runs WHERE id = $1 FOR UPDATE
+SELECT id, profile_id, schedule_id, status, created_by, created_at, started_at, finished_at, hosts_total, hosts_up, stats, schedule_window_end FROM runs WHERE id = $1 FOR UPDATE
 `
 
 // Every batch state change takes this lock first, so "is this the last
@@ -263,6 +270,7 @@ func (q *Queries) LockRun(ctx context.Context, id int64) (Run, error) {
 		&i.HostsTotal,
 		&i.HostsUp,
 		&i.Stats,
+		&i.ScheduleWindowEnd,
 	)
 	return i, err
 }
