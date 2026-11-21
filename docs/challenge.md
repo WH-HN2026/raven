@@ -260,3 +260,4 @@ Translated and summarised from the team's notes. These take precedence over our 
 
 **Later notes (dated).**
 - **2026-11-21 — Aggressive preset accepted.** The jury accepts an aggressive scanning preset (active nuclei templates, nikto, wpscan, ZAP) as an **explicit opt-in option that is never the default**. Note 2 ("wide, not deep") still describes the default workflow. Guardrails: [`architecture.md`](architecture.md) §3.11 (workflows) and §9 (safety).
+- **2026-11-21 — Organizers' lab configs received** (`lab.zip`). They must run **as-is**: we may not modify or adapt them. We run them verbatim from `lab/organizers/` and scan them on the Docker host's published ports (172.17.0.1, profile "Organizers' lab"). Our own lab (`compose.lab.yml`) stays as the second scenario. Details: [`architecture.md`](architecture.md) §10 "Lab scenarios".
