@@ -113,11 +113,14 @@ func run() error {
 			dojoWrite.Set(res.Client)
 			// Planned engagements poller (D5): once now, then every 5 min.
 			go (&dojo.PlanningPoller{Client: res.Client, Pool: pool, PlanningAssetID: res.Planning.ID}).Run(ctx, 5*time.Minute)
-			// Offline CVE matching + push (C3): now, then every 5 min.
-			go (&dojo.CVESync{Pool: pool, Matcher: cveMatcher,
-				Pusher: &dojo.CVEPusher{Client: res.Client, OrganizationID: res.Organization.ID}}).Run(ctx, 5*time.Minute)
-			// Read-model pull (D3): once now, then every 5 min.
-			(&dojo.Syncer{Client: res.Client, Pool: pool, OrganizationID: res.Organization.ID}).Run(ctx, 5*time.Minute)
+			// Read-model pull (D3) and offline CVE matching + push (C3): now, then
+			// every 5 min, and right after a run's last Dojo push: CVE first, then the mirror (D7).
+			syncer := &dojo.Syncer{Client: res.Client, Pool: pool, OrganizationID: res.Organization.ID}
+			cveSync := &dojo.CVESync{Pool: pool, Matcher: cveMatcher, Next: syncer,
+				Pusher: &dojo.CVEPusher{Client: res.Client, OrganizationID: res.Organization.ID}}
+			push.OnRunPushed(cveSync.Trigger)
+			go cveSync.Run(ctx, 5*time.Minute)
+			syncer.Run(ctx, 5*time.Minute)
 		}()
 	} else {
 		slog.Warn("RAVEN_DOJO_URL is empty: DefectDojo integration disabled")

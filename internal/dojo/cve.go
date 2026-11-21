@@ -70,7 +70,14 @@ type CVESync struct {
 	Pool    *pgxpool.Pool
 	Matcher *cve.Matcher
 	Pusher  *CVEPusher // nil = match only (Dojo disabled or not bootstrapped yet)
+	Next    *Syncer    // triggered after each triggered pass (D7); nil = none
+
+	kick Trigger
 }
+
+// Trigger asks Run for one extra pass now (coalesced, non-blocking); that
+// pass then triggers Next, so the mirror sync sees the CVE push.
+func (s *CVESync) Trigger() { s.kick.Fire() }
 
 // Once runs one match pass and pushes the IPs whose match set changed. A
 // failed IP keeps its old hash and is retried on the next pass.
@@ -110,18 +117,14 @@ func (s *CVESync) Once(ctx context.Context) error {
 	return nil
 }
 
-// Run runs Once now and then every interval until ctx ends.
+// Run runs Once now, then every interval and on every Trigger, until ctx ends.
 func (s *CVESync) Run(ctx context.Context, interval time.Duration) {
-	t := time.NewTicker(interval)
-	defer t.Stop()
-	for {
+	loop(ctx, interval, &s.kick, func(triggered bool) {
 		if err := s.Once(ctx); err != nil && ctx.Err() == nil {
 			slog.Error("cve match", "err", err)
 		}
-		select {
-		case <-ctx.Done():
-			return
-		case <-t.C:
+		if triggered && s.Next != nil && ctx.Err() == nil {
+			s.Next.Trigger()
 		}
-	}
+	})
 }

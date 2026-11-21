@@ -60,6 +60,8 @@ type PushService struct {
 	parsers map[string]ParseFunc // by scanner name
 	pusher  atomic.Pointer[Pusher]
 	river   *river.Client[pgx.Tx]
+
+	onRunPushed atomic.Pointer[func()] // D7: set by OnRunPushed, nil = no-op
 }
 
 // NewPushService builds the queue; parsers maps scanner name → parser of its raw output.
@@ -135,7 +137,12 @@ func (w *pushWorker) Work(ctx context.Context, job *river.Job[PushArgs]) error {
 		slog.Info("dojo push waiting for dojo bootstrap", "run", job.Args.RunID, "batch", job.Args.BatchID)
 		return river.JobSnooze(pushNotReadyWait)
 	}
-	return w.s.run(ctx, p, job.Args, job.Attempt >= job.MaxAttempts)
+	last := job.Attempt >= job.MaxAttempts
+	err := w.s.run(ctx, p, job.Args, last)
+	if err == nil || last {
+		w.s.afterPush(ctx, job.Args.RunID)
+	}
+	return err
 }
 
 // run pushes one batch. Every attempt pushes all its IPs again (reimport is
