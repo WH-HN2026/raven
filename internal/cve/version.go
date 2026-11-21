@@ -179,9 +179,14 @@ var distroMarker = regexp.MustCompile(`(?i)(ubuntu|debian|\bdeb\d+u\d+|\+deb\d|[
 // DistroBuild reports whether any of the strings shows a distribution
 // build. Distros backport fixes without changing the upstream version, so
 // version matching on such builds is low confidence.
+// Nmap unrecognized service fingerprints ("SF-Port...") embed the scanner's
+// own platform (%P=x86_64-alpine-linux-musl) and are ignored.
 func DistroBuild(fields ...string) bool {
 	for _, f := range fields {
-		if f != "" && distroMarker.MatchString(f) {
+		if f == "" || strings.HasPrefix(f, "SF-Port") {
+			continue
+		}
+		if distroMarker.MatchString(f) {
 			return true
 		}
 	}

@@ -100,6 +100,9 @@ func TestExtractVersionAndDistro(t *testing.T) {
 			t.Errorf("DistroBuild(%q) = %v, want %v", tt.in, got, tt.distro)
 		}
 	}
+	if DistroBuild("SF-Port80-TCP:V=7.99%P=x86_64-alpine-linux-musl%r(GetRequest,10,\"HTTP/1.1 200 OK\")") {
+		t.Error("DistroBuild matched scanner platform in nmap SF-Port fingerprint")
+	}
 }
 
 func TestSeverity(t *testing.T) {
