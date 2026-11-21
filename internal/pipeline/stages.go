@@ -37,7 +37,7 @@ var stageRegistry = []StageDef{
 	{Name: StageNmap, Needs: []string{}, Aggressive: false, Available: true},
 	{Name: StageHTTPX, Needs: []string{StageNmap}, Aggressive: false, Available: true},
 	{Name: StageNuclei, Needs: []string{StageHTTPX}, Aggressive: false, Available: true},
-	{Name: StageNucleiActive, Needs: []string{StageHTTPX}, Aggressive: true, Available: false},
+	{Name: StageNucleiActive, Needs: []string{StageHTTPX}, Aggressive: true, Available: true},
 	{Name: StageNikto, Needs: []string{StageHTTPX}, Aggressive: true, Available: false},
 	{Name: StageWPScan, Needs: []string{StageHTTPX}, Aggressive: true, Available: true},
 	{Name: StageZAP, Needs: []string{StageHTTPX}, Aggressive: true, Available: false},

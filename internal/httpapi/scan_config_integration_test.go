@@ -62,10 +62,11 @@ func TestProfilesAndSchedulesAPI(t *testing.T) {
 		t.Fatalf("GET /stages = %+v", stagesResp)
 	}
 	for _, st := range stagesResp.Stages {
-		if st.Name == pipeline.StageWPScan && !st.Available {
+		available := st.Name == pipeline.StageWPScan || st.Name == pipeline.StageNucleiActive
+		if st.Aggressive && available && !st.Available {
 			t.Fatalf("aggressive stage %s should be available", st.Name)
 		}
-		if st.Aggressive && st.Name != pipeline.StageWPScan && st.Available {
+		if st.Aggressive && !available && st.Available {
 			t.Fatalf("aggressive stage %s should not be available yet", st.Name)
 		}
 	}
@@ -129,7 +130,7 @@ func TestProfilesAndSchedulesAPI(t *testing.T) {
 		`{"name":"bad","ports":"80","stages":["nmap","nuclei"]}`,
 		`{"name":"bad","ports":"80","stages":["nmap","nmap"]}`,
 		`{"name":"bad","ports":"80","stages":["nmap","masscan"]}`,
-		`{"name":"bad","ports":"80","stages":["nmap","httpx","nuclei_active"]}`,
+		`{"name":"bad","ports":"80","stages":["nmap","nuclei_active"]}`,
 		`{"name":"bad","ports":"80","stages":["nmap","httpx","nikto"]}`,
 		`{"name":"bad","ports":"80","stages":["nmap","wpscan"]}`,
 		`{"name":"bad","ports":"80","stages":["nmap","httpx","zap"]}`,
