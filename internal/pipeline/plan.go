@@ -67,10 +67,10 @@ type HostRow struct {
 
 // ServiceRow is an open service to upsert.
 type ServiceRow struct {
-	IP                             netip.Addr
-	Port                           uint16
-	Proto                          string
-	Name, Product, Version, Banner string
+	IP                                  netip.Addr
+	Port                                uint16
+	Proto                               string
+	Name, Product, Version, CPE, Banner string
 }
 
 func (s ServiceRow) key() svcKey { return svcKey{s.IP, s.Port, s.Proto} }
@@ -139,7 +139,7 @@ func BuildPlan(ips []netip.Addr, hostnames map[netip.Addr][]string, obs []scanne
 			continue
 		}
 		s := ServiceRow{IP: ip, Port: o.Port, Proto: cmp.Or(o.Proto, "tcp"),
-			Name: o.Service, Product: o.Product, Version: o.Version, Banner: o.Banner}
+			Name: o.Service, Product: o.Product, Version: o.Version, CPE: o.CPE, Banner: o.Banner}
 		if seen[s.key()] {
 			continue
 		}

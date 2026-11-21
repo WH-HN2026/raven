@@ -99,7 +99,7 @@ func (q *Queries) ListHostRunObservations(ctx context.Context, arg ListHostRunOb
 }
 
 const listHostServices = `-- name: ListHostServices :many
-SELECT id, ip, port, proto, name, product, version,
+SELECT id, ip, port, proto, name, product, version, cpe,
     COALESCE(asi_dec(banner_enc), '')::text AS banner,
     state, first_seen, last_seen, overrides
 FROM services WHERE ip = $1
@@ -114,6 +114,7 @@ type ListHostServicesRow struct {
 	Name      string          `json:"name"`
 	Product   string          `json:"product"`
 	Version   string          `json:"version"`
+	Cpe       string          `json:"cpe"`
 	Banner    string          `json:"banner"`
 	State     string          `json:"state"`
 	FirstSeen time.Time       `json:"first_seen"`
@@ -139,6 +140,7 @@ func (q *Queries) ListHostServices(ctx context.Context, ip netip.Addr) ([]ListHo
 			&i.Name,
 			&i.Product,
 			&i.Version,
+			&i.Cpe,
 			&i.Banner,
 			&i.State,
 			&i.FirstSeen,

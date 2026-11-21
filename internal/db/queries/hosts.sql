@@ -9,7 +9,7 @@ FROM hosts WHERE ip = @ip;
 
 -- name: ListHostServices :many
 -- Open services first, then gone ones; by port.
-SELECT id, ip, port, proto, name, product, version,
+SELECT id, ip, port, proto, name, product, version, cpe,
     COALESCE(asi_dec(banner_enc), '')::text AS banner,
     state, first_seen, last_seen, overrides
 FROM services WHERE ip = @ip

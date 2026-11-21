@@ -51,7 +51,7 @@ func Ingest(ctx context.Context, q *gen.Queries, in IngestInput) error {
 	for _, s := range p.Services {
 		if err := q.UpsertScannedService(ctx, gen.UpsertScannedServiceParams{
 			Ip: s.IP, Port: int32(s.Port), Proto: s.Proto, Name: s.Name, Product: s.Product,
-			Version: s.Version, Banner: s.Banner, Seen: in.Seen,
+			Version: s.Version, Cpe: s.CPE, Banner: s.Banner, Seen: in.Seen,
 		}); err != nil {
 			return fmt.Errorf("ingest service %s/%d: %w", s.IP, s.Port, err)
 		}

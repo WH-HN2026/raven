@@ -10,12 +10,13 @@ ON CONFLICT (ip) DO UPDATE SET
     last_seen = EXCLUDED.last_seen;
 
 -- name: UpsertScannedService :exec
-INSERT INTO services (ip, port, proto, name, product, version, banner_enc, state, first_seen, last_seen)
-VALUES (@ip, @port, @proto, @name, @product, @version, asi_enc(NULLIF(@banner::text, '')), 'open', @seen, @seen)
+INSERT INTO services (ip, port, proto, name, product, version, cpe, banner_enc, state, first_seen, last_seen)
+VALUES (@ip, @port, @proto, @name, @product, @version, @cpe, asi_enc(NULLIF(@banner::text, '')), 'open', @seen, @seen)
 ON CONFLICT (ip, port, proto) DO UPDATE SET
     name = EXCLUDED.name,
     product = EXCLUDED.product,
     version = EXCLUDED.version,
+    cpe = EXCLUDED.cpe,
     banner_enc = EXCLUDED.banner_enc,
     state = 'open',
     last_seen = EXCLUDED.last_seen;

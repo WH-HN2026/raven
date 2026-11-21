@@ -251,9 +251,15 @@ func TestPipeline(t *testing.T) {
 	if dec != string(raw) {
 		t.Fatal("decrypted artifact differs from the raw XML")
 	}
-	var banner string
-	if err := pool.QueryRow(ctx, `SELECT asi_dec(banner_enc) FROM services WHERE ip = '172.31.250.11' AND port = 22`).Scan(&banner); err != nil || banner == "" {
+	var banner, sshCPE, webCPE string
+	if err := pool.QueryRow(ctx, `SELECT asi_dec(banner_enc), cpe FROM services WHERE ip = '172.31.250.11' AND port = 22`).Scan(&banner, &sshCPE); err != nil || banner == "" {
 		t.Fatalf("ssh banner not stored encrypted: %q %v", banner, err)
+	}
+	if sshCPE != "openbsd:openssh:10.0" {
+		t.Fatalf("172.31.250.11:22 cpe = %q, want openbsd:openssh:10.0", sshCPE)
+	}
+	if err := pool.QueryRow(ctx, `SELECT cpe FROM services WHERE ip = '172.31.250.10' AND port = 80`).Scan(&webCPE); err != nil || webCPE != "igor_sysoev:nginx" {
+		t.Fatalf("172.31.250.10:80 cpe = %q (err=%v), want igor_sysoev:nginx", webCPE, err)
 	}
 
 	// user edits between runs, and a service on a port outside the profile

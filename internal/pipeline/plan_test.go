@@ -108,7 +108,7 @@ func TestBuildPlan(t *testing.T) {
 		netip.MustParseAddr("10.0.0.3"), netip.MustParseAddr("10.9.9.9")
 	obs := []scanner.Observation{
 		{Kind: scanner.ObsHost, IP: ip1, Up: true, Hostname: "scan.example"},
-		{Kind: scanner.ObsService, IP: ip1, Port: 443, Proto: "tcp", Service: "https", Product: "nginx", Banner: "b"},
+		{Kind: scanner.ObsService, IP: ip1, Port: 443, Proto: "tcp", Service: "https", Product: "nginx", CPE: "igor_sysoev:nginx", Banner: "b"},
 		{Kind: scanner.ObsService, IP: ip1, Port: 22, Proto: "tcp", Service: "ssh"},
 		{Kind: scanner.ObsService, IP: ip1, Port: 22, Proto: "tcp", Service: "ssh"}, // duplicate
 		{Kind: scanner.ObsHTTP, IP: ip1, Port: 443},
@@ -127,7 +127,7 @@ func TestBuildPlan(t *testing.T) {
 		t.Fatalf("Hosts = %+v", p.Hosts)
 	}
 	if len(p.Services) != 2 || p.Services[0].Port != 22 || p.Services[1].Port != 443 ||
-		p.Services[1].Product != "nginx" || p.Services[1].Banner != "b" {
+		p.Services[1].Product != "nginx" || p.Services[1].CPE != "igor_sysoev:nginx" || p.Services[1].Banner != "b" {
 		t.Fatalf("Services = %+v", p.Services)
 	}
 	want := []ObsRow{
@@ -158,6 +158,13 @@ func TestBuildPlanFromFixture(t *testing.T) {
 	}
 	if len(p.Observations) != 4+6 {
 		t.Fatalf("observations = %d", len(p.Observations))
+	}
+	cpes := map[string]string{}
+	for _, s := range p.Services {
+		cpes[netip.AddrPortFrom(s.IP, s.Port).String()] = s.CPE
+	}
+	if cpes["172.31.250.10:80"] != "igor_sysoev:nginx" || cpes["172.31.250.11:22"] != "openbsd:openssh:10.0" {
+		t.Fatalf("fixture CPEs = %v", cpes)
 	}
 }
 
