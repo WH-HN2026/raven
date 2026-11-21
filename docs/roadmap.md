@@ -100,7 +100,7 @@ M0 is sequential and blocking. Do it in **one** worktree, as fast as possible, t
   - IoT/printer/router page titles.
 
   **Organizers' format:** when their sample signatures arrive, write a converter to our nuclei subset (or accept their format directly) and add all their samples plus their "interesting artefacts" list to the pack.
-- [ ] **C3 Offline CVE matching.** (needs S8; uses S7/S4 output once merged) Architecture §11:
+- [x] **C3 Offline CVE matching.** (needs S8; uses S7/S4 output once merged) Architecture §11:
   - `make cve-db` fetches NVD CVE 2.0 for the curated `internal/cve/products.txt`, plus CISA KEV and EPSS, into committed gzip data;
   - CPE mapping for httpx/nuclei technology names, and a version-range matcher with table tests (`8.9p1`, `2.4.49`, distro suffixes);
   - confidence and the distro cap; one finding per product instance pushed as "ASI CVE match" (Generic Findings Import with `vulnerability_ids`);

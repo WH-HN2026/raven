@@ -225,15 +225,24 @@ func score(lists ...[]nvdMetric) (float64, string) {
 	return 0, ""
 }
 
-// product adds the CVEs of one vendor:product: as an application ("a")
-// first, and as an operating system ("o", appliance firmware) if NVD has
-// nothing under "a".
+// product adds the CVEs of one vendor:product. NVD files appliance firmware
+// as operating systems ("o") and most of it also has a few "a" entries, so
+// firmware is fetched under both; other products under "a", falling back to
+// "o" if NVD has nothing there.
 func (f *fetcher) product(ctx context.Context, db *cve.DB, name string) (int, error) {
 	n, err := f.productPart(ctx, db, "a", name)
-	if err != nil || n > 0 {
+	if err != nil || (n > 0 && !firmware[name]) {
 		return n, err
 	}
-	return f.productPart(ctx, db, "o", name)
+	m, err := f.productPart(ctx, db, "o", name)
+	return max(n, m), err
+}
+
+// firmware are the products.txt names NVD files mostly under part "o".
+var firmware = map[string]bool{
+	"fortinet:fortios": true, "mikrotik:routeros": true, "cisco:ios_xe": true, "sonicwall:sonicos": true,
+	"paloaltonetworks:pan-os": true, "synology:diskstation_manager": true, "qnap:qts": true,
+	"citrix:application_delivery_controller_firmware": true,
 }
 
 // productPart pages through NVD for one part:vendor:product.
@@ -303,9 +312,16 @@ func (f *fetcher) productPart(ctx context.Context, db *cve.DB, part, name string
 		ids = append(ids, id)
 	}
 	slices.Sort(ids)
-	for _, id := range ids {
-		db.Products[name] = append(db.Products[name], cve.Affect{ID: id, Ranges: affects[id]})
+	have := map[string]bool{}
+	for _, a := range db.Products[name] {
+		have[a.ID] = true
 	}
+	for _, id := range ids {
+		if !have[id] {
+			db.Products[name] = append(db.Products[name], cve.Affect{ID: id, Ranges: affects[id]})
+		}
+	}
+	slices.SortFunc(db.Products[name], func(a, b cve.Affect) int { return strings.Compare(a.ID, b.ID) })
 	return len(ids), nil
 }
 
