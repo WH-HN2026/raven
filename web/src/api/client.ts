@@ -107,14 +107,22 @@ type UploadPaths = {
     : never
 }[keyof paths]
 
-/** POSTs one file as multipart field `file` (with the CSRF header). */
+type FieldsOf<O> = O extends { requestBody: { content: { 'multipart/form-data': infer F } } }
+  ? { [K in Exclude<keyof F, 'file'>]?: string }
+  : never
+
+/** POSTs one file as multipart field `file` (plus optional string `fields`), with the CSRF header. */
 export async function upload<P extends UploadPaths>(
   path: P,
   file: File,
   query?: QueryOf<Op<P, 'post'>>,
+  fields?: FieldsOf<Op<P, 'post'>>,
 ): Promise<SuccessOf<Op<P, 'post'>>> {
   const form = new FormData()
   form.append('file', file)
+  for (const [k, v] of Object.entries((fields ?? {}) as Record<string, string | undefined>)) {
+    if (v) form.append(k, v)
+  }
   const res = await fetch('/api' + String(path) + queryString(query as object | undefined), {
     method: 'POST',
     headers: { Accept: 'application/json', [CSRF_HEADER]: '1' },
