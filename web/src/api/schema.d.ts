@@ -194,10 +194,14 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description stub */
         get: operations["listRuns"];
         put?: never;
-        /** @description stub. Start a run for a profile (runs:control). */
+        /**
+         * @description Start a run for a profile (runs:control). Builds the scan list (targets + scope), splits it into
+         *     fixed-size batches and enqueues one job per batch. An empty scan list gives a run that is `done`
+         *     immediately, with `stats.reason`. 409 if the profile already has a pending or running run;
+         *     400 for an unknown or disabled profile.
+         */
         post: operations["startRun"];
         delete?: never;
         options?: never;
@@ -214,7 +218,7 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** @description stub */
+        /** @description One run with batch progress; poll it while the run is pending/running. */
         get: operations["getRun"];
         put?: never;
         post?: never;
@@ -233,7 +237,7 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** @description stub */
+        /** @description All batches of the run, in order (not paginated). */
         get: operations["listRunBatches"];
         put?: never;
         post?: never;
@@ -254,7 +258,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description stub */
+        /**
+         * @description Stop a pending/running run (runs:control): unfinished batches become `stopped`, their scans are
+         *     cancelled, and the run becomes `stopped`. 409 if the run is not active.
+         */
         post: operations["stopRun"];
         delete?: never;
         options?: never;
@@ -769,7 +776,7 @@ export interface components {
             total: number;
         };
         /** @enum {string} */
-        RunStatus: "pending" | "running" | "suspended" | "done" | "failed";
+        RunStatus: "pending" | "running" | "suspended" | "done" | "failed" | "stopped";
         Run: {
             /** Format: int64 */
             id: number;
@@ -779,16 +786,24 @@ export interface components {
             schedule_id?: number | null;
             status: components["schemas"]["RunStatus"];
             /** Format: date-time */
-            created_at?: string;
+            created_at: string;
             /** Format: date-time */
             started_at?: string | null;
             /** Format: date-time */
             finished_at?: string | null;
             hosts_total: number;
             hosts_up: number;
-            batches_total?: number;
-            batches_done?: number;
-            stats?: {
+            batches_total: number;
+            /** @description batches with status done */
+            batches_done: number;
+            /** @description batches that failed after all retries */
+            batches_failed: number;
+            /**
+             * @description Scan list stats (candidates, not_included, excluded, rejected, warnings, batch_size) from the start;
+             *     when finished also batches, batches_done/failed/stopped, duration_ms_sum, duration_ms_max,
+             *     services_open; `reason` for an empty scan list.
+             */
+            stats: {
                 [key: string]: unknown;
             };
         };
@@ -802,10 +817,15 @@ export interface components {
             /** Format: int64 */
             run_id: number;
             seq: number;
+            /** @description IPs in the batch */
             host_count: number;
+            /** @description IPs that responded */
+            hosts_up: number;
             /** @enum {string} */
-            status: "pending" | "running" | "done" | "failed";
-            attempts?: number;
+            status: "pending" | "running" | "done" | "failed" | "stopped";
+            /** @description last attempt's error, empty if none */
+            error: string;
+            attempts: number;
             /** Format: date-time */
             started_at?: string | null;
             /** Format: date-time */

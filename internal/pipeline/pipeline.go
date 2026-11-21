@@ -239,7 +239,7 @@ func (s *Service) StartRun(ctx context.Context, u *auth.User, profileID int64) (
 		"not_included": sl.Stats.NotIncluded,
 		"excluded":     sl.Stats.Excluded,
 		"rejected":     sl.Stats.Rejected,
-		"warnings":     sl.Warnings,
+		"warnings":     nonNil(sl.Warnings),
 		"batch_size":   s.cfg.BatchSize,
 	}
 	now := time.Now()
