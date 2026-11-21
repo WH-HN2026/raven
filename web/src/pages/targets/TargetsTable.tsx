@@ -2,7 +2,20 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { useState } from 'react'
 import { api } from '../../api/client'
 import { useCan } from '../../auth/hooks'
-import { btnDanger, btnSecondary, card, td, th, targetsKey } from './ui'
+import {
+  Alert,
+  Button,
+  EmptyRow,
+  ErrorText,
+  Pagination,
+  SectionHeading,
+  Table,
+  Td,
+  Th,
+  THeadRow,
+  Tr,
+} from '../../components/ui'
+import { targetsKey } from './ui'
 
 const PAGE = 50
 
@@ -26,86 +39,54 @@ export function TargetsTable() {
   if (q.data && items.length === 0 && offset > 0 && !q.isFetching) setOffset(Math.max(0, offset - PAGE))
 
   return (
-    <section className={card}>
-      <div className="mb-3 flex items-baseline gap-3">
-        <h2 className="text-lg font-semibold text-ink">Targets</h2>
-        <span className="text-sm text-muted">{total} total</span>
-      </div>
-      {q.error && <p className="text-sm text-danger">Cannot load targets: {q.error.message}</p>}
-      {del.error && (
-        <p role="alert" className="mb-2 rounded bg-accent-light px-3 py-2 text-sm text-accent-dark">
-          Delete failed: {del.error.message}
-        </p>
-      )}
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+    <section className="flex flex-col gap-4">
+      <SectionHeading>Targets · {total} entr{total === 1 ? 'y' : 'ies'}</SectionHeading>
+      {q.error && <ErrorText>Cannot load targets: {q.error.message}</ErrorText>}
+      {del.error && <Alert>Delete failed: {del.error.message}</Alert>}
+      <div className="bg-white px-5 pt-1 pb-2">
+        <Table minWidth={860}>
           <thead>
-            <tr>
-              <th className={th}>Value</th>
-              <th className={th}>Kind</th>
-              <th className={th}>Source</th>
-              <th className={th}>Tags</th>
-              <th className={th}>Note</th>
-              <th className={th}>Created</th>
-              {canWrite && <th className={th}>{/* actions */}</th>}
-            </tr>
+            <THeadRow>
+              <Th>Target</Th>
+              <Th>Kind</Th>
+              <Th>Source</Th>
+              <Th>Tags</Th>
+              <Th>Note</Th>
+              <Th>Created</Th>
+              {canWrite && <Th className="text-right">Actions</Th>}
+            </THeadRow>
           </thead>
           <tbody>
             {items.map((t) => (
-              <tr key={t.id}>
-                <td className={td + ' font-mono'}>{t.value}</td>
-                <td className={td}>{t.kind}</td>
-                <td className={td}>{t.source}</td>
-                <td className={td}>
-                  <div className="flex flex-wrap gap-1">
-                    {t.tags.map((tag) => (
-                      <span key={tag} className="rounded bg-brand-light px-1.5 py-0.5 text-xs text-brand-dark">
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                </td>
-                <td className={td + ' text-graphite'}>{t.note}</td>
-                <td className={td + ' whitespace-nowrap text-muted'}>
+              <Tr key={t.id}>
+                <Td className="font-mono font-medium">{t.value}</Td>
+                <Td>{t.kind}</Td>
+                <Td className="text-muted">{t.source}</Td>
+                <Td className="text-muted">{t.tags.join(', ')}</Td>
+                <Td className="text-muted">{t.note}</Td>
+                <Td className="whitespace-nowrap text-muted">
                   {t.created_at ? new Date(t.created_at).toLocaleString() : ''}
-                </td>
+                </Td>
                 {canWrite && (
-                  <td className={td + ' text-right'}>
-                    <button
-                      className={btnDanger}
+                  <Td className="text-right whitespace-nowrap">
+                    <Button
+                      variant="danger"
+                      size="sm"
                       aria-label={`Delete ${t.value}`}
                       disabled={del.isPending && del.variables === t.id}
                       onClick={() => del.mutate(t.id)}
                     >
                       Delete
-                    </button>
-                  </td>
+                    </Button>
+                  </Td>
                 )}
-              </tr>
+              </Tr>
             ))}
-            {q.isSuccess && items.length === 0 && (
-              <tr>
-                <td className={td + ' text-muted'} colSpan={canWrite ? 7 : 6}>
-                  No targets yet.
-                </td>
-              </tr>
-            )}
+            {q.isSuccess && items.length === 0 && <EmptyRow colSpan={canWrite ? 7 : 6}>No targets</EmptyRow>}
           </tbody>
-        </table>
+        </Table>
+        <Pagination offset={offset} pageSize={PAGE} total={total} onChange={setOffset} />
       </div>
-      {total > PAGE && (
-        <div className="mt-3 flex items-center gap-2 text-sm text-graphite">
-          <button className={btnSecondary} disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - PAGE))}>
-            Previous
-          </button>
-          <span>
-            {offset + 1}–{Math.min(offset + PAGE, total)} of {total}
-          </span>
-          <button className={btnSecondary} disabled={offset + PAGE >= total} onClick={() => setOffset(offset + PAGE)}>
-            Next
-          </button>
-        </div>
-      )}
     </section>
   )
 }

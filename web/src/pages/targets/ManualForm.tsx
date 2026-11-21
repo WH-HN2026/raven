@@ -2,7 +2,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, type FormEvent } from 'react'
 import { ApiError, api, type Schemas } from '../../api/client'
 import { LineErrors } from '../../components/LineErrors'
-import { btnPrimary, card, input, splitTags, targetsKey } from './ui'
+import { Alert, Button, Field, inputClass, textareaClass } from '../../components/ui'
+import { splitTags, targetsKey } from './ui'
 
 export interface InputLine {
   /** 1-based line number in the textarea. */
@@ -70,26 +71,23 @@ export function ManualForm() {
   const byLine = new Map(sent.map((l) => [l.line, l.value]))
 
   return (
-    <form onSubmit={onSubmit} className={card + ' space-y-3'}>
-      <h2 className="text-lg font-semibold text-ink">Add targets</h2>
-      <label className="block">
-        <span className="text-sm text-graphite">Targets (one per line: IPv4, CIDR up to /16, or domain)</span>
+    <form onSubmit={onSubmit} className="flex flex-col gap-4">
+      <Field label="Targets, one per line">
         <textarea
-          className={input + ' mt-1 block h-32 w-full font-mono'}
+          rows={5}
+          className={textareaClass + ' font-mono'}
           placeholder={'10.0.0.0/24\n10.0.0.7\nwordpress.lab'}
           value={text}
           onChange={(e) => setText(e.target.value)}
         />
-      </label>
-      <div className="flex flex-wrap gap-3">
-        <label className="block min-w-48 flex-1">
-          <span className="text-sm text-graphite">Tags (comma separated, optional)</span>
-          <input className={input + ' mt-1 w-full'} value={tags} onChange={(e) => setTags(e.target.value)} />
-        </label>
-        <label className="block min-w-48 flex-1">
-          <span className="text-sm text-graphite">Note (optional)</span>
-          <input className={input + ' mt-1 w-full'} value={note} onChange={(e) => setNote(e.target.value)} />
-        </label>
+      </Field>
+      <div className="flex flex-wrap gap-4">
+        <Field label="Tags" className="flex-[1_1_200px]">
+          <input className={inputClass} placeholder="lab, web" value={tags} onChange={(e) => setTags(e.target.value)} />
+        </Field>
+        <Field label="Note" className="flex-[1_1_200px]">
+          <input className={inputClass} value={note} onChange={(e) => setNote(e.target.value)} />
+        </Field>
       </div>
       {lineErrors && (
         <LineErrors
@@ -98,19 +96,28 @@ export function ManualForm() {
           inputOf={(line) => byLine.get(line)}
         />
       )}
-      {err && !lineErrors && (
-        <p role="alert" className="rounded bg-accent-light px-3 py-2 text-sm text-accent-dark">
-          {err.message}
-        </p>
-      )}
+      {err && !lineErrors && <Alert>{err.message}</Alert>}
       {create.isSuccess && (
-        <p role="status" className="text-sm text-ok">
+        <Alert tone="ok">
           Added {create.data.total} target{create.data.total === 1 ? '' : 's'}.
-        </p>
+        </Alert>
       )}
-      <button type="submit" className={btnPrimary} disabled={create.isPending || parseLines(text).length === 0}>
-        {create.isPending ? 'Adding…' : 'Add targets'}
-      </button>
+      <div className="flex justify-end">
+        <Button
+          variant="secondary"
+          size="lg"
+          disabled={create.isPending || text === ''}
+          onClick={() => {
+            setText('')
+            create.reset()
+          }}
+        >
+          Clear
+        </Button>
+        <Button type="submit" variant="primary" size="lg" disabled={create.isPending || parseLines(text).length === 0}>
+          {create.isPending ? 'Adding…' : 'Add targets'}
+        </Button>
+      </div>
     </form>
   )
 }

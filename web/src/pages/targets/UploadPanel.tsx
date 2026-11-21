@@ -2,7 +2,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRef, useState } from 'react'
 import { upload } from '../../api/client'
 import { LineErrors } from '../../components/LineErrors'
-import { btnPrimary, btnSecondary, card, td, th, targetsKey } from './ui'
+import { Alert, Button, EmptyRow, Table, Td, Th, THeadRow, Tr } from '../../components/ui'
+import { targetsKey } from './ui'
 
 const CSV_EXAMPLE = `value,tags,note
 10.0.0.0/24,lab;web,main lab net
@@ -39,100 +40,93 @@ export function UploadPanel() {
   const p = preview.data
   const err = preview.error ?? importer.error
 
-  return (
-    <div className={card + ' space-y-3'}>
-      <h2 className="text-lg font-semibold text-ink">Upload CSV / JSON</h2>
-      <details className="text-sm text-graphite">
-        <summary className="cursor-pointer">Accepted formats</summary>
-        <div className="mt-2 space-y-2">
-          <p>
-            <b>CSV</b> (<code>.csv</code>/<code>.txt</code>): columns <code>value,tags,note</code>; the header row is
-            optional, tags are separated by <code>;</code> or <code>|</code>, tags and note may be omitted, blank lines
-            and <code>#</code> lines are skipped.
-          </p>
-          <pre className="overflow-x-auto rounded bg-canvas p-2 font-mono text-xs">{CSV_EXAMPLE}</pre>
-          <p>
-            <b>JSON</b> (<code>.json</code>): an array of <code>{'{value, tags?, note?, kind?}'}</code>.
-          </p>
-          <pre className="overflow-x-auto rounded bg-canvas p-2 font-mono text-xs">{JSON_EXAMPLE}</pre>
-          <p>Max 10 MiB. Existing targets keep their entry and get the new tags merged.</p>
-        </div>
-      </details>
-      <label className="block">
-        <span className="text-sm text-graphite">File</span>
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".csv,.txt,.json,text/csv,application/json,text/plain"
-          className="mt-1 block text-sm"
-          onChange={(e) => pick(e.target.files?.[0] ?? null)}
-        />
-      </label>
+  const clear = () => {
+    reset()
+    if (fileRef.current) fileRef.current.value = ''
+  }
 
-      {preview.isPending && <p className="text-sm text-muted">Parsing…</p>}
-      {err && (
-        <p role="alert" className="rounded bg-accent-light px-3 py-2 text-sm text-accent-dark">
-          {err.message}
-        </p>
-      )}
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center gap-4 border border-dashed border-line-strong px-5 py-[18px]">
+        <label className="flex flex-[1_1_240px] flex-col gap-1.5 text-[13px] font-medium">
+          File
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".csv,.txt,.json,text/csv,application/json,text/plain"
+            className="block text-sm font-normal file:mr-4 file:h-11 file:cursor-pointer file:border file:border-line-strong file:bg-white file:px-[18px] file:text-sm file:text-ink hover:file:bg-band"
+            onChange={(e) => pick(e.target.files?.[0] ?? null)}
+          />
+        </label>
+        <details className="text-sm">
+          <summary className="cursor-pointer underline decoration-red underline-offset-[3px]">Sample files</summary>
+          <div className="mt-2 flex flex-col gap-2">
+            <span className="text-xs font-medium tracking-[0.06em] text-muted uppercase">CSV</span>
+            <pre className="m-0 overflow-x-auto bg-band p-2 font-mono text-xs">{CSV_EXAMPLE}</pre>
+            <span className="text-xs font-medium tracking-[0.06em] text-muted uppercase">JSON</span>
+            <pre className="m-0 overflow-x-auto bg-band p-2 font-mono text-xs">{JSON_EXAMPLE}</pre>
+          </div>
+        </details>
+      </div>
+
+      {preview.isPending && <p className="m-0 text-sm text-muted">Parsing…</p>}
+      {err && <Alert>{err.message}</Alert>}
       {importer.isSuccess && (
-        <p role="status" className="text-sm text-ok">
+        <Alert tone="ok">
           Imported {importer.data.created} target{importer.data.created === 1 ? '' : 's'}
           {importer.data.errors.length > 0 && ` (${importer.data.errors.length} bad lines skipped)`}.
-        </p>
+        </Alert>
       )}
 
       {p && file && (
-        <div className="space-y-3">
-          <p className="text-sm text-graphite">
-            Preview of <span className="font-mono">{file.name}</span> ({p.source.toUpperCase()}):{' '}
-            {p.targets.length} valid entr{p.targets.length === 1 ? 'y' : 'ies'}, {p.errors.length} error
-            {p.errors.length === 1 ? '' : 's'}. Nothing has been saved yet.
-          </p>
-          <LineErrors title="These lines will be skipped:" errors={p.errors} />
-          {p.targets.length > 0 && (
-            <div className="max-h-64 overflow-y-auto rounded border border-line">
-              <table className="w-full text-sm">
-                <thead className="sticky top-0 bg-surface">
-                  <tr>
-                    <th className={th}>Value</th>
-                    <th className={th}>Kind</th>
-                    <th className={th}>Tags</th>
-                    <th className={th}>Note</th>
-                  </tr>
+        <div className="flex flex-col gap-4">
+          <LineErrors title="Skipped lines" errors={p.errors} />
+          <div className="bg-band px-5 py-4">
+            <div className="flex flex-wrap justify-between gap-3 border-b-2 border-black pb-2 text-[13px]">
+              <span className="font-bold tracking-[0.06em] uppercase">Preview</span>
+              <span>
+                <span className="font-mono">{file.name}</span> · {p.source.toUpperCase()} · {p.targets.length} valid ·{' '}
+                {p.errors.length} error{p.errors.length === 1 ? '' : 's'}
+              </span>
+            </div>
+            <div className="max-h-64 overflow-y-auto">
+              <Table label="Preview">
+                <thead className="sr-only">
+                  <THeadRow>
+                    <Th>Value</Th>
+                    <Th>Kind</Th>
+                    <Th>Tags</Th>
+                    <Th>Note</Th>
+                  </THeadRow>
                 </thead>
                 <tbody>
                   {p.targets.map((t) => (
-                    <tr key={t.kind + t.value}>
-                      <td className={td + ' font-mono'}>{t.value}</td>
-                      <td className={td}>{t.kind}</td>
-                      <td className={td}>{t.tags.join(', ')}</td>
-                      <td className={td}>{t.note}</td>
-                    </tr>
+                    <Tr key={t.kind + t.value}>
+                      <Td className="font-mono">{t.value}</Td>
+                      <Td className="text-[13px] text-muted">{t.kind}</Td>
+                      <Td className="text-[13px]">{t.tags.join(', ')}</Td>
+                      <Td className="text-[13px] text-muted">{t.note}</Td>
+                    </Tr>
                   ))}
+                  {p.targets.length === 0 && <EmptyRow colSpan={4}>No valid entries.</EmptyRow>}
                 </tbody>
-              </table>
+              </Table>
             </div>
-          )}
-          <div className="flex gap-2">
-            <button
-              className={btnPrimary}
+          </div>
+          <div className="flex justify-end">
+            <Button variant="secondary" size="lg" onClick={clear}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              size="lg"
               disabled={p.targets.length === 0 || importer.isPending}
               onClick={() => importer.mutate(file)}
             >
               {importer.isPending
                 ? 'Importing…'
                 : `Import ${p.targets.length} valid entr${p.targets.length === 1 ? 'y' : 'ies'}`}
-            </button>
-            <button
-              className={btnSecondary}
-              onClick={() => {
-                reset()
-                if (fileRef.current) fileRef.current.value = ''
-              }}
-            >
-              Cancel
-            </button>
+            </Button>
           </div>
         </div>
       )}

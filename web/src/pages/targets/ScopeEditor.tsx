@@ -2,7 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState, type FormEvent } from 'react'
 import { ApiError, api, type Schemas } from '../../api/client'
 import { useCan } from '../../auth/hooks'
-import { btnDanger, btnPrimary, card, input, td, th, scopeKey } from './ui'
+import { AdminOnly, Alert, Button, ErrorText, Field, SectionHeading, inputClass } from '../../components/ui'
+import { scopeKey } from './ui'
 
 type List = Schemas['ScopeEntryInput']['list']
 type Kind = Schemas['TargetKind']
@@ -19,47 +20,35 @@ export function ScopeEditor() {
   const items = q.data?.items ?? []
 
   return (
-    <section className={card + ' space-y-4'}>
-      <div>
-        <h2 className="text-lg font-semibold text-ink">Global scope</h2>
-        <p className="mt-1 text-sm text-graphite">
-          Every run scans its targets intersected with the include list (if the include list is empty, the targets
-          themselves are in scope), then removes everything on the blacklist.{' '}
-          <b className="text-accent-dark">Exclusions always win</b>: an address on the blacklist is never scanned, even
-          if it is also included. Domain entries match their resolved IPs and any host name under the domain.
-        </p>
-      </div>
-      {q.error && <p className="text-sm text-danger">Cannot load scope: {q.error.message}</p>}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <ScopeList
-          list="include"
-          title="Include list"
-          hint="Only these networks/domains may be scanned."
-          items={items.filter((e) => e.list === 'include')}
-          canEdit={canEdit}
-        />
+    <>
+      {q.error && <ErrorText>Cannot load scope: {q.error.message}</ErrorText>}
+      <ScopeList
+        list="include"
+        title="Include"
+        items={items.filter((e) => e.list === 'include')}
+        canEdit={canEdit}
+      />
+      <div className="flex flex-col gap-3">
         <ScopeList
           list="exclude"
-          title="Blacklist (exclude)"
-          hint="Never scanned. Wins over everything."
+          title="Exclude (never scan)"
           items={items.filter((e) => e.list === 'exclude')}
           canEdit={canEdit}
         />
+        {!canEdit && <AdminOnly />}
       </div>
-    </section>
+    </>
   )
 }
 
 function ScopeList({
   list,
   title,
-  hint,
   items,
   canEdit,
 }: {
   list: List
   title: string
-  hint: string
   items: Schemas['ScopeEntry'][]
   canEdit: boolean
 }) {
@@ -95,86 +84,57 @@ function ScopeList({
   const exclude = list === 'exclude'
 
   return (
-    <div className={'rounded border p-3 ' + (exclude ? 'border-accent' : 'border-line')}>
-      <h3 className={'font-semibold ' + (exclude ? 'text-accent-dark' : 'text-ink')}>{title}</h3>
-      <p className="mb-2 text-xs text-muted">{hint}</p>
-      <table className="w-full text-sm">
-        <thead>
-          <tr>
-            <th className={th}>Value</th>
-            <th className={th}>Kind</th>
-            <th className={th}>Note</th>
-            {canEdit && <th className={th}>{/* actions */}</th>}
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((e) => (
-            <tr key={e.id}>
-              <td className={td + ' font-mono'}>{e.value}</td>
-              <td className={td}>{e.kind}</td>
-              <td className={td + ' text-graphite'}>{e.note}</td>
-              {canEdit && (
-                <td className={td + ' text-right'}>
-                  <button
-                    className={btnDanger}
-                    aria-label={`Delete ${e.value} from ${title}`}
-                    disabled={del.isPending && del.variables === e.id}
-                    onClick={() => del.mutate(e.id)}
-                  >
-                    Delete
-                  </button>
-                </td>
-              )}
-            </tr>
-          ))}
-          {items.length === 0 && (
-            <tr>
-              <td className={td + ' text-muted'} colSpan={canEdit ? 4 : 3}>
-                Empty.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-      {del.error && <p className="mt-2 text-sm text-danger">Delete failed: {del.error.message}</p>}
+    <div className="flex flex-col gap-3">
+      <SectionHeading square={exclude ? 'red' : 'green'}>{title}</SectionHeading>
+      <ul aria-label={title} className={'m-0 list-none border-t-2 p-0 ' + (exclude ? 'border-red' : 'border-black')}>
+        {items.map((e) => (
+          <li key={e.id} className="flex flex-wrap items-baseline gap-4 border-b border-line py-3">
+            <span className="flex-[0_0_170px] font-mono font-medium break-all">{e.value}</span>
+            <span className="flex-[1_1_160px] font-light">{e.note}</span>
+            <span className="text-[13px] text-muted">{e.kind}</span>
+            {canEdit && (
+              <Button
+                variant="danger"
+                size="sm"
+                aria-label={`Delete ${e.value} from ${title}`}
+                disabled={del.isPending && del.variables === e.id}
+                onClick={() => del.mutate(e.id)}
+              >
+                Delete
+              </Button>
+            )}
+          </li>
+        ))}
+        {items.length === 0 && <li className="border-b border-line py-3 text-muted">Empty</li>}
+      </ul>
+      {del.error && <Alert>Delete failed: {del.error.message}</Alert>}
       {canEdit && (
-        <form onSubmit={onSubmit} className="mt-3 flex flex-wrap items-end gap-2">
-          <label className="block min-w-36 flex-1">
-            <span className="text-xs text-graphite">Value</span>
+        <form onSubmit={onSubmit} className="flex flex-wrap items-end gap-3">
+          <Field label="Value" className="flex-[1_1_160px]">
             <input
-              className={input + ' mt-0.5 w-full font-mono'}
-              placeholder="10.0.0.0/8 or example.lab"
+              className={inputClass + ' font-mono'}
+              placeholder="10.0.0.0/8"
               value={value}
               onChange={(e) => setValue(e.target.value)}
             />
-          </label>
-          <label className="block">
-            <span className="text-xs text-graphite">Kind</span>
-            <select
-              className={input + ' mt-0.5 block'}
-              value={kind}
-              onChange={(e) => setKind(e.target.value as Kind | '')}
-            >
+          </Field>
+          <Field label="Kind">
+            <select className={inputClass} value={kind} onChange={(e) => setKind(e.target.value as Kind | '')}>
               <option value="">Auto</option>
               <option value="ip">IP</option>
               <option value="cidr">CIDR</option>
               <option value="domain">Domain</option>
             </select>
-          </label>
-          <label className="block min-w-32 flex-1">
-            <span className="text-xs text-graphite">Note</span>
-            <input className={input + ' mt-0.5 w-full'} value={note} onChange={(e) => setNote(e.target.value)} />
-          </label>
-          <button type="submit" className={btnPrimary} disabled={add.isPending || !value.trim()}>
-            {exclude ? 'Add to blacklist' : 'Add to include list'}
-          </button>
+          </Field>
+          <Field label="Note" className="flex-[1_1_140px]">
+            <input className={inputClass} value={note} onChange={(e) => setNote(e.target.value)} />
+          </Field>
+          <Button type="submit" variant={exclude ? 'danger' : 'primary'} disabled={add.isPending || !value.trim()}>
+            {exclude ? 'Add exclusion' : 'Add to include'}
+          </Button>
         </form>
       )}
-      {addMsg && (
-        <p role="alert" className="mt-2 rounded bg-accent-light px-3 py-2 text-sm text-accent-dark">
-          {addMsg}
-        </p>
-      )}
+      {addMsg && <Alert>{addMsg}</Alert>}
     </div>
   )
 }

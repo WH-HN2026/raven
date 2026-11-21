@@ -103,8 +103,10 @@ describe('HostsPage', () => {
       ),
     )
 
-    // the state select applies immediately
-    fireEvent.change(screen.getByLabelText('State'), { target: { value: 'unstable' } })
+    // the state toggle applies immediately
+    const state = screen.getByRole('group', { name: 'State' })
+    expect(within(state).getByRole('button', { name: 'Active' })).toHaveAttribute('aria-pressed', 'true')
+    fireEvent.click(within(state).getByRole('button', { name: 'Unstable' }))
     await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('state=unstable'))
 
     fireEvent.click(screen.getByRole('button', { name: 'Reset' }))
@@ -177,9 +179,9 @@ describe('HostDetailPage', () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(json(detail))
     renderAt('/hosts/10.10.0.2')
 
-    expect(await screen.findByRole('heading', { name: '10.10.0.2' })).toBeInTheDocument()
+    expect(await screen.findByText('decrypted note')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '10.10.0.2' })).toBeInTheDocument()
     expect(fetchMock.mock.calls[0]![0]).toBe('/api/hosts/10.10.0.2')
-    expect(screen.getByText('decrypted note')).toBeInTheDocument()
     const edited = screen.getByText('edited')
     expect(edited).toHaveAttribute('title', 'Scan value: nginx')
     expect(screen.getByText('OpenResty')).toBeInTheDocument()

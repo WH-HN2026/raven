@@ -20,6 +20,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const setMe = useCallback((me: Me | null) => qc.setQueryData(meQueryKey, me), [qc])
 
   if (isPending) return <div className="p-8 text-muted">Loading…</div>
-  if (error) return <div className="p-8 text-danger">Cannot reach the server: {error.message}</div>
+  if (error) return <div className="p-10 font-medium text-red">Cannot reach the server: {error.message}</div>
   return <AuthContext.Provider value={{ me: data ?? null, setMe }}>{children}</AuthContext.Provider>
 }

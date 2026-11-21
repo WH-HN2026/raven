@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import type { ReactNode } from 'react'
+import { MemoryRouter } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Schemas } from '../../api/client'
 import { AuthContext } from '../../auth/AuthContext'
@@ -19,7 +20,9 @@ function wrap(ui: ReactNode, permissions: Permission[] = ['read', 'targets:write
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={qc}>
-      <AuthContext.Provider value={{ me, setMe: () => {} }}>{ui}</AuthContext.Provider>
+      <AuthContext.Provider value={{ me, setMe: () => {} }}>
+        <MemoryRouter>{ui}</MemoryRouter>
+      </AuthContext.Provider>
     </QueryClientProvider>,
   )
 }
@@ -51,10 +54,10 @@ describe('ManualForm', () => {
       ),
     )
     wrap(<ManualForm />)
-    fireEvent.change(screen.getByLabelText(/Targets \(one per line/), {
+    fireEvent.change(screen.getByLabelText('Targets, one per line'), {
       target: { value: '10.0.0.1\n\nbad value!\nexample.lab' },
     })
-    fireEvent.change(screen.getByLabelText(/Tags/), { target: { value: 'lab, web' } })
+    fireEvent.change(screen.getByLabelText('Tags'), { target: { value: 'lab, web' } })
     fireEvent.click(screen.getByRole('button', { name: 'Add targets' }))
 
     const alert = await screen.findByRole('alert')
@@ -126,6 +129,7 @@ describe('TargetsPage permissions', () => {
     expect(await screen.findByText('10.9.0.0/16')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Delete|Add|Import/ })).not.toBeInTheDocument()
     expect(screen.queryByLabelText('File')).not.toBeInTheDocument()
-    await waitFor(() => expect(screen.getByText(/Exclusions always win/)).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Admin only')).toBeInTheDocument())
+    expect(screen.queryByRole('group', { name: 'Add targets' })).not.toBeInTheDocument()
   })
 })

@@ -1,17 +1,6 @@
 // Shared bits of the Hosts pages (theme tokens only).
 import type { Schemas } from '../../api/client'
-
-export const card = 'rounded-lg border border-line bg-surface p-4 shadow-sm'
-export const input =
-  'rounded border border-line bg-surface px-3 py-1.5 text-sm focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand-light'
-export const btnPrimary =
-  'rounded bg-brand px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-60'
-export const btnSecondary =
-  'rounded border border-line bg-surface px-3 py-1.5 text-sm text-graphite hover:bg-canvas disabled:opacity-60'
-export const th = 'border-b border-line px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-muted'
-export const td = 'border-b border-line px-3 py-2 align-top'
-export const chip = 'rounded bg-brand-light px-1.5 py-0.5 text-xs text-brand-dark'
-export const chipMuted = 'rounded bg-canvas px-1.5 py-0.5 text-xs text-graphite'
+import type { BadgeTone } from '../../components/ui'
 
 export const PAGE = 50
 export const hostsKey = ['hosts'] as const
@@ -79,13 +68,16 @@ export function fmtTime(s: string | null | undefined): string {
   return s ? new Date(s).toLocaleString() : ''
 }
 
-export function stateClass(state: string): string {
+/** Badge tone for a host or service state: active/open green, unstable rose, the rest grey. */
+export function stateTone(state: string): BadgeTone {
   switch (state) {
     case 'active':
-      return 'rounded bg-brand-light px-1.5 py-0.5 text-xs font-medium text-brand-dark'
+    case 'open':
+    case 'up':
+      return 'new'
     case 'unstable':
-      return 'rounded border border-warn px-1.5 py-0.5 text-xs font-medium text-warn'
+      return 'rose'
     default:
-      return 'rounded bg-canvas px-1.5 py-0.5 text-xs font-medium text-muted'
+      return 'gone'
   }
 }
