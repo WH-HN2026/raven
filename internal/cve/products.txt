@@ -78,7 +78,7 @@ RealVNC = realvnc:vnc_server | realvnc:vnc
 OpenVPN = openvpn:openvpn
 
 # FTP / mail / DNS / file
-vsftpd = beasts:vsftpd | vsftpd:vsftpd
+vsftpd = beasts:vsftpd vsftpd_project:vsftpd | vsftpd:vsftpd
 ProFTPD = proftpd:proftpd
 Pure-FTPd = pureftpd:pure-ftpd
 FileZilla Server = filezilla-project:filezilla_server

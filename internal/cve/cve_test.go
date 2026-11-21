@@ -219,7 +219,7 @@ func testDB() *DB {
 				{ID: "CVE-2023-38408", Ranges: []Range{{EndExcl: "9.3p2"}}},
 				{ID: "CVE-2016-0777", Ranges: []Range{{StartIncl: "5.4", EndExcl: "7.1p2"}}},
 			},
-			"beasts:vsftpd": {
+			"vsftpd_project:vsftpd": {
 				{ID: "CVE-2015-1419", Ranges: []Range{{EndIncl: "3.0.2"}}},
 			},
 		},

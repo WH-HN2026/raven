@@ -25,7 +25,7 @@ Each template has a recorded response in `testdata/<id>/`:
 Two independent checks:
 
 1. **Go harness** (`go test ./internal/signatures/`, part of `make check`). `TestBuiltinPack` validates every template and serves each fixture from an `httptest` server on loopback. A small test-only matcher then checks that the template matches its fixture and does **not** match the neutral one. The matcher covers only word/regex/status and the DSL forms the pack uses (`status_code==N`, favicon `mmh3(base64_py(body))`).
-2. **Real nuclei** (`signatures/fixsrv/prove.sh [image]`, needs Docker and the `raven` image). Inside **one container with `--network none`**, the script starts `fixsrv` (the same fixtures on loopback ports) and runs the image's nuclei against every fixture and the neutral page. It expects ≥1 hit and 0 hits. Last run: nuclei v3.11.1, 40/40 passed. `nuclei -validate` also accepts all templates.
+2. **Real nuclei** (`signatures/fixsrv/prove.sh [image]`, needs Docker and the `raven` image). Inside **one container with `--network none`**, the script starts `fixsrv` (the same fixtures on loopback ports) and runs the image's nuclei against every fixture and the neutral page. It expects ≥1 hit and 0 hits. Last run: nuclei v3.11.1, 49/49 passed. `nuclei -validate` also accepts all templates.
 
 Fixture provenance:
 - Favicon bodies are the real upstream files:
