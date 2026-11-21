@@ -15,6 +15,7 @@ func (a *api) mountAuth(r chi.Router) {
 	r.Post("/auth/login", a.login) // public; CSRF header still required
 	r.With(auth.Require(auth.PermRead)).Post("/auth/logout", a.logout)
 	r.With(auth.Require(auth.PermRead)).Get("/auth/me", a.me)
+	r.With(auth.Require(auth.PermRead)).Patch("/auth/me/password", a.changeOwnPassword)
 }
 
 type meResponse struct {
