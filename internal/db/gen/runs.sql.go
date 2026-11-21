@@ -22,17 +22,6 @@ func (q *Queries) CountActiveRuns(ctx context.Context, profileID int64) (int64, 
 	return count, err
 }
 
-const countRunOpenPorts = `-- name: CountRunOpenPorts :one
-SELECT count(*) FROM run_observations WHERE run_id = $1 AND port IS NOT NULL AND up
-`
-
-func (q *Queries) CountRunOpenPorts(ctx context.Context, runID int64) (int64, error) {
-	row := q.db.QueryRow(ctx, countRunOpenPorts, runID)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
 const countRuns = `-- name: CountRuns :one
 SELECT count(*) FROM runs
 WHERE $1::bigint IS NULL OR profile_id = $1::bigint
@@ -295,8 +284,7 @@ SELECT count(*) AS total,
     count(*) FILTER (WHERE status = 'stopped') AS stopped,
     count(*) FILTER (WHERE status IN ('pending', 'running')) AS unfinished,
     COALESCE(sum(duration_ms), 0)::bigint AS duration_ms_sum,
-    COALESCE(max(duration_ms), 0)::bigint AS duration_ms_max,
-    COALESCE(sum(hosts_up), 0)::bigint AS hosts_up
+    COALESCE(max(duration_ms), 0)::bigint AS duration_ms_max
 FROM batches WHERE run_id = $1
 `
 
@@ -308,7 +296,6 @@ type RunBatchStatsRow struct {
 	Unfinished    int64 `json:"unfinished"`
 	DurationMsSum int64 `json:"duration_ms_sum"`
 	DurationMsMax int64 `json:"duration_ms_max"`
-	HostsUp       int64 `json:"hosts_up"`
 }
 
 func (q *Queries) RunBatchStats(ctx context.Context, runID int64) (RunBatchStatsRow, error) {
@@ -322,7 +309,24 @@ func (q *Queries) RunBatchStats(ctx context.Context, runID int64) (RunBatchStats
 		&i.Unfinished,
 		&i.DurationMsSum,
 		&i.DurationMsMax,
-		&i.HostsUp,
 	)
+	return i, err
+}
+
+const runObservationStats = `-- name: RunObservationStats :one
+SELECT count(*) FILTER (WHERE port IS NULL) AS hosts_up,
+    count(*) FILTER (WHERE port IS NOT NULL) AS services_open
+FROM run_observations WHERE run_id = $1 AND up
+`
+
+type RunObservationStatsRow struct {
+	HostsUp      int64 `json:"hosts_up"`
+	ServicesOpen int64 `json:"services_open"`
+}
+
+func (q *Queries) RunObservationStats(ctx context.Context, runID int64) (RunObservationStatsRow, error) {
+	row := q.db.QueryRow(ctx, runObservationStats, runID)
+	var i RunObservationStatsRow
+	err := row.Scan(&i.HostsUp, &i.ServicesOpen)
 	return i, err
 }

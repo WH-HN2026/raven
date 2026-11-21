@@ -54,9 +54,10 @@ SELECT count(*) AS total,
     count(*) FILTER (WHERE status = 'stopped') AS stopped,
     count(*) FILTER (WHERE status IN ('pending', 'running')) AS unfinished,
     COALESCE(sum(duration_ms), 0)::bigint AS duration_ms_sum,
-    COALESCE(max(duration_ms), 0)::bigint AS duration_ms_max,
-    COALESCE(sum(hosts_up), 0)::bigint AS hosts_up
+    COALESCE(max(duration_ms), 0)::bigint AS duration_ms_max
 FROM batches WHERE run_id = $1;
 
--- name: CountRunOpenPorts :one
-SELECT count(*) FROM run_observations WHERE run_id = $1 AND port IS NOT NULL AND up;
+-- name: RunObservationStats :one
+SELECT count(*) FILTER (WHERE port IS NULL) AS hosts_up,
+    count(*) FILTER (WHERE port IS NOT NULL) AS services_open
+FROM run_observations WHERE run_id = $1 AND up;

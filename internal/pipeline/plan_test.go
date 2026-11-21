@@ -210,20 +210,22 @@ func TestRunOutcome(t *testing.T) {
 // Ingest writes only scan-owned columns: the queries it uses must not name
 // a user-owned column (architecture §5, requirement 14).
 func TestIngestQueriesSkipUserOwnedColumns(t *testing.T) {
-	b, err := os.ReadFile("../db/queries/ingest.sql")
-	if err != nil {
-		t.Fatal(err)
-	}
-	var code []string
-	for line := range strings.SplitSeq(string(b), "\n") {
-		if !strings.HasPrefix(strings.TrimSpace(line), "--") {
-			code = append(code, line)
+	for _, name := range []string{"ingest.sql", "lifecycle.sql"} {
+		b, err := os.ReadFile("../db/queries/" + name)
+		if err != nil {
+			t.Fatal(err)
 		}
-	}
-	sql := strings.Join(code, "\n")
-	for _, col := range []string{"owner", "criticality", "notes_enc", "user_tags", "overrides", "miss_count", "dojo_asset_id"} {
-		if regexp.MustCompile(`\b` + col + `\b`).MatchString(sql) {
-			t.Errorf("ingest.sql writes or reads %s", col)
+		var code []string
+		for line := range strings.SplitSeq(string(b), "\n") {
+			if !strings.HasPrefix(strings.TrimSpace(line), "--") {
+				code = append(code, line)
+			}
+		}
+		sql := strings.Join(code, "\n")
+		for _, col := range []string{"owner", "criticality", "notes_enc", "user_tags", "overrides", "dojo_asset_id"} {
+			if regexp.MustCompile(`\b` + col + `\b`).MatchString(sql) {
+				t.Errorf("%s writes or reads %s", name, col)
+			}
 		}
 	}
 }

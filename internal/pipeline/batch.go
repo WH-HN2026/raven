@@ -121,7 +121,9 @@ func (s *Service) ingestBatch(ctx context.Context, b gen.Batch, prof gen.Profile
 		return Plan{}, err
 	}
 	plan := BuildPlan(b.Ips, hostnames, res.Observations)
-	err = pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
+	var reprobeIPs []netip.Addr
+	var lifecycle lifecycleStats
+	commit := func(tx pgx.Tx) error {
 		q := gen.New(tx)
 		run, err := q.LockRun(ctx, b.RunID)
 		if err != nil {
@@ -129,6 +131,18 @@ func (s *Service) ingestBatch(ctx context.Context, b gen.Batch, prof gen.Profile
 		}
 		if !isActive(run.Status) {
 			return errSkip
+		}
+		bs, err := q.RunBatchStats(ctx, run.ID)
+		if err != nil {
+			return fmt.Errorf("batch stats of run %d: %w", run.ID, err)
+		}
+		status, finished := RunOutcome(BatchCounts{Unfinished: bs.Unfinished - 1, Failed: bs.Failed})
+		if status == "done" && len(reprobeIPs) == 0 {
+			reprobeIPs, err = listReprobeIPs(ctx, q, run, plan)
+			if err != nil || len(reprobeIPs) > 0 {
+				// Leave this batch running while its job re-probes outside the lock.
+				return err
+			}
 		}
 		now := time.Now()
 		if err := Ingest(ctx, q, IngestInput{
@@ -148,8 +162,26 @@ func (s *Service) ingestBatch(ctx context.Context, b gen.Batch, prof gen.Profile
 		}); err != nil {
 			return fmt.Errorf("finish batch %d: %w", b.ID, err)
 		}
-		return maybeFinishRun(ctx, q, run.ID)
-	})
+		if !finished {
+			return nil
+		}
+		var extra map[string]any
+		if status == "done" {
+			if err := lifecycle.apply(ctx, q, run, prof.MissThreshold, now); err != nil {
+				return err
+			}
+			extra = lifecycle.runStats()
+		}
+		slog.Info("run finished", "run", run.ID, "status", status)
+		return finishRun(ctx, q, run.ID, status, extra)
+	}
+	err = pgx.BeginFunc(ctx, s.pool, commit)
+	if err == nil && len(reprobeIPs) > 0 {
+		lifecycle, err = s.reprobeHosts(ctx, reprobeIPs, prof, ports)
+		if err == nil {
+			err = pgx.BeginFunc(ctx, s.pool, commit)
+		}
+	}
 	if err == nil {
 		slog.Info("batch done", "run", b.RunID, "batch", b.ID, "up", len(plan.Up),
 			"services", len(plan.Services), "dur", time.Since(start).Round(time.Millisecond))
