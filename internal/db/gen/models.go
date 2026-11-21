@@ -50,6 +50,9 @@ type Batch struct {
 	StartedAt  *time.Time   `json:"started_at"`
 	FinishedAt *time.Time   `json:"finished_at"`
 	DurationMs *int64       `json:"duration_ms"`
+	JobID      *int64       `json:"job_id"`
+	HostsUp    int32        `json:"hosts_up"`
+	Error      string       `json:"error"`
 }
 
 type DojoAsset struct {

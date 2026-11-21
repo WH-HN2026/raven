@@ -13,6 +13,7 @@ import (
 	"github.com/WH-HN2026/zadanie-agh-asi/internal/auth"
 	"github.com/WH-HN2026/zadanie-agh-asi/internal/db/gen"
 	"github.com/WH-HN2026/zadanie-agh-asi/internal/httpx"
+	"github.com/WH-HN2026/zadanie-agh-asi/internal/pipeline"
 )
 
 // Deps are the services handlers call.
@@ -22,6 +23,7 @@ type Deps struct {
 	Auth          *auth.Service
 	CookieSecure  bool
 	DojoPublicURL string // browser base URL of Dojo, for finding links
+	Pipeline      *pipeline.Service // nil = runs API answers 503
 }
 
 type api struct{ Deps }
