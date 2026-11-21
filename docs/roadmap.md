@@ -71,19 +71,20 @@ M0 is sequential and blocking. Do it in **one** worktree, as fast as possible, t
 ## M2 — Scored features
 
 **Track S — Scanning**
-- [ ] **S4 nuclei scanner.** Command builder with the template policy (allowed tags, exclusions, `-no-interactsh`, rate limit), URL building from services + hostnames, JSONL parser → `http_observations` (title, status, headers, cookies, TLS cert, redirects, technologies, favicon hash); wire into the pipeline after nmap.
+- [ ] **S7 httpx scanner.** (needs S3; do before S4) Add httpx (pinned release, checksum-verified) to `deploy/Dockerfile`. Command builder with the safe flag set from architecture §3.4, URL building from nmap's HTTP(S) services + known hostnames, JSON parser → `http_observations` (title, status, headers, cookies, TLS cert, redirect chain, favicon hash, technologies), `PerIP` filtering, fixture tests; wire into the pipeline after nmap.
+- [ ] **S4 nuclei scanner.** (needs S7) Command builder with the template policy (allowed tags, exclusions, `-no-interactsh`, rate limit), run on the URLs httpx found alive; JSONL parser → matches (technologies, panels, signature hits) attached to the service/URL; wire into the pipeline after httpx.
 - [ ] **S5 Adaptive batching + rate limits.** Batch size from measured throughput, per-profile `--max-rate` / nuclei `-rl`, global concurrency cap.
 - [ ] **S6 Unstable hosts & lifecycle.** End-of-run re-probe of hosts that were up last run and are down now; `miss_count` and the `active → unstable → inactive` state machine; profile `miss_threshold`.
 
 **Track D — DefectDojo**
-- [ ] **D4 Push nuclei + lifecycle findings.** (needs S4, S6) Reimport nuclei per IP; push "Host offline" once the threshold is hit; tags (`tech:*`, `panel:*`, `env:*`, `host:*`) on Assets.
+- [ ] **D4 Push httpx + nuclei + lifecycle findings.** (needs S7, S4, S6) Reimport httpx ("httpx Scan") and nuclei per IP, one Test per scanner; push "Host offline" once the threshold is hit; tags (`tech:*`, `panel:*`, `env:*`, `host:*`) on Assets.
 - [ ] **D5 Planned engagements poller.** `ASI Planning` asset, poll `Not Started` engagements tagged `asi-profile:<name>` → `schedules(source='dojo')`, update engagement status on run start/finish.
 - [ ] **D6 Write-through edits.** Finding edits in our API → PATCH Dojo → update the mirror; host user-fields → Asset description/tags.
 
 **Track P — Platform**
 - [ ] **P1 Scheduler & time windows.** Schedules (frequency + window + timezone) from both sources; start runs in-window; `ctx` deadline at window end → kill, set the batch back to pending, mark the run `suspended`; resume in the next window.
 - [ ] **P2 RBAC hardening + users admin API.** The four roles enforced on every route (table-driven test that walks all routes × roles); user CRUD; audit log on every mutation.
-- [ ] **P3 Import/export.** Our JSON/CSV formats for targets and **scan results** (results go through the same ingest + push path as scanner output; use the sample format from the organizers once we have it); export of hosts/services/findings/changes to JSON/CSV with the current filters.
+- [ ] **P3 Import/export.** Our JSON/CSV formats for targets and **scan results** (results go through the same ingest + push path as scanner output; use the sample format from the organizers once we have it); import of raw nmap XML / nuclei JSONL and **Nessus `.nessus` files** (pushed to Dojo with the "Tenable Scan" parser into the matching IP's Asset); export of hosts/services/findings/changes to JSON/CSV with the current filters.
 - [ ] **P4 Encryption audit.** Every sensitive field uses `_enc` + helpers; a test proves the ciphertext in the DB is not plaintext; docs section.
 
 **Track C — Changes & fingerprinting**
@@ -130,7 +131,7 @@ M0: F0 → F1 → F2 → F3 → F4
 M1:     ├─ S1 ─┬─ S3 ─┬─ D2          W1 (S1)  W2/W3 (S3)
         │  S2 ─┘      │
         └─ D1 ────────┴─ D3
-M2:  S4, S5, S6 (S3) · D4 (S4,S6) · D5 (D1) · D6 (D3) · P1..P4 · C1 (S3) · C2 · W4..W11 · L1 (anytime)
+M2:  S7 (S3) → S4 · S5, S6 (S3) · D4 (S7,S4,S6) · D5 (D1) · D6 (D3) · P1..P4 · C1 (S3) · C2 · W4..W11 · L1 (anytime)
 M3:  after the relevant M2 parts     M4: after P2
 ```
 

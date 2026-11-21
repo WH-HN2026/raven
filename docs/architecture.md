@@ -13,7 +13,7 @@ The brief and the organizers' notes are in [`challenge.md`](challenge.md), and t
 | D3 | **React SPA** (Vite + TypeScript), built and embedded into the Go binary with `embed`. |
 | D4 | **DefectDojo: newest only (3.5.x), API v2, token auth.** One service-account token. Dojo is the dedup and lifecycle engine. RBAC is enforced **only in our app**, because OSS Dojo 3.x has no real roles. |
 | D5 | **Host identity = IP address. One Dojo Asset (Product) per IP.** Hostnames are attributes of the IP. |
-| D6 | **Scanners: nmap + nuclei first**, behind a `Scanner` interface so Nessus/OpenVAS/httpx can be added later. Results reach Dojo through Dojo's **native parsers** ("Nmap Scan", "Nuclei Scan"). |
+| D6 | **Scanners: nmap → httpx → nuclei**, each behind a `Scanner` interface. nmap finds hosts and services, httpx collects the HTTP facts (title, status, headers, cookies, TLS, redirects, favicon hash, technologies), and nuclei runs detection templates and our signatures. Results reach Dojo through Dojo's **native parsers** ("Nmap Scan", "httpx Scan", "Nuclei Scan"). Nessus is supported by **importing `.nessus` files** (Dojo's "Tenable Scan" parser), not by running it. |
 | D7 | **Custom signatures = nuclei templates**, restricted to a safe subset by our validator. |
 | D8 | **Encryption at rest = Postgres-native `pgcrypto`** on sensitive columns of our DB. Dojo's own DB is stock Postgres 18 and is not encrypted; the docs say so. |
 | D9 | **Schedules come from two sources:** our UI, and Dojo Engagements planned ahead (polled and imported into our schedule table). |
@@ -31,13 +31,13 @@ The brief and the organizers' notes are in [`challenge.md`](challenge.md), and t
 │        │                                         │                       │
 │  scheduler ── creates runs ──► job queue (River, in Postgres)            │
 │        ▲                              │                                  │
-│  dojo engagement poller        scan workers: nmap ─► nuclei ─► ingest    │
+│  dojo engagement poller  scan workers: nmap ─► httpx ─► nuclei ─► ingest │
 │                                       │                  │               │
 │                                       │                  ▼               │
 │  dojo sync (pull) ◄───────────────────┼──────── dojo push (reimport)     │
 └────────┬──────────────────────────────┼────────────────────┬─────────────┘
          │                              │                    │
-   our Postgres 18               nmap / nuclei          DefectDojo 3.5
+   our Postgres 18          nmap / httpx / nuclei       DefectDojo 3.5
    (pgcrypto, River,             binaries in the        (API v2, its own
     read-model)                  same container)        Postgres, celery…)
 ```
@@ -60,24 +60,30 @@ Runtime: Docker Compose runs `asi`, `asi-db` (Postgres 18 with pgcrypto) and the
    - safe scripts only: `http-title,http-headers,ssl-cert,banner`;
    - `--max-rate` from the profile;
    - output is XML.
-4. **Web fingerprinting (nuclei).** For every HTTP(S) service nmap found, build URLs: `scheme://ip:port` plus `scheme://hostname:port` for known hostnames. Run nuclei on these URLs (JSONL output) with:
+4. **HTTP fingerprinting (httpx).** For every HTTP(S) service nmap found, build URLs: `scheme://ip:port` plus `scheme://hostname:port` for known hostnames (virtual hosts). Run httpx on them (JSON lines) with:
+   - one GET per URL, following redirects and recording the chain (`-fr -include-chain`);
+   - `-title -sc -irh -tls-grab -favicon -td`: title, status, all response headers (cookies come from `Set-Cookie`), TLS certificate, favicon mmh3 hash, technology detection;
+   - `-rl` rate limit, `-disable-update-check`.
+
+   This fills `http_observations`. The same URLs go to the next step.
+5. **Detection (nuclei).** Run nuclei on the URLs httpx confirmed alive (JSONL output) with:
    - our curated official template tags (`tech`, `panel`, `ssl`, `waf`, `favicon`, …);
    - our custom signatures;
    - `-rl` rate limit, `-no-interactsh`, `-disable-update-check`;
    - exclude-tags `intrusive,dos,fuzz,bruteforce,rce,sqli,xss,…`;
    - exclude-types `code,headless,javascript`.
-5. **Ingest (our DB).** Parse both outputs into `hosts`, `services`, `http_observations` and `run_observations`. Store the raw artifacts (encrypted) in `artifacts`. Update `first_seen`/`last_seen` and the miss counters.
-6. **Push (Dojo)**, for every IP that **responded** in this run:
+6. **Ingest (our DB).** Parse all three outputs into `hosts`, `services`, `http_observations` and `run_observations`. Store the raw artifacts (encrypted) in `artifacts`. Update `first_seen`/`last_seen` and the miss counters.
+7. **Push (Dojo)**, for every IP that **responded** in this run:
    - make sure the Asset `"<ip>"`, its Engagement and its Tests exist;
-   - `reimport-scan` the nmap XML and nuclei JSONL filtered to this IP, with `close_old_findings=true`;
+   - `reimport-scan` the nmap XML, httpx JSON and nuclei JSONL filtered to this IP (one Test per scanner), with `close_old_findings=true`;
    - Dojo dedups and marks findings new/closed/reactivated.
-7. **Shadow IT / lifecycle.**
+8. **Shadow IT / lifecycle.**
    - IP never seen before → the Asset is created with an **INFO finding "New device found"**.
    - IP that didn't respond → **not reimported**; its `miss_count` goes up by one.
    - `miss_count` reaches the profile's threshold (default 3) → push an INFO finding "Host offline" and mark the host `inactive`.
    - A host that responds again resets its counter, and Dojo reactivates its findings on the next reimport.
-8. **Unstable hosts.** IPs that were up in the previous run but are down now are re-probed **once more at the end of the run**, before they count as a miss.
-9. **Time window.** A batch job runs with `ctx` deadline = window end. On deadline the nmap/nuclei processes are killed, the batch is set back to `pending`, and the run becomes `suspended`. The next window resumes from the remaining batches of the same run.
+9. **Unstable hosts.** IPs that were up in the previous run but are down now are re-probed **once more at the end of the run**, before they count as a miss.
+10. **Time window.** A batch job runs with `ctx` deadline = window end. On deadline the scanner processes are killed, the batch is set back to `pending`, and the run becomes `suspended`. The next window resumes from the remaining batches of the same run.
 
 ## 4. DefectDojo mapping
 
@@ -178,13 +184,14 @@ internal/httpapi/            router.go (mounts each area), one file per area: ta
 internal/targets/            parse manual/CSV/JSON, CIDR expand, domain resolve, scope filtering
 internal/scanner/            Scanner interface + types
 internal/scanner/nmap/       command builder, XML parser → observations
+internal/scanner/httpx/      command builder, JSON parser → http_observations
 internal/scanner/nuclei/     command builder, JSONL parser, template policy
 internal/signatures/         safe-subset validator for nuclei templates
 internal/pipeline/           run orchestration: batching, jobs, ingest, miss counting, re-probe
 internal/scheduler/          schedules, windows, suspend/resume, dojo engagement poller
 internal/dojo/               API v2 client, push (reimport, INFO findings), sync (pull)
 internal/changes/            diff between runs, time-of-day presence, interestingness score
-internal/exchange/           JSON/CSV import & export formats
+internal/exchange/           JSON/CSV import & export; nmap XML, nuclei JSONL and .nessus import
 internal/mcp/                (last) MCP server over the service layer
 api/openapi.yaml             the HTTP contract (source of truth for the frontend)
 signatures/                  built-in custom nuclei templates shipped with the app
@@ -194,8 +201,8 @@ signatures/                  built-in custom nuclei templates shipped with the a
 
 ```go
 type Scanner interface {
-    Name() string                 // "nmap", "nuclei"
-    DojoScanType() string         // "Nmap Scan", "Nuclei Scan"
+    Name() string                 // "nmap", "httpx", "nuclei"
+    DojoScanType() string         // "Nmap Scan", "httpx Scan", "Nuclei Scan"
     Run(ctx context.Context, in Input, opt Options) (*Result, error) // ctx cancel = kill process
 }
 type Result struct {
@@ -240,6 +247,7 @@ Adding a scanner means adding a package that implements `Scanner` and registerin
   - no `-A`, no `-sC`, no `--script` outside the allowlist in `internal/scanner/nmap`;
   - `--max-rate` is always set;
   - only the profile's allowed ports.
+- **httpx:** one GET per URL (no path brute-forcing, no `-path` lists), rate limit always set.
 - **nuclei:** only allowlisted tags plus our signatures; the exclusion flags above are always applied; `-no-interactsh`; a rate limit is always set.
 - **Signatures:** the validator rejects any template that has
   - a method other than GET/HEAD;
@@ -258,7 +266,7 @@ Adding a scanner means adding a package that implements `Scanner` and registerin
 ```
 compose.yml                 # the deployment: asi + asi-db + DefectDojo (via include)
 deploy/dojo.compose.yml     # DefectDojo 3.5.202 services copied from its repo, images pinned
-deploy/Dockerfile           # multi-stage: node (web build) → go (binary) → runtime with nmap + nuclei + templates
+deploy/Dockerfile           # multi-stage: node (web build) → go (binary) → runtime with nmap + httpx + nuclei + templates
 compose.lab.yml             # local test lab (task L1), separate network, never needed in prod
 .env.example                # every variable, with safe defaults; copied to .env
 scripts/gen-env.sh          # creates .env with random secrets (encryption key, passwords, Dojo secret key)
