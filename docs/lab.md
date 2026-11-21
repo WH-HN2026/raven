@@ -64,6 +64,28 @@ docker run --rm --network raven_lab raven-lab-tools:local nmap -n -sS -sV \
   --max-rate 100 -p 22,80,443,3306,8080 172.30.0.16/28
 ```
 
+## Organizers' scenario
+
+The organizers' lab files are in [`lab/organizers/`](../lab/organizers/README.md), byte for byte as they gave them. Never edit them: `make lab-verify` checks them against `lab/organizers/SHA256SUMS`. Make only `cd`s into that directory and runs their own commands. Run **one stack at a time** (their README), and stop our lab first.
+
+| Command | Runs (in `lab/organizers/`) | Published ports |
+|---|---|---|
+| `make lab-up LAB=organizers` (`STACK=quickstart`, default) | `./quickstart.sh up` | 2223, 3001, 5673, 8787, 15673 |
+| `make lab-change` | `./quickstart.sh change` (stops 8787) | |
+| `make lab-up LAB=organizers STACK=custom-network` | `docker compose -f docker-compose-custom-network.yml up -d` | 2223, 3001, 5673, 8787, 8888, 15432, 15673 |
+| `make lab-up LAB=organizers STACK=modern` | `docker compose -f docker-compose-modern.yml up -d` | 80, 81, 443, 6379, 8080, 8081 |
+| `make lab-up LAB=organizers STACK=modern-proxy` | `cp -n .env.example .env`, then `docker compose --env-file .env -f docker-compose-modern-proxy.yml up -d` | 8085, 8086, 8474 |
+| `make lab-up LAB=organizers STACK=vulnerable` | `docker compose -f docker-compose-vulnerable.yml up -d` | 21, 8088, 8089, 8090 |
+| `make lab-down LAB=organizers STACK=<same>` | `./quickstart.sh down` or `docker compose … down` | |
+
+`quickstart.sh` is run with `bash` (it is committed without the executable bit). For latency on `modern-proxy`, set `ENABLE_LATENCY=true` and `LATENCY_MS=500` in `lab/organizers/.env` (gitignored), then `make lab-down` and `make lab-up` with `STACK=modern-proxy`.
+
+**Scan.** Their stacks publish on the Docker host. RAVEN reaches them at the `docker0` gateway, `172.17.0.1`; `make lab-up LAB=organizers` prints it and warns if it differs. In RAVEN, start a run of the seeded profile **Organizers' lab**: target `172.17.0.1`, Default stages, ports `21,80,81,443,2223,3001,5673,6379,8080,8081,8085,8086,8088-8090,8474,8787,8888,15432,15673`. RAVEN's own port (8000) and Dojo's (18080) are not in the list. The seeded `default` profile excludes `172.17.0.1`. It works the same from the `raven` container on the default compose network (no `lab/raven.compose.yml` needed) and from `make dev`.
+
+**Port collisions.** DefectDojo's default host port is 18080 because the `modern` stack needs 8080 (and 80, 81, 443). Anything else on the host that uses one of their ports must be stopped before that stack starts; on a dev machine with a local service on 8080, `modern` fails to start.
+
+**Host firewall.** A host firewall (ufw, firewalld, nftables) may drop container → host traffic to `172.17.0.1`. If the run finds no hosts but `curl http://172.17.0.1:8787/` works on the host, allow the Docker bridge to reach the published ports. Their stacks publish on `0.0.0.0` with default credentials: use them only on a machine that isn't exposed to a network.
+
 ## Aggressive stage: `nuclei_active`
 
 Reproduce the `nuclei_active` lab test against the three web fixtures (`172.30.0.17` WordPress, `172.30.0.21` Tomcat, `172.30.0.25` simulated Apache 2.4.49) on `raven_lab` only:

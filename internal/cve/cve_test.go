@@ -148,7 +148,7 @@ func TestCPEForTech(t *testing.T) {
 		{"Apache Tomcat:9.0.10", "apache:tomcat", "9.0.10", true},
 		{"Apache Tomcat/9.0.10", "apache:tomcat", "9.0.10", true},
 		{"WordPress:6.4.1", "wordpress:wordpress", "6.4.1", true},
-		// names the vuln-lab built-in signatures emit (template id / name)
+		// names the organizers' lab built-in signatures emit (template id / name)
 		{"raven-traefik-api", "traefik:traefik", "", true},
 		{"Traefik dashboard API", "traefik:traefik", "", true},
 		{"Traefik:3.1.7", "traefik:traefik", "3.1.7", true},
