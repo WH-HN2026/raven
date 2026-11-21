@@ -166,6 +166,7 @@ type Finding struct {
 	Date             string    `json:"date"`
 	LastStatusUpdate time.Time `json:"last_status_update"`
 	TestTypeName     string    `json:"test_type_name"` // scan type of the test, e.g. "Nmap Scan"
+	UniqueIDFromTool string    `json:"unique_id_from_tool"`
 
 	// RelatedFields is only filled when FindingQuery.Related is set.
 	RelatedFields *FindingRelated `json:"related_fields"`
@@ -195,13 +196,15 @@ func (f *Finding) Asset() (int64, string) {
 }
 
 type FindingQuery struct {
-	Tags           []string // any of (Dojo "tags" filter is OR)
-	TestID         int64
-	OrganizationID int64 // only findings of assets in this organization
-	Active         *bool
-	Related        bool // ask for related_fields (test → engagement → asset)
-	Limit          int
-	Offset         int
+	Tags             []string // any of (Dojo "tags" filter is OR)
+	TestID           int64
+	AssetID          int64
+	UniqueIDFromTool string // substring match
+	OrganizationID   int64  // only findings of assets in this organization
+	Active           *bool
+	Related          bool // ask for related_fields (test → engagement → asset)
+	Limit            int
+	Offset           int
 }
 
 // FindingPatch holds the triage fields our UI can change (nil = unchanged).

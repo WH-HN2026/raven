@@ -7,7 +7,7 @@ WHERE batch_id = @batch_id AND scanner = @scanner
 ORDER BY id DESC LIMIT 1;
 
 -- name: ListPushHosts :many
-SELECT ip, hostnames, first_seen, dojo_asset_id FROM hosts
+SELECT ip, hostnames, first_seen, dojo_asset_id, user_tags FROM hosts
 WHERE ip = ANY(@ips::inet[]);
 
 -- name: SetHostDojoAsset :exec
