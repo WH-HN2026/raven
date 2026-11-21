@@ -259,6 +259,7 @@ make demo-reset                # delete RAVEN/Dojo/lab volumes and .demo-credent
    - **profiles** (create, or `PUT` to bring an existing one back to the seed values):
      - `vuln-lab`: ports from `lab/vuln/ports.txt`, `nmap_max_rate` 300, `nuclei_rate` 25, `nuclei_tags` `tech,panel,ssl,waf,favicon`, `miss_threshold` 2, `target_batch_seconds` 600, include `10.77.0.0/20`;
      - `vuln-lab-scale` (`--scale`): ports `21,22,80,443,8080,8443,9100`, `nmap_max_rate` 1000, include `10.77.64.0/18`;
+     - both send `stages: ["nmap","httpx","nuclei"]` (the Default preset, WF1) explicitly;
      - **none of them aggressive**;
    - **users** `demo-editor`, `demo-operator`, `demo-viewer`: created only if missing, with random 24-character passwords written to **`.demo-credentials`** (mode 600, gitignored). An existing user keeps its password.
 7. Unless `--no-run`: start Run 1 of `vuln-lab` and wait for `done`, printing hosts up, services and the duration.
@@ -428,7 +429,7 @@ Shared contract (every task):
   - mark a service **slow** when its response time is above a fixed threshold or 3× its previous run's;
   - count a service whose port is open but which gave no HTTP answer this run (it had one last run) as `http_unresponsive` in the run stats and Changes;
   - set httpx `-timeout` explicitly in the allowlisted builder.
-- **Owns:** `internal/scanner/httpx`, the HTTP part of `internal/pipeline` (coordinate with WF1 if it is still open), `internal/changes` (slow / unresponsive), the new migration, `api/openapi.yaml` (services/hosts schema), the host page.
+- **Owns:** `internal/scanner/httpx`, the HTTP part of `internal/pipeline` (WF1's stage registry is merged; keep to the httpx stage), `internal/changes` (slow / unresponsive), the new migration, `api/openapi.yaml` (services/hosts schema), the host page.
 - **Done when:**
   - unit tests with a recorded httpx JSON line that carries `time`;
   - a lab run with `toxic latency 3000` shows ~3000 ms and "slow" on `10.77.2.10:80`, and `toxic timeout` shows `http_unresponsive` on `10.77.2.11:8666`;
