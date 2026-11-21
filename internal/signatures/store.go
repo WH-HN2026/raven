@@ -19,7 +19,7 @@ import (
 var (
 	ErrNotFound = errors.New("signature not found")
 	ErrConflict = errors.New("a signature with this template id already exists")
-	ErrBuiltin  = errors.New("built-in signatures can only be enabled or disabled")
+	ErrBuiltin  = errors.New("built-in signatures can't be edited or deleted, only enabled or disabled")
 	ErrInvalid  = errors.New("invalid signature")
 )
 

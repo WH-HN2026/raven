@@ -120,9 +120,10 @@ var (
 )
 
 type checker struct {
-	issues []Issue
-	t      Template
-	paths  int
+	issues  []Issue
+	t       Template
+	paths   int
+	aliased bool // anchors, aliases or merge keys seen
 }
 
 func (c *checker) add(n *yaml.Node, format string, a ...any) {
@@ -152,7 +153,7 @@ func Validate(src []byte) (Template, []Issue) {
 	}
 	root := doc.Content[0]
 	c.walkScalars(root)
-	if len(c.issues) > 0 { // aliases or forbidden expressions: don't look deeper
+	if c.aliased { // the structure is not what it looks like: stop here
 		return c.t, c.issues
 	}
 	c.top(root)
@@ -163,6 +164,7 @@ func Validate(src []byte) (Template, []Issue) {
 // no interactsh/OOB, and {{…}} expressions limited to the URL variables.
 func (c *checker) walkScalars(n *yaml.Node) {
 	if n.Kind == yaml.AliasNode || n.Anchor != "" {
+		c.aliased = true
 		c.add(n, "YAML anchors and aliases are not allowed")
 		return
 	}
@@ -181,6 +183,7 @@ func (c *checker) walkScalars(n *yaml.Node) {
 	}
 	for i, ch := range n.Content {
 		if n.Kind == yaml.MappingNode && i%2 == 0 && ch.Value == "<<" {
+			c.aliased = true
 			c.add(ch, "YAML merge keys are not allowed")
 			continue
 		}

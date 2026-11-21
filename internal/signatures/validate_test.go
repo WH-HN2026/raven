@@ -173,3 +173,31 @@ func TestDSLCalls(t *testing.T) {
 		t.Fatalf("got %v want %v", got, want)
 	}
 }
+
+// All problems are reported at once, with lines, and the id is still parsed.
+func TestValidateReportsAllIssues(t *testing.T) {
+	src := `id: evil
+info:
+  name: Evil
+  severity: high
+  tags: demo
+http:
+  - method: POST
+    body: "user=admin&pass=admin"
+    path: ["{{BaseURL}}/login?cb={{interactsh-url}}"]
+    matchers:
+      - type: dsl
+        dsl: ['resolve("x") != ""']
+`
+	tpl, issues := Validate([]byte(src))
+	if tpl.ID != "evil" {
+		t.Fatalf("id not parsed: %+v", tpl)
+	}
+	want := []string{"line 9: interactsh", "line 7: method POST", "line 8: request bodies", "line 12: DSL function resolve"}
+	got := Summary(issues)
+	for _, w := range want {
+		if !strings.Contains(got, w) {
+			t.Errorf("missing %q in %s", w, got)
+		}
+	}
+}
