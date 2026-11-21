@@ -21,32 +21,32 @@ M0 is sequential and blocking. Do it in **one** worktree, as fast as possible, t
 
 ## M0 — Foundation (sequential, blocks everything)
 
-- [ ] **F0 Repo skeleton & tooling.**
+- [x] **F0 Repo skeleton & tooling.**
   - `go.mod`, `cmd/asi`, `internal/config`.
   - Makefile targets `dev`, `check`, `gen`, `build`, `infra-up`, `infra-down`, `db-new name=…`.
   - `.gitignore`, `.env.example`.
   - `.github/workflows/check.yml`: runs `make check` (Go + Node, no Docker) on PRs and on `main`; the job is named `check` (branch protection requires it). Keep it under ~5 min with Go/npm caching.
   - `web/` Vite + React + TS + Tailwind + React Router + TanStack Query.
   - The Go server serves the embedded SPA, and `/api/healthz` works.
-- [ ] **F1 Docker Compose deployment** (architecture §10).
+- [x] **F1 Docker Compose deployment** (architecture §10).
   - Root `compose.yml` = `asi` + `asi-db` + `include: deploy/dojo.compose.yml` (DefectDojo 3.5.202, pinned).
   - `deploy/Dockerfile`, multi-stage: web build → Go build → runtime with nmap + nuclei + pinned templates.
   - `.env.example` + `scripts/gen-env.sh`.
   - `asi` gets its Dojo token itself from the admin credentials.
   - `make infra-up` starts everything except `asi`.
   - Done when `docker compose up -d --build` on a clean clone gives a working app on :8000 and Dojo on :8080, with no manual steps.
-- [ ] **F2 DB baseline.**
+- [x] **F2 DB baseline.**
   - goose (timestamp names, embedded) + sqlc config; pgx pool with `asi.enc_key` set in `AfterConnect`.
   - Baseline migration: `pgcrypto`, `asi_enc`/`asi_dec`, and **all core tables** from architecture §5, so later tasks rarely touch the same migration.
   - River migrations run on startup.
-- [ ] **F3 Contracts.**
+- [x] **F3 Contracts.**
   - `api/openapi.yaml` with the common schemas (error, pagination, Host, Service, Run, Finding …) and the stubbed paths for every area; TS generation wired up in `make gen`.
   - `internal/scanner` interface + types.
   - `internal/dojo` client interface.
   - `internal/auth/rbac.go` with roles and the permission map.
   - `internal/httpapi/router.go` with one `mount<Area>(r)` call per area.
   - `web/src/routes.tsx` concatenating page modules.
-- [ ] **F4 Auth & app shell.**
+- [x] **F4 Auth & app shell.**
   - Login/logout, sessions, bootstrap admin from env, `auth.Require` middleware, CSRF header.
   - SPA shell: AGH theme tokens (`web/src/theme.css`), logo, sidebar nav filtered by role, login page.
   - Worktree helper `scripts/wt-env.sh` (see AGENTS.md "Parallel worktrees").
