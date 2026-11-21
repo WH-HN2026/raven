@@ -102,6 +102,15 @@ function Body({ d }: { d: Dashboard }) {
             note={c ? `+${c.summary.services_new} / −${c.summary.services_gone} ${since}` : undefined}
           />
           <KeyNumber
+            label="Active findings"
+            value={
+              <Link to={findingsLink()} aria-label={`${formatCount(d.findings.total)} active findings`}>
+                {formatCount(d.findings.total)}
+              </Link>
+            }
+            edge="red"
+          />
+          <KeyNumber
             label="New devices"
             value={formatCount(d.new_hosts_total)}
             edge="red"

@@ -18,27 +18,29 @@ const getHost = `-- name: GetHost :one
 
 SELECT h.ip, h.hostnames, h.state, h.first_seen, h.last_seen, h.miss_count, h.dojo_asset_id,
     h.owner, h.criticality, COALESCE(raven_dec(h.notes_enc), '')::text AS notes, h.user_tags, h.overrides,
-    u.username AS edited_by, h.edited_at
+    u.username AS edited_by, h.edited_at,
+    (SELECT count(*) FROM dojo_findings f WHERE f.ip = h.ip AND f.active) AS active_finding_count
 FROM hosts h
 LEFT JOIN users u ON u.id = h.edited_by
 WHERE h.ip = $1
 `
 
 type GetHostRow struct {
-	Ip          netip.Addr      `json:"ip"`
-	Hostnames   []string        `json:"hostnames"`
-	State       string          `json:"state"`
-	FirstSeen   time.Time       `json:"first_seen"`
-	LastSeen    time.Time       `json:"last_seen"`
-	MissCount   int32           `json:"miss_count"`
-	DojoAssetID *int64          `json:"dojo_asset_id"`
-	Owner       string          `json:"owner"`
-	Criticality string          `json:"criticality"`
-	Notes       string          `json:"notes"`
-	UserTags    []string        `json:"user_tags"`
-	Overrides   json.RawMessage `json:"overrides"`
-	EditedBy    pgtype.Text     `json:"edited_by"`
-	EditedAt    *time.Time      `json:"edited_at"`
+	Ip                 netip.Addr      `json:"ip"`
+	Hostnames          []string        `json:"hostnames"`
+	State              string          `json:"state"`
+	FirstSeen          time.Time       `json:"first_seen"`
+	LastSeen           time.Time       `json:"last_seen"`
+	MissCount          int32           `json:"miss_count"`
+	DojoAssetID        *int64          `json:"dojo_asset_id"`
+	Owner              string          `json:"owner"`
+	Criticality        string          `json:"criticality"`
+	Notes              string          `json:"notes"`
+	UserTags           []string        `json:"user_tags"`
+	Overrides          json.RawMessage `json:"overrides"`
+	EditedBy           pgtype.Text     `json:"edited_by"`
+	EditedAt           *time.Time      `json:"edited_at"`
+	ActiveFindingCount int64           `json:"active_finding_count"`
 }
 
 // Hosts read path (W3). The filtered list query is built in internal/hosts
@@ -62,6 +64,7 @@ func (q *Queries) GetHost(ctx context.Context, ip netip.Addr) (GetHostRow, error
 		&i.Overrides,
 		&i.EditedBy,
 		&i.EditedAt,
+		&i.ActiveFindingCount,
 	)
 	return i, err
 }

@@ -48,6 +48,7 @@ const host: Schemas['Host'] = {
   miss_count: 0,
   dojo_asset_id: null,
   open_service_count: 2,
+  active_finding_count: 3,
   open_ports: [80, 443],
   technologies: ['WordPress'],
   owner: 'web team',
@@ -80,6 +81,19 @@ describe('filter helpers', () => {
 })
 
 describe('HostsPage', () => {
+  it('links per-host active finding counts to the matching filter', async () => {
+    const second = { ...host, ip: 'fd00::5', active_finding_count: 0 }
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(json({ items: [host, second], total: 2 }))
+    renderAt('/hosts')
+    expect(await screen.findByRole('columnheader', { name: 'Findings' })).toBeInTheDocument()
+    const firstCount = await screen.findByRole('link', { name: '3 active findings for 10.10.0.2' })
+    expect(firstCount).toHaveTextContent('3')
+    expect(firstCount).toHaveAttribute('href', '/findings?active=true&ip=10.10.0.2')
+    const secondCount = screen.getByRole('link', { name: '0 active findings for fd00::5' })
+    expect(secondCount).toHaveTextContent('0')
+    expect(secondCount).toHaveAttribute('href', '/findings?active=true&ip=fd00%3A%3A5')
+  })
+
   it('loads filters from the URL, applies new ones to the URL and the API', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => json({ items: [host], total: 1 }))
     renderAt('/hosts?state=active&tag=dmz')
@@ -188,6 +202,10 @@ describe('HostDetailPage', () => {
     expect(screen.getByText('nginx banner')).toBeInTheDocument()
     expect(screen.getByText('21/tcp')).toBeInTheDocument()
     expect(screen.getByText('No HTTP observations.')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Active findings: 3' })).toHaveAttribute(
+      'href',
+      '/findings?active=true&ip=10.10.0.2',
+    )
     const tl = screen.getByRole('list', { name: 'Up/down timeline' })
     expect(within(tl).getAllByRole('listitem').map((li) => li.textContent)).toEqual([
       expect.stringContaining('downrun #7'),

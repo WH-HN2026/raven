@@ -29,6 +29,13 @@ func TestHostsAPI(t *testing.T) {
 	}
 	for _, s := range []string{
 		`INSERT INTO hosts (ip, hostnames, user_tags) VALUES ('10.30.0.5', '{api.lab}', '{lab}')`,
+		`INSERT INTO hosts (ip, user_tags) VALUES ('fd00::7', '{lab}'), ('10.30.0.6', '{lab}')`,
+		`INSERT INTO dojo_findings (id, ip, title, severity, active, verified) VALUES
+		 (1, '10.30.0.5', 'First', 'Info', true, false),
+		 (2, '10.30.0.5', 'Verified', 'Low', true, true),
+		 (3, '10.30.0.5', 'Closed', 'High', false, true),
+		 (4, 'fd00::7', 'Other host', 'Medium', true, false),
+		 (5, NULL, 'No IP', 'Info', true, false)`,
 		`INSERT INTO services (ip, port, proto, name, product, banner_enc, overrides)
 		 VALUES ('10.30.0.5', 8080, 'tcp', 'http', 'Tomcat', raven_enc('Apache-Coyote/1.1'), '{"version":"9.0"}')`,
 	} {
@@ -75,14 +82,21 @@ func TestHostsAPI(t *testing.T) {
 		has          []string
 	}{
 		{"GET", "/api/hosts", false, 401, nil},
-		{"GET", "/api/hosts?tag=lab&port=8080", true, 200, []string{`"total":1`, `"ip":"10.30.0.5"`, `"open_ports":[8080]`, `"open_service_count":1`}},
+		{"GET", "/api/hosts?tag=lab&port=8080", true, 200, []string{`"total":1`, `"ip":"10.30.0.5"`, `"open_ports":[8080]`, `"open_service_count":1`, `"active_finding_count":2`}},
+		{"GET", "/api/hosts?q=fd00::7", true, 200, []string{`"total":1`, `"active_finding_count":1`}},
+		{"GET", "/api/hosts?q=10.30.0.6", true, 200, []string{`"total":1`, `"active_finding_count":0`}},
 		{"GET", "/api/hosts?tag=nope", true, 200, []string{`"items":[]`, `"total":0`}},
 		{"GET", "/api/hosts?port=x", true, 400, []string{`"bad_request"`}},
 		{"GET", "/api/hosts?state=gone", true, 400, []string{`"bad_request"`}},
 		{"GET", "/api/hosts/10.30.0.5", true, 200, []string{
 			`"banner":"Apache-Coyote/1.1"`, `"version":"9.0"`, `"overridden":["version"]`,
-			`"scan":{"name":"http","product":"Tomcat","version":""}`, `"http":[]`, `"timeline":[]`, `"notes":""`,
+			`"scan":{"name":"http","product":"Tomcat","version":""}`, `"http":[]`, `"timeline":[]`, `"notes":""`, `"active_finding_count":2`,
 		}},
+		{"GET", "/api/hosts/fd00::7", true, 200, []string{`"active_finding_count":1`}},
+		{"GET", "/api/hosts/10.30.0.6", true, 200, []string{`"active_finding_count":0`}},
+		{"GET", "/api/findings?active=true&ip=10.30.0.5", true, 200, []string{`"total":2`}},
+		{"GET", "/api/findings?active=true&ip=fd00::7", true, 200, []string{`"total":1`}},
+		{"GET", "/api/findings?active=true&ip=10.30.0.6", true, 200, []string{`"total":0`}},
 		{"GET", "/api/hosts/10.30.0.9", true, 404, []string{`"not_found"`}},
 		{"GET", "/api/hosts/not-an-ip", true, 400, []string{`"bad_request"`}},
 		{"PATCH", "/api/hosts/10.30.0.5", true, 403, nil}, // viewer lacks hosts:edit

@@ -63,6 +63,10 @@ describe('DashboardPage', () => {
 
     expect(await screen.findByRole('heading', { name: 'Changes since run #41' })).toBeInTheDocument()
     expect(screen.getByText('1,204')).toBeInTheDocument()
+    expect(screen.getByText('Active findings')).toBeInTheDocument()
+    const activeFindings = screen.getByRole('link', { name: `${dashboard.findings.total} active findings` })
+    expect(activeFindings).toHaveTextContent(String(dashboard.findings.total))
+    expect(activeFindings).toHaveAttribute('href', '/findings?active=true')
     expect(screen.getByRole('link', { name: 'Compare runs' })).toHaveAttribute('href', '/changes?from=41&to=42')
 
     const changes = screen.getByRole('table', { name: 'Changes' })
@@ -109,6 +113,7 @@ describe('DashboardPage', () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(json(empty))
     renderAs('viewer', <DashboardPage />)
     expect(await screen.findByText('No two finished runs to compare')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '0 active findings' })).toHaveTextContent('0')
     expect(screen.getByText('No runs')).toBeInTheDocument()
     expect(screen.getByText('No CVE matches')).toBeInTheDocument()
     expect(screen.getByText('No unstable or inactive hosts')).toBeInTheDocument()

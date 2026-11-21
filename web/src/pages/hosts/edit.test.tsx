@@ -36,6 +36,7 @@ const detail: Schemas['HostDetail'] = {
   miss_count: 0,
   dojo_asset_id: 12,
   open_service_count: 1,
+  active_finding_count: 0,
   open_ports: [80],
   technologies: [],
   owner: 'web team',

@@ -156,6 +156,32 @@ describe('Findings page', () => {
     expect(screen.getByRole('button', { name: 'Apply' })).toBeDisabled()
   })
 
+  it.each([700, 1400])('places the selected detail at %ipx', async (width) => {
+    vi.spyOn(window, 'matchMedia').mockImplementation((media) =>
+      Object.assign(new EventTarget(), { media, matches: width >= 1140 }) as MediaQueryList,
+    )
+    const second = { ...finding, id: 8, title: 'Test finding 8' }
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(json({ items: [finding, second], total: 2 }))
+    renderAs('viewer', <FindingsPage />, { path: '/findings', route: '/findings' })
+    const trigger = await screen.findByRole('link', { name: second.title })
+    const row = trigger.closest('tr')!
+    expect(trigger).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByRole('heading', { name: second.title })).toBeNull()
+
+    fireEvent.click(trigger)
+    const heading = await screen.findByRole('heading', { name: second.title })
+    const panel = screen.getByRole('complementary', { name: 'Selected finding' })
+    expect(panel).toContainElement(heading)
+    expect(trigger).toHaveAttribute('aria-expanded', 'true')
+    expect(trigger).toHaveAttribute('aria-controls', panel.id)
+    if (width < 1140) {
+      expect(row.nextElementSibling).toContainElement(panel)
+    } else {
+      expect(row.closest('section')?.nextElementSibling).toBe(panel)
+      expect(panel).toHaveClass('sticky')
+    }
+  })
+
   it('links to the host and to Dojo in a new tab', async () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(async () => json({ items: [finding], total: 1 }))
     renderAs('viewer', <FindingsPage />, { path: '/findings?id=7', route: '/findings' })

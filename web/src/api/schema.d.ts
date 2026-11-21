@@ -1003,6 +1003,11 @@ export interface components {
             dojo_asset_id: number | null;
             /** @description services in state open (port/proto pairs) */
             open_service_count: number;
+            /**
+             * Format: int64
+             * @description findings with active=true in the Dojo mirror for this IP
+             */
+            active_finding_count: number;
             /** @description distinct open ports, ascending */
             open_ports: number[];
             /** @description from HTTP observations, sorted */
@@ -1287,6 +1292,7 @@ export interface components {
         DashboardFindings: {
             /** @description all five, Critical first */
             by_severity: components["schemas"]["DashboardSeverityCount"][];
+            /** @description total findings with active=true in the Dojo mirror */
             total: number;
         };
         DashboardHosts: {

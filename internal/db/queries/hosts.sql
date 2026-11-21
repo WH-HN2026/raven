@@ -5,7 +5,8 @@
 -- name: GetHost :one
 SELECT h.ip, h.hostnames, h.state, h.first_seen, h.last_seen, h.miss_count, h.dojo_asset_id,
     h.owner, h.criticality, COALESCE(raven_dec(h.notes_enc), '')::text AS notes, h.user_tags, h.overrides,
-    u.username AS edited_by, h.edited_at
+    u.username AS edited_by, h.edited_at,
+    (SELECT count(*) FROM dojo_findings f WHERE f.ip = h.ip AND f.active) AS active_finding_count
 FROM hosts h
 LEFT JOIN users u ON u.id = h.edited_by
 WHERE h.ip = @ip;

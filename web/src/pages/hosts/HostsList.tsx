@@ -27,6 +27,7 @@ import {
   apiQuery,
   filtersFromParams,
   fmtTime,
+  hostFindingsLink,
   hostStates,
   hostsKey,
   offsetFromParams,
@@ -72,6 +73,7 @@ export function HostsPage() {
               <Th>Hostnames</Th>
               <Th>State</Th>
               <Th>Open ports</Th>
+              <Th className="text-right">Findings</Th>
               <Th>Technologies</Th>
               <Th>Tags</Th>
               <Th>First seen</Th>
@@ -109,6 +111,14 @@ export function HostsPage() {
                     <span className="font-sans text-muted"> ({h.open_service_count} services)</span>
                   )}
                 </Td>
+                <Td className="text-right tabular-nums">
+                  <Link
+                    to={hostFindingsLink(h.ip)}
+                    aria-label={`${h.active_finding_count} active findings for ${h.ip}`}
+                  >
+                    {h.active_finding_count}
+                  </Link>
+                </Td>
                 <Td>
                   <div className="flex flex-wrap gap-1">
                     {h.technologies.map((t) => (
@@ -131,7 +141,7 @@ export function HostsPage() {
               </Tr>
             ))}
             {q.isSuccess && items.length === 0 && (
-              <EmptyRow colSpan={9}>{filtered ? 'No hosts match these filters.' : 'No hosts yet.'}</EmptyRow>
+              <EmptyRow colSpan={10}>{filtered ? 'No hosts match these filters.' : 'No hosts yet.'}</EmptyRow>
             )}
           </tbody>
         </Table>

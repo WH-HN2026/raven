@@ -8,6 +8,10 @@ export const hostsKey = ['hosts'] as const
 export type HostState = Schemas['HostState']
 export const hostStates: HostState[] = ['active', 'unstable', 'inactive']
 
+export function hostFindingsLink(ip: string): string {
+  return '/findings?' + new URLSearchParams({ active: 'true', ip })
+}
+
 /** The list filters, as kept in the URL query string. */
 export interface HostFilters {
   state: string
