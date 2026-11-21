@@ -138,6 +138,7 @@ M0 is sequential and blocking. Do it in **one** worktree, as fast as possible, t
 - [x] **Q1 Acceptance pass + image build in CI.** Fresh-clone deploy, lab attached, two runs with a lab change, all 12 jury test points walked; docs/acceptance.md with results; CI builds the Docker image.
 - [x] **U3 Findings layout + active findings counts.** Finding detail opens next to (wide) or under (narrow) the clicked row; active findings on the dashboard, hosts list and host detail.
 - [x] **U4 Behaviour fixes.** One Dojo finding per matched CVE; adding an existing target shows "Target already exists"; run comparison only older → newer.
+- [x] **U2 Naming & navigation fixes.** User profile page, flat breadcrumbs, clearer labels (intermittent hosts, exclude, signature status, type, profile enabled, batch duration).
 
 ## M4 — MCP (last)
 
