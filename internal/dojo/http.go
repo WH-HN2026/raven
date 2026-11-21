@@ -408,11 +408,23 @@ func (c *HTTPClient) ListEngagements(ctx context.Context, q EngagementQuery) (*P
 	if len(q.Tags) > 0 {
 		v.Set("tags", strings.Join(q.Tags, ","))
 	}
+	if q.TagContains != "" {
+		v.Set("tag", q.TagContains)
+	}
+	v.Set("o", "created") // stable order for paging
 	var page Page[Engagement]
 	if err := c.do(ctx, http.MethodGet, "/api/v2/engagements/", v, nil, &page); err != nil {
 		return nil, fmt.Errorf("dojo list engagements: %w", err)
 	}
 	return &page, nil
+}
+
+func (c *HTTPClient) GetEngagement(ctx context.Context, id int64) (*Engagement, error) {
+	var out Engagement
+	if err := c.do(ctx, http.MethodGet, "/api/v2/engagements/"+itoa(id)+"/", nil, nil, &out); err != nil {
+		return nil, fmt.Errorf("dojo get engagement %d: %w", id, err)
+	}
+	return &out, nil
 }
 
 func (c *HTTPClient) SetEngagementStatus(ctx context.Context, id int64, status string) error {
