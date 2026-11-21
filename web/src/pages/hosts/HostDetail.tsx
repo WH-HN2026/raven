@@ -22,7 +22,7 @@ import {
   buttonClass,
 } from '../../components/ui'
 import { HostDetailsPanel, ServiceEditCells, detailKey } from './HostEdit'
-import { fmtTime, hostFindingsLink, stateTone } from './ui'
+import { fmtTime, hostFindingsLink, hostStateLabel, stateTone } from './ui'
 
 type Service = Schemas['Service']
 type HttpObservation = Schemas['HttpObservation']
@@ -59,7 +59,7 @@ export function HostDetailPage() {
       <PageHeader
         title={h.ip}
         crumbs={crumbs}
-        badges={<Badge tone={stateTone(h.state)}>{h.state}</Badge>}
+        badges={<Badge tone={stateTone(h.state)}>{hostStateLabel[h.state]}</Badge>}
         meta={
           <>
             {h.hostnames.length > 0 && <div>{h.hostnames.join(' · ')}</div>}

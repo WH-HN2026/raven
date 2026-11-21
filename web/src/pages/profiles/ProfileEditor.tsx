@@ -6,7 +6,7 @@ import { useCan } from '../../auth/hooks'
 import { PageHeader } from '../../components/PageHeader'
 import { Alert, Button, ErrorText, Field, Section, SectionHeading, inputClass } from '../../components/ui'
 import { ScopeList } from '../targets/ScopeEditor'
-import { NUCLEI_TAGS, PROFILE_DEFAULTS, checkPorts, profileScopeKey, profilesKey, useProfiles, type Profile } from './ui'
+import { NUCLEI_TAGS, PROFILE_DEFAULTS, batchMinutes, checkPorts, profileScopeKey, profilesKey, useProfiles, type Profile } from './ui'
 
 type Input = Schemas['ProfileInput']
 
@@ -22,7 +22,7 @@ export function ProfileEditorPage() {
     <>
       <PageHeader
         title={title}
-        crumbs={[{ label: 'Profiles & schedules', to: '/profiles' }, { label: isNew ? 'New profile' : (profile?.name ?? `#${id}`) }]}
+        crumbs={[{ label: 'Profiles', to: '/profiles' }, { label: title }]}
       />
       {profiles.error && (
         <Section>
@@ -61,7 +61,7 @@ function ProfileForm({ profile }: { profile?: Profile }) {
   const [nucleiRate, setNucleiRate] = useState(String(profile?.nuclei_rate ?? PROFILE_DEFAULTS.nuclei_rate))
   const [tags, setTags] = useState<string[]>(profile?.nuclei_tags ?? [])
   const [miss, setMiss] = useState(String(profile?.miss_threshold ?? PROFILE_DEFAULTS.miss_threshold))
-  const [batch, setBatch] = useState(String(profile?.target_batch_seconds ?? PROFILE_DEFAULTS.target_batch_seconds))
+  const [batch, setBatch] = useState(String(batchMinutes(profile?.target_batch_seconds ?? PROFILE_DEFAULTS.target_batch_seconds)))
   const [enabled, setEnabled] = useState(profile?.enabled ?? true)
   const [clientErr, setClientErr] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
@@ -80,11 +80,11 @@ function ProfileForm({ profile }: { profile?: Profile }) {
     e.preventDefault()
     setSaved(false)
     const spec = ports.trim()
+    const batchSeconds = Math.round(Number(batch) * 60)
     const numbers: [string, string, number, number][] = [
       ['nmap max rate', nmapRate, 1, 1_000_000],
       ['nuclei rate', nucleiRate, 1, Infinity],
       ['miss threshold', miss, 1, Infinity],
-      ['target batch seconds', batch, 1, Infinity],
     ]
     let err = name.trim() ? checkPorts(spec) : 'Name is required'
     for (const [label, v, min, max] of numbers) {
@@ -92,6 +92,8 @@ function ProfileForm({ profile }: { profile?: Profile }) {
       if (!err && !(v.trim() !== '' && Number.isInteger(n) && n >= min && n <= max))
         err = `${label} must be a whole number${max === Infinity ? ' ≥ 1' : ` between ${min} and ${max}`}`
     }
+    if (!err && (batchSeconds < 1 || !Number.isFinite(batchSeconds) || batchSeconds > 2_147_483_647))
+      err = 'Invalid batch duration'
     setClientErr(err)
     if (err) return
     save.mutate({
@@ -101,7 +103,7 @@ function ProfileForm({ profile }: { profile?: Profile }) {
       nuclei_rate: Number(nucleiRate),
       nuclei_tags: tags,
       miss_threshold: Number(miss),
-      target_batch_seconds: Number(batch),
+      target_batch_seconds: batchSeconds,
       enabled,
     })
   }
@@ -147,13 +149,17 @@ function ProfileForm({ profile }: { profile?: Profile }) {
           <Field label="Miss threshold (runs)" className="flex-[1_1_160px]">
             <input className={inputClass} type="number" min={1} value={miss} onChange={(e) => setMiss(e.target.value)} />
           </Field>
-          <Field label="Target batch (seconds)" className="flex-[1_1_160px]">
-            <input className={inputClass} type="number" min={1} value={batch} onChange={(e) => setBatch(e.target.value)} />
+          <Field label="Batch duration (min)" className="flex-[1_1_160px]">
+            <input className={inputClass} type="number" min={0} step="any" value={batch} onChange={(e) => setBatch(e.target.value)} />
           </Field>
         </div>
         <label className="flex items-center gap-2 text-sm font-medium">
-          <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
-          Enabled
+          <input type="checkbox" role="switch" className="peer sr-only" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
+          <span
+            aria-hidden="true"
+            className="flex h-5 w-9 items-center border border-line-strong bg-band p-0.5 before:size-3.5 before:bg-ink peer-checked:justify-end peer-checked:bg-black peer-checked:before:bg-white peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-red peer-disabled:opacity-60"
+          />
+          Profile enabled
         </label>
       </fieldset>
       {(clientErr || serverMsg) && <Alert>{clientErr ?? serverMsg}</Alert>}

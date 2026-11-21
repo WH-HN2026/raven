@@ -92,7 +92,6 @@ export function ServicesPage() {
     <>
       <PageHeader
         title="Services & Technologies"
-        crumbs={[{ label: 'Services' }]}
         meta={
           svcs.isSuccess && techs.isSuccess
             ? `${techTotal} technologies · ${svcTotal} ${filtered ? 'matching services' : 'services'}`

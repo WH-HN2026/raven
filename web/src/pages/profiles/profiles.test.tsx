@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { json, renderAs } from '../../test-utils'
-import { route } from './fixture'
+import { profile, route } from './fixture'
 import { ProfileEditorPage } from './ProfileEditor'
 import { ProfilesPage } from './ProfilesPage'
 import {
@@ -93,6 +93,7 @@ describe('ProfilesPage', () => {
     mockApi()
     renderAs('editor', <ProfilesPage />, { path: '/profiles' })
     expect(await screen.findByRole('link', { name: 'lab-quick' })).toHaveAttribute('href', '/profiles/3')
+    expect(screen.getByRole('columnheader', { name: 'Batch duration' })).toBeInTheDocument()
     const rows = await screen.findAllByRole('row')
     const ui = rows.find((r) => within(r).queryByText('#7'))!
     const dojo = rows.find((r) => within(r).queryByText('#8'))!
@@ -181,6 +182,24 @@ describe('ProfileEditorPage', () => {
     const put = calls.find((c) => c.method === 'PUT')!
     expect(put.url).toBe('/api/profiles/3')
     expect(put.body).toMatchObject({ name: 'lab-quick', nmap_max_rate: 150, nuclei_tags: ['tech', 'panel'] })
+  })
+
+  it.each([[null, 61], ['2.5', 150]])('saves batch duration in seconds when the minute value is %s', async (minutes, seconds) => {
+    const calls = mockApi((c) => {
+      if (c.method === 'PUT') return json({ ...profile, ...(c.body as object) })
+      if (c.url.startsWith('/api/profiles')) return json({ items: [{ ...profile, target_batch_seconds: 61 }], total: 1 })
+    })
+    renderAs('editor', <ProfileEditorPage />, { path: '/profiles/3', route: '/profiles/:id' })
+    const batch = await screen.findByLabelText('Batch duration (min)')
+    expect(batch).toHaveValue(1.02)
+    if (minutes !== null) fireEvent.change(batch, { target: { value: minutes } })
+    const enabled = screen.getByRole('switch', { name: 'Profile enabled' })
+    expect(enabled).toBeChecked()
+    fireEvent.click(enabled)
+    fireEvent.click(screen.getByRole('button', { name: 'Save profile' }))
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Saved')
+    expect(calls.find((c) => c.method === 'PUT')?.body).toMatchObject({ target_batch_seconds: seconds, enabled: false })
   })
 
   it('adds a profile exclude with profile_id', async () => {

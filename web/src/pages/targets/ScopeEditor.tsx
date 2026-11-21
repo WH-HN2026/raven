@@ -29,7 +29,7 @@ export function ScopeEditor() {
       <div className="flex flex-col gap-3">
         <ScopeList
           list="exclude"
-          title="Exclude (never scan)"
+          title="Exclude"
           items={items.filter((e) => e.list === 'exclude')}
           canEdit={canEdit}
         />
@@ -116,7 +116,7 @@ export function ScopeList({
               onChange={(e) => setValue(e.target.value)}
             />
           </Field>
-          <Field label="Kind">
+          <Field label="Type">
             <select className={inputClass} value={kind} onChange={(e) => setKind(e.target.value as Kind | '')}>
               <option value="">Auto</option>
               <option value="ip">IP</option>

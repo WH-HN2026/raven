@@ -93,8 +93,7 @@ export function SignaturesList() {
     <>
       <PageHeader
         title="Signatures"
-        crumbs={[{ label: 'Signatures' }]}
-        meta={list.data && `${all.length} signatures · ${enabled} enabled · ${invalid} invalid`}
+        meta={list.data && `${all.length} signatures · ${enabled} enabled · ${invalid} rejected`}
       >
         {canWrite && (
           <Link to="/signatures/new" className={buttonClass('primary', 'lg')}>
@@ -141,8 +140,8 @@ export function SignaturesList() {
               <Th>Severity</Th>
               <Th>Tags</Th>
               <Th>Source</Th>
-              <Th>Validation</Th>
               <Th>Status</Th>
+              <Th>Enabled</Th>
             </THeadRow>
           </thead>
           <tbody>
@@ -182,11 +181,14 @@ export function SignaturesList() {
                 <Td>{sig.builtin ? <Badge tone="done">Built-in</Badge> : <Badge tone="outline">Custom</Badge>}</Td>
                 <Td>
                   {sig.valid ? (
-                    <Badge tone="new">Valid</Badge>
+                    <Badge tone="new">Ready</Badge>
                   ) : (
-                    <Badge tone="red" title={sig.validation_error}>
-                      Invalid
-                    </Badge>
+                    <>
+                      <Badge tone="red">Rejected</Badge>
+                      {sig.validation_error && (
+                        <div className="mt-1 text-[13px] text-muted">{sig.validation_error}</div>
+                      )}
+                    </>
                   )}
                 </Td>
                 <Td>

@@ -119,7 +119,6 @@ export function FindingsPage() {
     <>
       <PageHeader
         title="Findings"
-        crumbs={[{ label: 'Findings' }]}
         meta={q.isSuccess ? `${total} ${filtered ? 'matching' : 'total'}` : undefined}
       >
         <ExportButton kind="findings" onDark />

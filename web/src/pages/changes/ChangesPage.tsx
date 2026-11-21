@@ -142,7 +142,7 @@ export function ChangesPage() {
   const err = diff.error
   return (
     <>
-      <PageHeader title="Changes" crumbs={[{ label: 'Changes' }]}>
+      <PageHeader title="Changes">
         <ExportButton kind="changes" onDark disabled={!d} />
       </PageHeader>
       <FilterBar onSubmit={(e) => e.preventDefault()}>

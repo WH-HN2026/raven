@@ -48,7 +48,7 @@ export function TargetsTable() {
           <thead>
             <THeadRow>
               <Th>Target</Th>
-              <Th>Kind</Th>
+              <Th>Type</Th>
               <Th>Source</Th>
               <Th>Tags</Th>
               <Th>Note</Th>

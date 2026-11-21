@@ -87,7 +87,7 @@ export function StartRunForm() {
             >
               {enabled.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.name} (max rate {p.nmap_max_rate}/s)
+                  {p.name}
                 </option>
               ))}
             </select>
@@ -185,7 +185,7 @@ export function RunsPage() {
   const canControl = useCan('runs:control')
   return (
     <>
-      <PageHeader title="Runs" crumbs={[{ label: 'Runs' }]} />
+      <PageHeader title="Runs" />
       {canControl && <StartRunForm />}
       <RunsTable />
     </>

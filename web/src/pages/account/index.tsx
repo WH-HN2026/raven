@@ -8,8 +8,7 @@ import type { AppRoute } from '../types'
 
 const MIN_PASSWORD = 12
 
-/** The logged-in user's own account: change password. */
-export function AccountPage() {
+export function ProfilePage() {
   const { me } = useAuth()
   const [current, setCurrent] = useState('')
   const [next, setNext] = useState('')
@@ -30,12 +29,23 @@ export function AccountPage() {
   }
   return (
     <>
-      <PageHeader
-        title="Account"
-        crumbs={[{ label: 'Account' }]}
-        meta={me?.user.username}
-        badges={me && <Badge tone="red">{me.user.role}</Badge>}
-      />
+      <PageHeader title="Profile" />
+      {me && (
+        <Section>
+          <dl className="m-0 flex flex-wrap gap-x-12 gap-y-4">
+            <div>
+              <dt className="text-sm text-muted">Username</dt>
+              <dd className="m-0 font-medium">{me.user.username}</dd>
+            </div>
+            <div>
+              <dt className="text-sm text-muted">Role</dt>
+              <dd className="m-0">
+                <Badge tone="red">{me.user.role}</Badge>
+              </dd>
+            </div>
+          </dl>
+        </Section>
+      )}
       <Section>
         <form onSubmit={onSubmit} aria-label="Change password" className="flex max-w-[520px] flex-col gap-5">
           <SectionHeading>Change password</SectionHeading>
@@ -81,4 +91,4 @@ export function AccountPage() {
   )
 }
 
-export const routes: AppRoute[] = [{ path: '/account', element: <AccountPage /> }]
+export const routes: AppRoute[] = [{ path: '/account', perm: 'read', element: <ProfilePage /> }]

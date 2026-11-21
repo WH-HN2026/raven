@@ -22,7 +22,7 @@ export function PageHeader({
   mono = false,
 }: {
   title: ReactNode
-  /** Breadcrumb before the title; "Dashboard" is prepended automatically. */
+  /** Parent links followed by the current page label. */
   crumbs?: Crumb[]
   /** Badges shown on the title line (state, score). */
   badges?: ReactNode
@@ -33,14 +33,13 @@ export function PageHeader({
   /** Title in Roboto Mono (IPs). */
   mono?: boolean
 }) {
-  const trail: Crumb[] | null = crumbs ? [{ label: 'Dashboard', to: '/' }, ...crumbs] : null
   return (
     <section className="bg-black text-white">
       <div className="mx-auto flex max-w-[1440px] flex-wrap items-end justify-between gap-x-10 gap-y-6 px-10 pt-4 pb-11">
         <div className="flex min-w-0 flex-[1_1_520px] flex-col gap-[18px]">
-          {trail && (
+          {!!crumbs?.length && (
             <nav aria-label="Breadcrumb" className="text-sm text-on-dark-muted">
-              {trail.map((c, i) => (
+              {crumbs.map((c, i) => (
                 <span key={i}>
                   {i > 0 && ' / '}
                   {c.to ? (
@@ -48,7 +47,7 @@ export function PageHeader({
                       {c.label}
                     </Link>
                   ) : (
-                    c.label
+                    <span aria-current="page">{c.label}</span>
                   )}
                 </span>
               ))}

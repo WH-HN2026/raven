@@ -28,6 +28,7 @@ import {
   filtersFromParams,
   fmtTime,
   hostFindingsLink,
+  hostStateLabel,
   hostStates,
   hostsKey,
   offsetFromParams,
@@ -57,7 +58,6 @@ export function HostsPage() {
     <>
       <PageHeader
         title="Hosts"
-        crumbs={[{ label: 'Hosts' }]}
         meta={q.isSuccess ? `${total} ${filtered ? 'matching' : 'total'}` : undefined}
       >
         <ExportButton kind="hosts" onDark />
@@ -103,7 +103,7 @@ export function HostsPage() {
                   )}
                 </Td>
                 <Td>
-                  <Badge tone={stateTone(h.state)}>{h.state}</Badge>
+                  <Badge tone={stateTone(h.state)}>{hostStateLabel[h.state]}</Badge>
                 </Td>
                 <Td className="font-mono text-[13px]" title={h.open_ports.join(', ')}>
                   {portsSummary(h.open_ports)}
@@ -153,7 +153,7 @@ export function HostsPage() {
 
 const stateOptions = [
   { value: '', label: 'Any' },
-  ...hostStates.map((s) => ({ value: s as string, label: s.charAt(0).toUpperCase() + s.slice(1) })),
+  ...hostStates.map((s) => ({ value: s as string, label: hostStateLabel[s] })),
 ]
 
 function FilterForm({ initial, onApply }: { initial: HostFilters; onApply: (f: HostFilters) => void }) {

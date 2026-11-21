@@ -86,9 +86,9 @@ describe('DashboardPage', () => {
     const cve = screen.getByRole('table', { name: 'CVE matches' })
     expect(within(cve).getByText('9.8')).toBeInTheDocument()
 
-    const unstable = screen.getByRole('list', { name: 'Unstable hosts' })
+    const unstable = screen.getByRole('list', { name: 'Intermittent hosts' })
     expect(within(unstable).getByText('up in 3 of last 5 runs')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'All unstable (3)' })).toHaveAttribute('href', '/hosts?state=unstable')
+    expect(screen.getByRole('link', { name: 'All intermittent (3)' })).toHaveAttribute('href', '/hosts?state=unstable')
 
     const runs = screen.getByRole('table', { name: 'Recent runs' })
     expect(within(runs).getByRole('link', { name: '#42' })).toHaveAttribute('href', '/runs/42')
@@ -116,7 +116,7 @@ describe('DashboardPage', () => {
     expect(screen.getByRole('link', { name: '0 active findings' })).toHaveTextContent('0')
     expect(screen.getByText('No runs')).toBeInTheDocument()
     expect(screen.getByText('No CVE matches')).toBeInTheDocument()
-    expect(screen.getByText('No unstable or inactive hosts')).toBeInTheDocument()
+    expect(screen.getByText('No intermittent or inactive hosts')).toBeInTheDocument()
   })
 
   it('shows an API error', async () => {
