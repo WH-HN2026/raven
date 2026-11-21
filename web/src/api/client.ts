@@ -36,11 +36,39 @@ export interface RequestOptions<O> {
 export class ApiError extends Error {
   readonly status: number
   readonly code: string
-  constructor(status: number, code: string, message: string) {
+  /** The parsed JSON error body (e.g. TargetInputErrors with per-line `errors`). */
+  readonly body: unknown
+  constructor(status: number, code: string, message: string, body?: unknown) {
     super(message)
     this.status = status
     this.code = code
+    this.body = body
   }
+}
+
+async function errorOf(res: Response): Promise<ApiError> {
+  let code = 'http_' + res.status
+  let message = res.statusText
+  let body: unknown
+  try {
+    body = await res.json()
+    const e = body as Schemas['Error']
+    code = e.error.code
+    message = e.error.message
+  } catch {
+    // non-JSON error body
+  }
+  return new ApiError(res.status, code, message, body)
+}
+
+function queryString(query: object | undefined): string {
+  if (!query) return ''
+  const qs = new URLSearchParams()
+  for (const [k, v] of Object.entries(query as Record<string, unknown>)) {
+    if (v !== undefined && v !== null && v !== '') qs.set(k, String(v))
+  }
+  const s = qs.toString()
+  return s ? '?' + s : ''
 }
 
 export const CSRF_HEADER = 'X-ASI-CSRF'
@@ -55,14 +83,7 @@ export async function request<P extends PathsWith<M>, M extends Method>(
     if (v === undefined) throw new Error(`missing path param ${k}`)
     return encodeURIComponent(String(v))
   })
-  if (opts.query) {
-    const qs = new URLSearchParams()
-    for (const [k, v] of Object.entries(opts.query as Record<string, unknown>)) {
-      if (v !== undefined && v !== null && v !== '') qs.set(k, String(v))
-    }
-    const s = qs.toString()
-    if (s) url += '?' + s
-  }
+  url += queryString(opts.query as object | undefined)
   const headers: Record<string, string> = { Accept: 'application/json' }
   if (method !== 'get') headers[CSRF_HEADER] = '1'
   if (opts.body !== undefined) headers['Content-Type'] = 'application/json'
@@ -74,20 +95,34 @@ export async function request<P extends PathsWith<M>, M extends Method>(
     body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
     signal: opts.signal,
   })
-  if (!res.ok) {
-    let code = 'http_' + res.status
-    let message = res.statusText
-    try {
-      const e = (await res.json()) as Schemas['Error']
-      code = e.error.code
-      message = e.error.message
-    } catch {
-      // non-JSON error body
-    }
-    throw new ApiError(res.status, code, message)
-  }
+  if (!res.ok) throw await errorOf(res)
   if (res.status === 204) return undefined as SuccessOf<Op<P, M>>
   return (await res.json()) as SuccessOf<Op<P, M>>
+}
+
+// Paths whose POST takes multipart/form-data.
+type UploadPaths = {
+  [P in keyof paths]: paths[P]['post'] extends { requestBody: { content: { 'multipart/form-data': unknown } } }
+    ? P
+    : never
+}[keyof paths]
+
+/** POSTs one file as multipart field `file` (with the CSRF header). */
+export async function upload<P extends UploadPaths>(
+  path: P,
+  file: File,
+  query?: QueryOf<Op<P, 'post'>>,
+): Promise<SuccessOf<Op<P, 'post'>>> {
+  const form = new FormData()
+  form.append('file', file)
+  const res = await fetch('/api' + String(path) + queryString(query as object | undefined), {
+    method: 'POST',
+    headers: { Accept: 'application/json', [CSRF_HEADER]: '1' },
+    credentials: 'same-origin',
+    body: form,
+  })
+  if (!res.ok) throw await errorOf(res)
+  return (await res.json()) as SuccessOf<Op<P, 'post'>>
 }
 
 export const api = {
