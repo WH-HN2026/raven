@@ -193,7 +193,7 @@ export function Th({ className = '', ...rest }: ThHTMLAttributes<HTMLTableCellEl
 }
 
 export function Td({ className = '', ...rest }: TdHTMLAttributes<HTMLTableCellElement>) {
-  return <td className={'px-3 py-3 align-top first:pl-0 last:pr-0 ' + className} {...rest} />
+  return <td className={'px-3 py-3 align-middle first:pl-0 last:pr-0 ' + className} {...rest} />
 }
 
 /** A table row with one muted cell spanning the table (empty / loading). */
