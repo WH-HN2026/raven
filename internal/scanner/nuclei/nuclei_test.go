@@ -147,3 +147,42 @@ func TestParseLab(t *testing.T) {
 		t.Fatal("accepted malformed JSON")
 	}
 }
+
+func TestRunTemplate(t *testing.T) {
+	dir := t.TempDir()
+	argsFile := dir + "/args.txt"
+	fakeBin := dir + "/fake-nuclei"
+	script := "#!/bin/sh\n" +
+		"printf '%s\\n' \"$@\" > '" + argsFile + "'\n" +
+		"cat >/dev/null\n" +
+		`printf '%s\n' '{"template-id":"test-admin","type":"http","url":"http://172.30.0.19:80","matched-at":"http://172.30.0.19:80/admin","ip":"172.30.0.19","timestamp":"2026-11-21T15:00:00Z","matcher-name":"admin-title","extracted-results":["Admin"],"info":{"name":"Admin panel","severity":"low","tags":["panel"]}}'` + "\n"
+	if err := os.WriteFile(fakeBin, []byte(script), 0700); err != nil {
+		t.Fatal(err)
+	}
+	tpl := "id: test-admin\ninfo:\n  name: Admin panel\n  severity: low\n  tags: panel\nhttp:\n  - method: GET\n    path:\n      - '{{BaseURL}}/admin'\n    matchers:\n      - type: status\n        status: [200]\n"
+
+	s := &Scanner{Binary: fakeBin}
+	res, err := s.RunTemplate(context.Background(), tpl, "http://172.30.0.19/", netip.MustParseAddr("172.30.0.19"), 10)
+	if err != nil {
+		t.Fatalf("RunTemplate: %v", err)
+	}
+	if len(res.Observations) != 1 || res.Observations[0].Match == nil || res.Observations[0].Match.Matcher != "admin-title" {
+		t.Fatalf("unexpected observations: %+v", res.Observations)
+	}
+	argBytes, err := os.ReadFile(argsFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	args := strings.Split(strings.TrimSpace(string(argBytes)), "\n")
+	for _, want := range []string{"-no-interactsh", "-disable-redirects", "-disable-update-check", "-auth=false", "-no-httpx", "-rl", "10", "-t", "test-admin.yaml"} {
+		if !slices.Contains(args, want) {
+			t.Errorf("missing expected safe flag %q in %v", want, args)
+		}
+	}
+
+	// Unsafe template rejected before executing binary.
+	badTpl := strings.Replace(tpl, "method: GET", "method: POST", 1)
+	if _, err := (&Scanner{Binary: "must-not-run"}).RunTemplate(context.Background(), badTpl, "http://172.30.0.19/", netip.MustParseAddr("172.30.0.19"), 10); err == nil {
+		t.Fatal("accepted invalid template")
+	}
+}

@@ -9,6 +9,7 @@ import (
 
 	"github.com/WH-HN2026/raven/internal/auth"
 	"github.com/WH-HN2026/raven/internal/db/gen"
+	"github.com/WH-HN2026/raven/internal/dojo"
 	"github.com/WH-HN2026/raven/internal/httpx"
 	"github.com/WH-HN2026/raven/internal/scheduler"
 )
@@ -21,6 +22,19 @@ func (a *api) mountSchedules(r chi.Router) {
 }
 
 func (a *api) scanConfig() scheduler.ConfigStore { return scheduler.ConfigStore{Pool: a.Pool} }
+
+type scheduleView struct {
+	gen.Schedule
+	DojoURL string `json:"dojo_url"`
+}
+
+func (a *api) scheduleView(s gen.Schedule) scheduleView {
+	var u string
+	if s.Source == "dojo" && s.DojoEngagementID != nil {
+		u = dojo.EngagementURL(a.DojoPublicURL, *s.DojoEngagementID)
+	}
+	return scheduleView{Schedule: s, DojoURL: u}
+}
 
 func scanConfigError(w http.ResponseWriter, op string, err error) {
 	switch {
@@ -42,7 +56,7 @@ func (a *api) listSchedules(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := r.Context()
-	items, err := a.Queries.ListSchedules(ctx, gen.ListSchedulesParams{Limit: limit, Offset: offset})
+	rows, err := a.Queries.ListSchedules(ctx, gen.ListSchedulesParams{Limit: limit, Offset: offset})
 	if err != nil {
 		scanConfigError(w, "list schedules", err)
 		return
@@ -52,7 +66,11 @@ func (a *api) listSchedules(w http.ResponseWriter, r *http.Request) {
 		scanConfigError(w, "count schedules", err)
 		return
 	}
-	httpx.JSON(w, http.StatusOK, list[gen.Schedule]{Items: items, Total: total})
+	items := make([]scheduleView, len(rows))
+	for i, s := range rows {
+		items[i] = a.scheduleView(s)
+	}
+	httpx.JSON(w, http.StatusOK, list[scheduleView]{Items: items, Total: total})
 }
 
 func (a *api) createSchedule(w http.ResponseWriter, r *http.Request) {
@@ -66,7 +84,7 @@ func (a *api) createSchedule(w http.ResponseWriter, r *http.Request) {
 		scanConfigError(w, "create schedule", err)
 		return
 	}
-	httpx.JSON(w, http.StatusCreated, schedule)
+	httpx.JSON(w, http.StatusCreated, a.scheduleView(schedule))
 }
 
 func (a *api) updateSchedule(w http.ResponseWriter, r *http.Request) {
@@ -84,7 +102,7 @@ func (a *api) updateSchedule(w http.ResponseWriter, r *http.Request) {
 		scanConfigError(w, "update schedule", err)
 		return
 	}
-	httpx.JSON(w, http.StatusOK, schedule)
+	httpx.JSON(w, http.StatusOK, a.scheduleView(schedule))
 }
 
 func (a *api) deleteSchedule(w http.ResponseWriter, r *http.Request) {

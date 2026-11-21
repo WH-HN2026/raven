@@ -2,6 +2,7 @@ package cve
 
 import (
 	"cmp"
+	"encoding/json"
 	"net/netip"
 	"slices"
 	"strconv"
@@ -124,6 +125,12 @@ func (m *Matcher) Match(in Instance) *Match {
 			cpeVer = techVer
 		}
 	}
+	// Canonicalize alias CPEs (e.g. nmap's igor_sysoev:nginx → f5:nginx,
+	// apache:httpd → apache:http_server) so nmap, httpx and nuclei produce the
+	// same product key and unique_id_from_tool on the same port.
+	if len(p.NVD) > 0 {
+		vp = strings.ToLower(p.NVD[0])
+	}
 	ver := Upstream(ExtractVersion(in.Version))
 	if ver == "" {
 		ver = Upstream(ExtractVersion(cpeVer))
@@ -168,6 +175,95 @@ func (m *Matcher) Match(in Instance) *Match {
 		out.Confidence = ConfidenceLow
 	}
 	out.Severity = Severity(out.MaxCVSS, out.KEV > 0, out.Distro)
+	return out
+}
+
+// MatchAll matches all instances and deduplicates by (ip, port, proto,
+// canonical CPE). When multiple scanners (e.g. nmap and httpx) report the
+// same product on the same port, one finding is returned; a distro-build
+// detection wins over a non-distro match so the distro severity cap is kept.
+func (m *Matcher) MatchAll(instances []Instance) []Match {
+	type key struct {
+		ip    netip.Addr
+		port  int32
+		proto string
+		cpe   string
+	}
+	idx := make(map[key]int, len(instances))
+	out := make([]Match, 0, len(instances))
+	for _, in := range instances {
+		mt := m.Match(in)
+		if mt == nil {
+			continue
+		}
+		k := key{mt.IP.Unmap(), mt.Port, mt.Proto, mt.CPE}
+		if pos, exists := idx[k]; exists {
+			if !out[pos].Distro && mt.Distro {
+				out[pos] = *mt
+			}
+			continue
+		}
+		idx[k] = len(out)
+		out = append(out, *mt)
+	}
+	return out
+}
+
+// InstancesFromHTTPTech builds matcher instances from stored HTTP observation
+// CPEs and raw httpx/nuclei technology strings (via CPEForTech).
+func InstancesFromHTTPTech(ip netip.Addr, port int32, proto string, cpes, technologies []string) []Instance {
+	out := make([]Instance, 0, len(cpes)+len(technologies))
+	for _, c := range cpes {
+		if strings.TrimSpace(c) == "" {
+			continue
+		}
+		out = append(out, Instance{IP: ip, Port: port, Proto: proto, CPE: c})
+	}
+	for _, tech := range technologies {
+		if c, v, ok := CPEForTech(tech); ok && v != "" {
+			out = append(out, Instance{IP: ip, Port: port, Proto: proto, CPE: FormatCPE(c, v), Product: tech, Version: v})
+		}
+	}
+	return out
+}
+
+// InstancesFromNucleiJSON extracts matcher instances from a run_observations
+// nuclei_matches JSON array.
+func InstancesFromNucleiJSON(ip netip.Addr, port int32, proto string, raw json.RawMessage) []Instance {
+	if len(raw) == 0 {
+		return nil
+	}
+	var items []struct {
+		TemplateID string `json:"template_id"`
+		Name       string `json:"name"`
+		CPE        string `json:"cpe"`
+		Version    string `json:"version"`
+	}
+	if err := json.Unmarshal(raw, &items); err != nil {
+		return nil
+	}
+	out := make([]Instance, 0, len(items))
+	for _, it := range items {
+		cpeStr, ver := strings.TrimSpace(it.CPE), strings.TrimSpace(it.Version)
+		if cpeStr == "" {
+			for _, cand := range []string{it.TemplateID, it.Name} {
+				if c, v, ok := CPEForTech(cand); ok {
+					cpeStr = c
+					if ver == "" {
+						ver = v
+					}
+					break
+				}
+			}
+		}
+		if cpeStr == "" && it.Name == "" {
+			continue
+		}
+		out = append(out, Instance{
+			IP: ip, Port: port, Proto: proto,
+			CPE: FormatCPE(cpeStr, ver), Product: it.Name, Version: ver,
+		})
+	}
 	return out
 }
 

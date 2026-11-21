@@ -14,6 +14,7 @@ import (
 )
 
 type ScheduleInput struct {
+	Name        *string    `json:"name"`
 	ProfileID   int64      `json:"profile_id"`
 	Cron        *string    `json:"cron"`
 	WindowStart *time.Time `json:"window_start"`
@@ -23,6 +24,13 @@ type ScheduleInput struct {
 }
 
 func (in ScheduleInput) apply(s gen.Schedule) (gen.Schedule, error) {
+	if in.Name != nil {
+		name := strings.TrimSpace(*in.Name)
+		if len(name) > 200 {
+			return gen.Schedule{}, fmt.Errorf("%w: name must be at most 200 characters", ErrInvalid)
+		}
+		s.Name = name
+	}
 	s.ProfileID = in.ProfileID
 	if s.ProfileID < 1 {
 		return gen.Schedule{}, fmt.Errorf("%w: profile_id must be positive", ErrInvalid)
@@ -48,7 +56,7 @@ func (s ConfigStore) CreateSchedule(ctx context.Context, userID int64, in Schedu
 	}
 	err = s.write(ctx, func(q *gen.Queries) error {
 		schedule, err = q.CreateSchedule(ctx, gen.CreateScheduleParams{
-			ProfileID: schedule.ProfileID, Cron: schedule.Cron, WindowStart: schedule.WindowStart,
+			Name: schedule.Name, ProfileID: schedule.ProfileID, Cron: schedule.Cron, WindowStart: schedule.WindowStart,
 			WindowEnd: schedule.WindowEnd, Timezone: schedule.Timezone, Enabled: schedule.Enabled,
 		})
 		if err := scheduleWriteError(err); err != nil {
@@ -76,7 +84,7 @@ func (s ConfigStore) UpdateSchedule(ctx context.Context, userID, id int64, in Sc
 			}
 		}
 		updated, err = q.UpdateUISchedule(ctx, gen.UpdateUIScheduleParams{
-			ID: id, ProfileID: schedule.ProfileID, Cron: schedule.Cron, WindowStart: schedule.WindowStart,
+			ID: id, Name: schedule.Name, ProfileID: schedule.ProfileID, Cron: schedule.Cron, WindowStart: schedule.WindowStart,
 			WindowEnd: schedule.WindowEnd, Timezone: schedule.Timezone, Enabled: schedule.Enabled,
 		})
 		if err := scheduleWriteError(err); err != nil {

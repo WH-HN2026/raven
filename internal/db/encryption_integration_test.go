@@ -104,7 +104,7 @@ func TestEncryptedColumnsAtRest(t *testing.T) {
 		Ip: ip, Port: 22, Url: "https://10.66.0.7/", Status: pgtype.Int4{Int32: 200, Valid: true},
 		Headers: markers["http_observations.headers_enc"], Cookies: markers["http_observations.cookies_enc"],
 		TlsCert: markers["http_observations.tls_cert_enc"], Redirects: []byte("[]"),
-		Technologies: []string{}, RunID: &runID, ObservedAt: time.Now(),
+		Technologies: []string{}, Cpes: []string{}, RunID: &runID, ObservedAt: time.Now(),
 	}); err != nil || n != 1 {
 		t.Fatalf("insert http observation: n=%d err=%v", n, err)
 	}

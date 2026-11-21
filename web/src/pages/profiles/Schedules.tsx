@@ -34,12 +34,18 @@ import {
 } from './ui'
 
 function SourceBadge({ s }: { s: Schedule }) {
-  return s.source === 'dojo' ? (
-    <Badge tone="rose" title={s.dojo_engagement_id ? `Dojo engagement ${s.dojo_engagement_id}` : undefined}>
-      Dojo{s.dojo_engagement_id ? ` #${s.dojo_engagement_id}` : ''}
-    </Badge>
-  ) : (
-    <Badge tone="done">UI</Badge>
+  if (s.source !== 'dojo') return <Badge tone="done">UI</Badge>
+  return (
+    <span className="inline-flex flex-wrap items-center gap-2">
+      <Badge tone="rose" title={s.dojo_engagement_id ? `Dojo engagement ${s.dojo_engagement_id}` : undefined}>
+        Dojo{s.dojo_engagement_id ? ` #${s.dojo_engagement_id}` : ''}
+      </Badge>
+      {s.dojo_url && (
+        <a href={s.dojo_url} target="_blank" rel="noopener noreferrer" className="text-xs whitespace-nowrap">
+          open ↗
+        </a>
+      )}
+    </span>
   )
 }
 
@@ -91,7 +97,16 @@ export function Schedules() {
         <tbody>
           {items.map((s) => (
             <Tr key={s.id}>
-              <Td className="text-xl leading-none font-light">#{s.id}</Td>
+              <Td>
+                {s.name ? (
+                  <div className="flex flex-col gap-0.5">
+                    <span className="font-medium">{s.name}</span>
+                    <span className="font-mono text-xs text-muted">#{s.id}</span>
+                  </div>
+                ) : (
+                  <span className="text-xl leading-none font-light">#{s.id}</span>
+                )}
+              </Td>
               <Td>{names.get(s.profile_id) ?? `profile ${s.profile_id}`}</Td>
               <Td>
                 <SourceBadge s={s} />
@@ -176,6 +191,7 @@ function ScheduleForm({ schedule, onDone }: { schedule: Schedule | null; onDone:
   const initial = cronToFrequency(schedule?.cron ?? '0 * * * *')
   const tz0 = schedule?.timezone ?? 'Europe/Warsaw'
 
+  const [name, setName] = useState(schedule?.name ?? '')
   const [profileId, setProfileId] = useState<number | ''>(schedule?.profile_id ?? '')
   const [kind, setKind] = useState<Frequency['kind']>(initial.kind)
   const [n, setN] = useState(initial.kind === 'minutes' || initial.kind === 'hours' ? String(initial.n) : '1')
@@ -197,6 +213,7 @@ function ScheduleForm({ schedule, onDone }: { schedule: Schedule | null; onDone:
             : { kind, expr }
       const win = windowToISO(winStart, winEnd, timezone)
       const body = {
+        name: name.trim(),
         profile_id: Number(profileId),
         cron: frequencyToCron(freq),
         window_start: win?.window_start ?? null,
@@ -239,6 +256,15 @@ function ScheduleForm({ schedule, onDone }: { schedule: Schedule | null; onDone:
     >
       <div className="text-lg font-medium">{schedule ? `Edit schedule #${schedule.id}` : 'New schedule'}</div>
       <div className="flex flex-wrap items-end gap-4">
+        <Field label="Name" className="flex-[1_1_220px]">
+          <input
+            className={inputClass}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Nightly lab scan"
+            maxLength={200}
+          />
+        </Field>
         <Field label="Profile" className="flex-[1_1_200px]">
           <select
             className={inputClass}

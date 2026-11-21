@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"strings"
 	"testing"
 	"time"
@@ -16,13 +17,32 @@ import (
 	"github.com/WH-HN2026/raven/internal/auth"
 	"github.com/WH-HN2026/raven/internal/db/gen"
 	"github.com/WH-HN2026/raven/internal/dbtest"
+	"github.com/WH-HN2026/raven/internal/scanner"
 	"github.com/WH-HN2026/raven/internal/signatures"
 )
 
+type stubTemplateRunner struct {
+	fn func(ctx context.Context, templateYAML, rawURL string, targetIP netip.Addr, rateLimit int) (*scanner.Result, error)
+}
+
+func (s stubTemplateRunner) RunTemplate(ctx context.Context, templateYAML, rawURL string, targetIP netip.Addr, rateLimit int) (*scanner.Result, error) {
+	return s.fn(ctx, templateYAML, rawURL, targetIP, rateLimit)
+}
+
+type stubResolver map[string][]netip.Addr
+
+func (r stubResolver) LookupNetIP(_ context.Context, _, host string) ([]netip.Addr, error) {
+	addrs, ok := r[host]
+	if !ok {
+		return nil, fmt.Errorf("no such host %q", host)
+	}
+	return addrs, nil
+}
+
 // Signatures API against a real DB: built-in pack seeding, RBAC (viewer 403),
 // create/validate/update/delete as editor, invalid templates stored disabled,
-// built-ins can be disabled but not edited or deleted, audit rows, and the
-// 501 test stub.
+// built-ins can be disabled but not edited or deleted, audit rows, and
+// POST /api/signatures/{id}/test with scope & blacklist enforcement.
 func TestSignaturesAPI(t *testing.T) {
 	pool := dbtest.Fresh(t)
 	ctx := context.Background()
@@ -39,7 +59,25 @@ func TestSignaturesAPI(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	srv := httptest.NewServer(NewRouter(Deps{Pool: pool, Queries: q, Auth: svc}))
+	runner := stubTemplateRunner{fn: func(_ context.Context, _, rawURL string, ip netip.Addr, _ int) (*scanner.Result, error) {
+		if strings.HasPrefix(rawURL, "http://172.30.0.19:") {
+			return &scanner.Result{
+				Observations: []scanner.Observation{{
+					Kind: scanner.ObsMatch, IP: ip, Port: 80, Proto: "tcp", URL: rawURL + "/admin",
+					Match: &scanner.MatchInfo{
+						TemplateID: "raven-admin-path", Name: "Admin page at /admin", Severity: "low",
+						Matcher: "admin-status", Extracted: []string{"Admin"}, SourceURL: rawURL,
+					},
+				}},
+			}, nil
+		}
+		return &scanner.Result{}, nil
+	}}
+	srv := httptest.NewServer(NewRouter(Deps{
+		Pool: pool, Queries: q, Auth: svc,
+		SignatureTester: runner,
+		Resolver:        stubResolver{"lab-nginx.local": {netip.MustParseAddr("172.30.0.19")}},
+	}))
 	defer srv.Close()
 
 	do := func(method, path, cookie string, body any) (int, string) {
@@ -179,8 +217,36 @@ http:
 	expect(204, "DELETE", fmt.Sprintf("/api/signatures/%d", bad.ID), editor, nil)
 	expect(404, "GET", fmt.Sprintf("/api/signatures/%d", bad.ID), viewer, nil)
 
-	// Test-against-URL is a stub until S4.
-	expect(501, "POST", fmt.Sprintf("/api/signatures/%d/test", builtin.ID), editor, map[string]any{"url": "http://127.0.0.1/"})
+	// Viewer cannot test a signature (403).
+	expect(403, "POST", fmt.Sprintf("/api/signatures/%d/test", builtin.ID), viewer, map[string]any{"url": "http://172.30.0.19/"})
+
+	// No configured targets/scope yet → 400 out_of_scope.
+	expect(400, "POST", fmt.Sprintf("/api/signatures/%d/test", builtin.ID), editor, map[string]any{"url": "http://172.30.0.19/"})
+
+	// Configure lab target range and blacklist one IP.
+	if _, err := q.UpsertTarget(ctx, gen.UpsertTargetParams{Kind: "cidr", Value: "172.30.0.0/24", Source: "manual", Tags: []string{}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := q.InsertScopeEntry(ctx, gen.InsertScopeEntryParams{Kind: "ip", Value: "172.30.0.99", List: "exclude"}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Out-of-scope, loopback, blacklisted, and malformed URLs are rejected (400).
+	for _, u := range []string{"http://127.0.0.1/", "http://198.51.100.1/", "http://172.30.0.99/", "ftp://172.30.0.19/", ""} {
+		expect(400, "POST", fmt.Sprintf("/api/signatures/%d/test", builtin.ID), editor, map[string]any{"url": u})
+	}
+
+	// In-scope URL matches and returns matcher output.
+	var testRes signatures.TestResult
+	decode(expect(200, "POST", fmt.Sprintf("/api/signatures/%d/test", builtin.ID), editor, map[string]any{"url": "http://172.30.0.19/"}), &testRes)
+	if !testRes.Matched || len(testRes.Matches) != 1 || testRes.Matches[0].Matcher != "admin-status" {
+		t.Fatalf("test match result = %+v", testRes)
+	}
+	// Domain resolving into configured target also works.
+	decode(expect(200, "POST", fmt.Sprintf("/api/signatures/%d/test", builtin.ID), editor, map[string]any{"url": "http://lab-nginx.local/"}), &testRes)
+	if testRes.Matched {
+		t.Fatalf("expected no match for stub domain URL, got %+v", testRes)
+	}
 
 	// Re-loading the pack keeps the user's choice and writes no audit row.
 	signatures.LoadBuiltins(ctx, pool)
@@ -197,7 +263,7 @@ http:
 	for _, r := range rows {
 		got[r.Action]++
 	}
-	want := map[string]int{"signatures.sync_builtin": 1, "signatures.create": 2, "signatures.update": 2, "signatures.delete": 1}
+	want := map[string]int{"signatures.sync_builtin": 1, "signatures.create": 2, "signatures.update": 2, "signatures.delete": 1, "signatures.test": 2}
 	for a, n := range want {
 		if got[a] != n {
 			t.Errorf("audit %s = %d, want %d (all: %v)", a, got[a], n, got)

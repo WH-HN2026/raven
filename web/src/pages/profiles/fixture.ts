@@ -15,6 +15,7 @@ export const profile: Profile = {
 
 export const uiSchedule: Schedule = {
   id: 7,
+  name: 'Nightly lab',
   profile_id: 3,
   source: 'ui',
   cron: '0 */6 * * *',
@@ -22,10 +23,12 @@ export const uiSchedule: Schedule = {
   window_end: '2026-11-22T05:00:00Z',
   timezone: 'Europe/Warsaw',
   enabled: true,
+  dojo_url: '',
 }
 
 export const dojoSchedule: Schedule = {
   id: 8,
+  name: 'Q4 planned audit',
   profile_id: 3,
   source: 'dojo',
   dojo_engagement_id: 118,
@@ -34,6 +37,7 @@ export const dojoSchedule: Schedule = {
   window_end: '2030-01-05T05:00:00Z',
   timezone: 'UTC',
   enabled: true,
+  dojo_url: 'http://dojo.local/engagement/118',
 }
 
 export const scopeEntry = { id: 11, kind: 'ip', value: '172.30.0.99', list: 'exclude', profile_id: 3, note: '' }

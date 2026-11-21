@@ -207,7 +207,7 @@ export function SignatureEditor({ sig }: { sig: Sig | null }) {
                 <dd className="m-0">{new Date(sig.created_at).toLocaleString()}</dd>
               </dl>
             </section>
-            {canWrite && <TestPanel id={sig.id} />}
+            {canWrite && <TestPanel id={sig.id} valid={sig.valid} />}
           </aside>
         )}
       </Section>
@@ -215,17 +215,14 @@ export function SignatureEditor({ sig }: { sig: Sig | null }) {
   )
 }
 
-function TestPanel({ id }: { id: number }) {
+function TestPanel({ id, valid }: { id: number; valid: boolean }) {
   const [url, setUrl] = useState('')
   const test = useMutation({
     mutationFn: () => api.post('/signatures/{id}/test', { params: { id }, body: { url } }),
   })
-  const unavailable = test.error instanceof ApiError && test.error.status === 501
   return (
     <section className="flex flex-col gap-4">
-      <SectionHeading size="sm" aside={unavailable && <Badge tone="gone">Not available yet</Badge>}>
-        Test
-      </SectionHeading>
+      <SectionHeading size="sm">Test</SectionHeading>
       <form
         className="flex flex-col gap-3"
         onSubmit={(e) => {
@@ -238,18 +235,46 @@ function TestPanel({ id }: { id: number }) {
             className={inputClass + ' font-mono'}
             value={url}
             onChange={(e) => setUrl(e.target.value)}
-            placeholder="http://172.30.0.10/"
-            disabled={unavailable}
+            placeholder="http://172.30.0.19/"
+            disabled={!valid}
           />
         </Field>
         <div>
-          <Button type="submit" disabled={unavailable || test.isPending || url.trim() === ''}>
-            Test
+          <Button type="submit" disabled={!valid || test.isPending || url.trim() === ''}>
+            {test.isPending ? 'Testing…' : 'Test'}
           </Button>
         </div>
       </form>
-      {test.isError && !unavailable && <ErrorText>{test.error.message}</ErrorText>}
-      {test.isSuccess && <Alert tone="ok">Done</Alert>}
+      {test.isError && <ErrorText>{test.error.message}</ErrorText>}
+      {test.isSuccess &&
+        (test.data.matched ? (
+          <Alert tone="ok">
+            <div className="flex flex-col gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge tone="new">Matched</Badge>
+                <span className="font-mono text-xs text-muted break-all">{test.data.url}</span>
+              </div>
+              <ul className="m-0 flex list-none flex-col gap-2 p-0">
+                {test.data.matches.map((m, i) => (
+                  <li key={i} className="flex flex-col gap-1 border-t border-line pt-2 first:border-t-0 first:pt-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {m.matcher && <Badge tone="outline">{m.matcher}</Badge>}
+                      <span className="font-mono text-xs break-all">{m.matched_at}</span>
+                    </div>
+                    {m.extracted.length > 0 && (
+                      <div className="font-mono text-xs text-muted break-all">{m.extracted.join(', ')}</div>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </Alert>
+        ) : (
+          <div role="status" className="flex flex-wrap items-center gap-2 border-l-2 border-line-strong bg-band px-4 py-2.5 text-sm">
+            <Badge tone="gone">No match</Badge>
+            <span className="font-mono text-xs text-muted break-all">{test.data.url}</span>
+          </div>
+        ))}
     </section>
   )
 }

@@ -62,6 +62,13 @@ func TestIntegrationCVE(t *testing.T) {
 		($2, 22, 'tcp', 'ssh', 'OpenSSH', '7.4p1 Debian 10+deb9u7', 'openbsd:openssh:7.4p1', raven_enc('SSH-2.0-OpenSSH_7.4p1 Debian-10+deb9u7')),
 		($3, 80, 'tcp', 'http', 'Apache httpd', '2.4.49', 'apache:http_server:2.4.49', NULL),
 		($1, 443, 'tcp', 'https', 'nginx', '', 'igor_sysoev:nginx', NULL)`, web, ssh, down)
+	// Also add an HTTP observation on web:80 reporting BOTH Apache HTTP Server:2.4.49
+	// (same product as nmap → must dedup to 1) AND WordPress:6.4.1 (web tech only → must produce its own CVE match).
+	exec(`INSERT INTO http_observations (service_id, url, status, title, technologies, cpes)
+		SELECT id, 'http://' || host(ip) || ':80', 200, 'WP',
+		       ARRAY['Apache HTTP Server:2.4.49', 'WordPress:6.4.1'],
+		       ARRAY['apache:http_server:2.4.49', 'wordpress:wordpress:6.4.1']
+		FROM services WHERE ip = $1 AND port = 80`, web)
 
 	m, err := cve.Default()
 	must(t, err)
@@ -82,19 +89,23 @@ func TestIntegrationCVE(t *testing.T) {
 	}
 	once()
 
-	// cve_matches: 3 rows (the nginx without a version doesn't match).
+	// cve_matches: 4 rows (Apache + WordPress on web:80, OpenSSH on ssh:22, Apache on down:80;
+	// nmap+httpx Apache on web:80 deduplicated to 1; nginx without a version doesn't match).
 	all, err := cve.List(ctx, pool, netip.Addr{})
 	must(t, err)
-	if len(all) != 3 {
-		t.Fatalf("cve_matches = %d rows, want 3: %+v", len(all), all)
+	if len(all) != 4 {
+		t.Fatalf("cve_matches = %d rows, want 4: %+v", len(all), all)
 	}
-	byIP := map[netip.Addr]cve.Match{}
+	byKey := map[string]cve.Match{}
 	for _, x := range all {
-		byIP[x.IP] = x
+		byKey[x.IP.String()+"|"+x.CPE] = x
 	}
-	ap, sh := byIP[web], byIP[ssh]
+	ap, wp, sh := byKey[web.String()+"|apache:http_server"], byKey[web.String()+"|wordpress:wordpress"], byKey[ssh.String()+"|openbsd:openssh"]
 	if ap.Confidence != "high" || ap.KEV == 0 || ap.Severity != "Critical" {
 		t.Errorf("apache match: %+v", ap)
+	}
+	if wp.Version != "6.4.1" || len(wp.Hits) == 0 {
+		t.Errorf("wordpress web-tech match: %+v", wp)
 	}
 	if sh.Confidence != "low" || !sh.Distro || sh.Severity != "Low" {
 		t.Errorf("openssh debian match: %+v", sh)
@@ -164,19 +175,26 @@ func TestIntegrationCVE(t *testing.T) {
 		t.Errorf("findings after second pass = %d, want %d", n, len(fs))
 	}
 
-	// Version change: the old finding closes, a new one opens.
+	// Version change: the old finding closes, a new one opens (update both nmap service and httpx obs).
 	exec(`UPDATE services SET version = '2.4.50', cpe = 'apache:http_server:2.4.50' WHERE ip = $1 AND port = 80`, web)
+	exec(`UPDATE http_observations SET technologies = ARRAY['Apache HTTP Server:2.4.50', 'WordPress:6.4.1'], cpes = ARRAY['apache:http_server:2.4.50', 'wordpress:wordpress:6.4.1']`)
 	once()
 	got, err := cve.List(ctx, pool, web)
 	must(t, err)
-	if len(got) != 1 || got[0].Version != "2.4.50" {
+	var apNew *cve.Match
+	for i := range got {
+		if got[i].CPE == "apache:http_server" {
+			apNew = &got[i]
+		}
+	}
+	if len(got) != 2 || apNew == nil || apNew.Version != "2.4.50" {
 		t.Fatalf("matches of %s after upgrade: %+v", web, got)
 	}
 	fs = findings()
 	_, closed := find(fs, ap.Title())
-	nact, _ := find(fs, got[0].Title())
+	nact, _ := find(fs, apNew.Title())
 	if len(closed) != 1 || closed[0].ID != apacheID || len(nact) != 1 {
 		t.Errorf("after version change: closed %v, new active %v (all: %v)", closed, nact, titles(fs))
 	}
-	t.Logf("old %q closed, new %q", ap.Title(), got[0].Title())
+	t.Logf("old %q closed, new %q; wp %q active", ap.Title(), apNew.Title(), wp.Title())
 }

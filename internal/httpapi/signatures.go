@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/WH-HN2026/raven/internal/auth"
 	"github.com/WH-HN2026/raven/internal/httpx"
+	"github.com/WH-HN2026/raven/internal/scanner/nuclei"
 	"github.com/WH-HN2026/raven/internal/signatures"
 )
 
@@ -20,14 +22,17 @@ func (a *api) mountSignatures(r chi.Router) {
 	r.With(auth.Require(auth.PermRead)).Get("/signatures/{id}", a.getSignature)
 	r.With(auth.Require(auth.PermSignaturesWrite)).Put("/signatures/{id}", a.updateSignature)
 	r.With(auth.Require(auth.PermSignaturesWrite)).Delete("/signatures/{id}", a.deleteSignature)
-	// TODO(S4): run one signature against one lab URL. Needs a hook from
-	// internal/scanner/nuclei such as
-	//   nuclei.RunTemplate(ctx, templateYAML string, url string) ([]Match, error)
-	// (same safety flags as the pipeline). Answers 501 until then.
-	stub(r, "POST", "/signatures/{id}/test", auth.PermSignaturesWrite)
+	r.With(auth.Require(auth.PermSignaturesWrite)).Post("/signatures/{id}/test", a.testSignature)
 }
 
 func (a *api) signatureStore() *signatures.Store { return &signatures.Store{Pool: a.Pool} }
+
+func (a *api) signatureRunner() signatures.TemplateRunner {
+	if a.SignatureTester != nil {
+		return a.SignatureTester
+	}
+	return &nuclei.Scanner{}
+}
 
 func signaturesError(w http.ResponseWriter, op string, err error) {
 	var inv *signatures.InvalidError
@@ -37,12 +42,20 @@ func signaturesError(w http.ResponseWriter, op string, err error) {
 			"error":  httpx.ErrorDetail{Code: "invalid_signature", Message: inv.Error()},
 			"issues": issuesOrEmpty(inv.Issues),
 		})
+	case errors.Is(err, signatures.ErrInvalidURL):
+		httpx.Error(w, http.StatusBadRequest, "invalid_url", err.Error())
+	case errors.Is(err, signatures.ErrOutOfScope):
+		httpx.Error(w, http.StatusBadRequest, "out_of_scope", err.Error())
 	case errors.Is(err, signatures.ErrNotFound):
 		httpx.Error(w, http.StatusNotFound, "not_found", err.Error())
 	case errors.Is(err, signatures.ErrConflict):
 		httpx.Error(w, http.StatusConflict, "conflict", err.Error())
 	case errors.Is(err, signatures.ErrBuiltin):
 		httpx.Error(w, http.StatusForbidden, "builtin", err.Error())
+	case errors.Is(err, signatures.ErrScannerUnavailable):
+		httpx.Error(w, http.StatusServiceUnavailable, "scanner_unavailable", err.Error())
+	case errors.Is(err, context.DeadlineExceeded):
+		httpx.Error(w, http.StatusGatewayTimeout, "timeout", "signature test timed out")
 	default:
 		slog.Error(op, "err", err)
 		httpx.Error(w, http.StatusInternalServerError, "internal", op+" failed")
@@ -150,4 +163,23 @@ func (a *api) validateSignature(w http.ResponseWriter, r *http.Request) {
 		"valid": len(issues) == 0, "errors": msgs, "issues": issuesOrEmpty(issues),
 		"id": tpl.ID, "name": tpl.Name, "severity": tpl.Severity, "tags": append([]string{}, tpl.Tags...),
 	})
+}
+
+func (a *api) testSignature(w http.ResponseWriter, r *http.Request) {
+	id, ok := idParam(w, r)
+	if !ok {
+		return
+	}
+	var in struct {
+		URL string `json:"url"`
+	}
+	if !httpx.DecodeJSON(w, r, &in) {
+		return
+	}
+	res, err := a.signatureStore().Test(r.Context(), auth.UserFrom(r.Context()), id, in.URL, a.signatureRunner(), a.Resolver)
+	if err != nil {
+		signaturesError(w, "test signature", err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, res)
 }

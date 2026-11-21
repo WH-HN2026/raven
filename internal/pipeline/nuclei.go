@@ -11,6 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/WH-HN2026/raven/internal/cve"
 	"github.com/WH-HN2026/raven/internal/db/gen"
 	"github.com/WH-HN2026/raven/internal/scanner"
 	"github.com/WH-HN2026/raven/internal/scanner/nuclei"
@@ -81,6 +82,8 @@ func (s *Service) ingestNuclei(ctx context.Context, q *gen.Queries, b gen.Batch,
 	}
 	byService := make(map[serviceKey]*matches)
 	tech := make(map[urlKey][]string)
+	urlCPEs := make(map[urlKey][]string)
+	svcCPEs := make(map[serviceKey][]string)
 	for _, o := range res.Observations {
 		if o.Match == nil || (o.Kind != scanner.ObsMatch && o.Kind != scanner.ObsTech) {
 			continue
@@ -97,15 +100,34 @@ func (s *Service) ingestNuclei(ctx context.Context, q *gen.Queries, b gen.Batch,
 		}
 		// Query strings and complete extraction results stay in encrypted evidence.
 		u.RawQuery, u.Fragment, u.RawFragment, u.ForceQuery = "", "", "", false
+		cpeStr, ver := o.CPE, o.Version
+		if cpeStr == "" {
+			for _, cand := range []string{o.Tech, o.Match.TemplateID, o.Match.Name} {
+				if c, v, ok := cve.CPEForTech(cand); ok {
+					cpeStr = c
+					if ver == "" {
+						ver = v
+					}
+					break
+				}
+			}
+		}
 		m.facts = append(m.facts, nucleiMatch{
 			Kind: o.Kind, TemplateID: o.Match.TemplateID, Name: o.Match.Name,
 			Severity: o.Match.Severity, Tags: nonNil(o.Match.Tags), Matcher: o.Match.Matcher,
-			URL: u.String(), CPE: o.CPE, Version: o.Version,
+			URL: u.String(), CPE: cpeStr, Version: ver,
 		})
 		m.evidence = append(m.evidence, nonNil(o.Match.Extracted))
 		if o.Kind == scanner.ObsTech && o.Tech != "" {
 			uk := urlKey{k, o.Match.SourceURL}
 			tech[uk] = append(tech[uk], o.Tech)
+		}
+		if fullCPE := cve.FormatCPE(cpeStr, ver); fullCPE != "" {
+			svcCPEs[k] = append(svcCPEs[k], fullCPE)
+			if o.Match.SourceURL != "" {
+				uk := urlKey{k, o.Match.SourceURL}
+				urlCPEs[uk] = append(urlCPEs[uk], fullCPE)
+			}
 		}
 	}
 	if len(byService) > 0 {
@@ -153,6 +175,28 @@ func (s *Service) ingestNuclei(ctx context.Context, q *gen.Queries, b gen.Batch,
 		}
 		if n < int64(len(tech)) {
 			return fmt.Errorf("ingest nuclei technologies: updated %d of %d (HTTP observation missing)", n, len(tech))
+		}
+	}
+	if len(urlCPEs) > 0 {
+		params := gen.MergeNucleiCPEsBatchParams{RunID: &b.RunID}
+		for k, cpes := range urlCPEs {
+			j, _ := json.Marshal(cpes)
+			params.Ips = append(params.Ips, k.ip)
+			params.Ports = append(params.Ports, int32(k.port))
+			params.Urls = append(params.Urls, k.url)
+			params.CpesJson = append(params.CpesJson, string(j))
+		}
+		if _, err := q.MergeNucleiCPEsBatch(ctx, params); err != nil {
+			return fmt.Errorf("ingest nuclei cpes: %w", err)
+		}
+	}
+	for k, cpes := range svcCPEs {
+		if svcCPE := preferredServiceCPE(cpes); svcCPE != "" {
+			if err := q.BackfillServiceCPE(ctx, gen.BackfillServiceCPEParams{
+				Ip: k.ip, Port: int32(k.port), Cpe: svcCPE,
+			}); err != nil {
+				return fmt.Errorf("backfill service cpe for %s/%d: %w", k.ip, k.port, err)
+			}
 		}
 	}
 	if res.Raw != nil {

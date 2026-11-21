@@ -78,7 +78,7 @@ func (q *Queries) ListCVECandidates(ctx context.Context) ([]ListCVECandidatesRow
 const listCVEMatches = `-- name: ListCVEMatches :many
 SELECT ip, port, proto, product, cpe, version, cve_ids, hits, max_cvss, kev, distro, confidence, severity, matched_at, updated_at FROM cve_matches
 WHERE ($1::inet IS NULL OR ip = $1::inet)
-ORDER BY max_cvss DESC, ip, port
+ORDER BY max_cvss DESC, ip, port, cpe
 `
 
 func (q *Queries) ListCVEMatches(ctx context.Context, ip *netip.Addr) ([]CveMatch, error) {
@@ -166,6 +166,96 @@ func (q *Queries) ListCVEPushHosts(ctx context.Context) ([]ListCVEPushHostsRow, 
 	return items, nil
 }
 
+const listHTTPTechCVECandidates = `-- name: ListHTTPTechCVECandidates :many
+SELECT DISTINCT ON (ho.service_id, ho.url)
+    s.ip, s.port, s.proto, ho.cpes, ho.technologies
+FROM http_observations ho
+JOIN services s ON s.id = ho.service_id
+WHERE s.state = 'open'
+  AND (cardinality(ho.cpes) > 0 OR cardinality(ho.technologies) > 0)
+ORDER BY ho.service_id, ho.url, ho.observed_at DESC, ho.id DESC
+`
+
+type ListHTTPTechCVECandidatesRow struct {
+	Ip           netip.Addr `json:"ip"`
+	Port         int32      `json:"port"`
+	Proto        string     `json:"proto"`
+	Cpes         []string   `json:"cpes"`
+	Technologies []string   `json:"technologies"`
+}
+
+// Latest HTTP observations per (service, URL) on open services, carrying mapped CPEs and raw technologies.
+func (q *Queries) ListHTTPTechCVECandidates(ctx context.Context) ([]ListHTTPTechCVECandidatesRow, error) {
+	rows, err := q.db.Query(ctx, listHTTPTechCVECandidates)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListHTTPTechCVECandidatesRow{}
+	for rows.Next() {
+		var i ListHTTPTechCVECandidatesRow
+		if err := rows.Scan(
+			&i.Ip,
+			&i.Port,
+			&i.Proto,
+			&i.Cpes,
+			&i.Technologies,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listNucleiCVECandidates = `-- name: ListNucleiCVECandidates :many
+SELECT DISTINCT ON (ro.ip, ro.port)
+    s.ip, s.port, s.proto, ro.nuclei_matches
+FROM run_observations ro
+JOIN services s ON s.ip = ro.ip AND s.port = ro.port AND s.proto = 'tcp'
+WHERE s.state = 'open'
+  AND ro.up
+  AND ro.port IS NOT NULL
+  AND ro.nuclei_matches <> '[]'::jsonb
+ORDER BY ro.ip, ro.port, ro.observed_at DESC
+`
+
+type ListNucleiCVECandidatesRow struct {
+	Ip            netip.Addr      `json:"ip"`
+	Port          int32           `json:"port"`
+	Proto         string          `json:"proto"`
+	NucleiMatches json.RawMessage `json:"nuclei_matches"`
+}
+
+// Latest nuclei matches per open service for CPE+version CVE matching.
+func (q *Queries) ListNucleiCVECandidates(ctx context.Context) ([]ListNucleiCVECandidatesRow, error) {
+	rows, err := q.db.Query(ctx, listNucleiCVECandidates)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListNucleiCVECandidatesRow{}
+	for rows.Next() {
+		var i ListNucleiCVECandidatesRow
+		if err := rows.Scan(
+			&i.Ip,
+			&i.Port,
+			&i.Proto,
+			&i.NucleiMatches,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const setCVEPushed = `-- name: SetCVEPushed :exec
 INSERT INTO cve_push (ip, hash, pushed_at) VALUES ($1, $2, $3)
 ON CONFLICT (ip) DO UPDATE SET hash = EXCLUDED.hash, pushed_at = EXCLUDED.pushed_at
@@ -187,10 +277,10 @@ INSERT INTO cve_matches (ip, port, proto, product, cpe, version, cve_ids, hits, 
                          distro, confidence, severity, matched_at, updated_at)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
         $11, $12, $13, $14, $14)
-ON CONFLICT (ip, port, proto) DO UPDATE SET
-    matched_at = CASE WHEN cve_matches.cpe = EXCLUDED.cpe AND cve_matches.version = EXCLUDED.version
+ON CONFLICT (ip, port, proto, cpe) DO UPDATE SET
+    matched_at = CASE WHEN cve_matches.version = EXCLUDED.version
                       THEN cve_matches.matched_at ELSE EXCLUDED.matched_at END,
-    product = EXCLUDED.product, cpe = EXCLUDED.cpe, version = EXCLUDED.version,
+    product = EXCLUDED.product, version = EXCLUDED.version,
     cve_ids = EXCLUDED.cve_ids, hits = EXCLUDED.hits, max_cvss = EXCLUDED.max_cvss,
     kev = EXCLUDED.kev, distro = EXCLUDED.distro, confidence = EXCLUDED.confidence,
     severity = EXCLUDED.severity, updated_at = EXCLUDED.updated_at
