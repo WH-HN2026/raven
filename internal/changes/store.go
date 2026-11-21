@@ -21,6 +21,7 @@ var (
 	ErrRunNotFound = errors.New("run not found")
 	ErrNoRuns      = errors.New("not enough finished runs to compare")
 	ErrSameRun     = errors.New("from and to are the same run")
+	ErrRunOrder    = errors.New("from must be older than to")
 )
 
 // RunRef identifies a compared run.
@@ -107,7 +108,7 @@ func resolve(ctx context.Context, q *gen.Queries, from, to *int64) (RunRef, RunR
 		t, err = getRun(ctx, q, *to)
 	case from != nil:
 		t, err = one(q.LatestDoneRun(ctx, &f.ProfileID))
-		if err == nil && t.ID <= f.ID {
+		if err == nil && !f.before(t) {
 			err = ErrNoRuns
 		}
 	default:
@@ -124,7 +125,24 @@ func resolve(ctx context.Context, q *gen.Queries, from, to *int64) (RunRef, RunR
 	if f.ID == t.ID {
 		return f, t, ErrSameRun
 	}
+	if !f.before(t) {
+		return f, t, ErrRunOrder
+	}
 	return f, t, nil
+}
+
+// before orders missing start times first and uses ID to break ties, like the SQL defaults.
+func (r RunRef) before(other RunRef) bool {
+	switch {
+	case r.StartedAt == nil && other.StartedAt != nil:
+		return true
+	case r.StartedAt != nil && other.StartedAt == nil:
+		return false
+	case r.StartedAt != nil && !r.StartedAt.Equal(*other.StartedAt):
+		return r.StartedAt.Before(*other.StartedAt)
+	default:
+		return r.ID < other.ID
+	}
 }
 
 func getRun(ctx context.Context, q *gen.Queries, id int64) (RunRef, error) {

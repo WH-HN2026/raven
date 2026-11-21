@@ -68,6 +68,7 @@ func TestChangesAPI(t *testing.T) {
 		return id
 	}
 	r1, r2 := runID("done"), runID("done")
+	exec(`UPDATE runs SET started_at = '2026-11-21T10:00:00Z' WHERE id IN ($1, $2)`, r1, r2)
 	runID("running") // not finished: ignored by the defaults
 	exec(`INSERT INTO run_observations (run_id, ip, port, up) VALUES
 		($1, '10.40.0.1', NULL, true), ($1, '10.40.0.1', 22, true), ($1, '10.40.0.1', 80, true),
@@ -177,8 +178,7 @@ func TestChangesAPI(t *testing.T) {
 	}{
 		{"/api/changes", "", 401, nil},
 		{"/api/changes/hosts/10.40.0.1", "", 401, nil},
-		{"/api/changes?from=" + itoa(r2) + "&to=" + itoa(r1), viewer, 200, // reversed: gone ↔ new
-			[]string{`"hosts_new":[{"ip":"10.40.0.2","other_run":"down","ports":[443]}]`, `"hosts_gone":[]`}},
+		{"/api/changes?from=" + itoa(r2) + "&to=" + itoa(r1), viewer, 400, []string{`from must be older than to`}},
 		{"/api/changes?from=" + itoa(r1), viewer, 200, []string{`"to":{"id":` + itoa(r2)}},
 		{"/api/changes?to=" + itoa(r1), viewer, 404, []string{`"not_found"`}}, // no done run before r1
 		{"/api/changes?from=9999&to=" + itoa(r1), viewer, 404, []string{`run 9999: run not found`}},
@@ -202,5 +202,17 @@ func TestChangesAPI(t *testing.T) {
 				t.Errorf("%s: %s lacks %s", tc.path, body, s)
 			}
 		}
+	}
+
+	// With different start times, chronology takes precedence over ID.
+	exec(`UPDATE runs SET started_at = started_at - interval '1 microsecond' WHERE id = $1`, r2)
+	code, body := get("/api/changes", viewer)
+	if code != 200 || !strings.Contains(string(body), `"from":{"id":`+itoa(r2)) ||
+		!strings.Contains(string(body), `"to":{"id":`+itoa(r1)) {
+		t.Errorf("default diff with changed start times = %d %s, want %d → %d", code, body, r2, r1)
+	}
+	code, body = get("/api/changes?from="+itoa(r1)+"&to="+itoa(r2), viewer)
+	if code != 400 || !strings.Contains(string(body), "from must be older than to") {
+		t.Errorf("reverse by start time = %d %s, want 400", code, body)
 	}
 }

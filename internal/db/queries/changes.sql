@@ -8,13 +8,15 @@ SELECT id, profile_id, status, started_at, finished_at FROM runs WHERE id = $1;
 SELECT id, profile_id, status, started_at, finished_at FROM runs
 WHERE status = 'done'
   AND (sqlc.narg(profile_id)::bigint IS NULL OR profile_id = sqlc.narg(profile_id)::bigint)
-ORDER BY id DESC LIMIT 1;
+ORDER BY started_at DESC NULLS LAST, id DESC LIMIT 1;
 
 -- name: PreviousDoneRun :one
 -- The finished run of the same profile right before run before_id.
-SELECT id, profile_id, status, started_at, finished_at FROM runs
-WHERE status = 'done' AND profile_id = @profile_id AND id < @before_id
-ORDER BY id DESC LIMIT 1;
+SELECT r.id, r.profile_id, r.status, r.started_at, r.finished_at FROM runs r
+WHERE r.status = 'done' AND r.profile_id = @profile_id
+  AND (COALESCE(r.started_at, '-infinity'::timestamptz), r.id)
+      < (SELECT COALESCE(t.started_at, '-infinity'::timestamptz), t.id FROM runs t WHERE t.id = @before_id)
+ORDER BY r.started_at DESC NULLS LAST, r.id DESC LIMIT 1;
 
 -- name: ListRunObservations :many
 -- port -1 = host-level row.

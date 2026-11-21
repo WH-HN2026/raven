@@ -37,7 +37,7 @@ func (a *api) getChanges(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case errors.Is(err, changes.ErrRunNotFound), errors.Is(err, changes.ErrNoRuns):
 		httpx.Error(w, http.StatusNotFound, "not_found", err.Error())
-	case errors.Is(err, changes.ErrSameRun):
+	case errors.Is(err, changes.ErrSameRun), errors.Is(err, changes.ErrRunOrder):
 		httpx.Error(w, http.StatusBadRequest, "bad_request", err.Error())
 	case err != nil:
 		slog.Error("compare runs", "err", err)

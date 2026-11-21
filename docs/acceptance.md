@@ -2,6 +2,8 @@
 
 Date: 2026-11-21, against `main` at `da35b21` (Q3, #45). One person, one fresh clone, the local lab only.
 
+The CVE finding titles below reflect the aggregate format observed during Q1. Since U4, Dojo gets one finding per CVE per product instance. [Vulnerability matching architecture](architecture.md#11-vulnerability-matching-offline)
+
 ## Environment
 
 - Linux x86_64, Docker Engine with Compose v2. The fresh clone lives in a temp directory, not in a worktree.

@@ -2,8 +2,8 @@ package cve
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/netip"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -211,33 +211,33 @@ func TestMatch(t *testing.T) {
 		name     string
 		in       Instance
 		want     int // hits; 0 = no match
-		title    string
+		kev      int
 		severity string
 		conf     string
 		uid      string
 	}{
 		{"apache exact", Instance{IP: ip, Port: 80, CPE: "apache:http_server:2.4.49", Product: "Apache httpd", Version: "2.4.49"},
-			3, "Apache httpd 2.4.49: 3 known CVEs (2 KEV)", "Critical", ConfidenceHigh, "172.30.0.25:80:apache:http_server:2.4.49"},
-		{"apache newer", Instance{IP: ip, Port: 80, CPE: "apache:http_server:2.4.52", Version: "2.4.52"}, 0, "", "", "", ""},
+			3, 2, "Critical", ConfidenceHigh, "172.30.0.25:80:apache:http_server:2.4.49"},
+		{"apache newer", Instance{IP: ip, Port: 80, CPE: "apache:http_server:2.4.52", Version: "2.4.52"}, 0, 0, "", "", ""},
 		{"apache no cpe, product name only", Instance{IP: ip, Port: 8080, Product: "Apache httpd", Version: "2.4.50"},
-			2, "Apache httpd 2.4.50: 2 known CVEs (1 KEV)", "Critical", ConfidenceHigh, "172.30.0.25:8080:apache:http_server:2.4.50"},
+			2, 1, "Critical", ConfidenceHigh, "172.30.0.25:8080:apache:http_server:2.4.50"},
 		{"apache distro", Instance{IP: ip, Port: 80, CPE: "apache:http_server:2.4.49", Version: "2.4.49", Banner: "Apache/2.4.49 (Debian)"},
-			3, "", "Low", ConfidenceLow, ""},
+			3, 2, "Low", ConfidenceLow, ""},
 		{"openssh 7.4 lab banner", Instance{IP: ip, Port: 22, CPE: "openbsd:openssh:7.4", Product: "OpenSSH", Version: "7.4"},
-			2, "OpenSSH 7.4: 2 known CVEs (0 KEV)", "Critical", ConfidenceHigh, "172.30.0.25:22:openbsd:openssh:7.4"},
+			2, 0, "Critical", ConfidenceHigh, "172.30.0.25:22:openbsd:openssh:7.4"},
 		{"openssh debian", Instance{IP: ip, Port: 22, CPE: "openbsd:openssh:7.4p1", Version: "7.4p1 Debian 10+deb9u7"},
-			2, "OpenSSH 7.4p1: 2 known CVEs (0 KEV)", "Low", ConfidenceLow, ""},
-		{"openssh 7.1p1", Instance{IP: ip, Port: 22, CPE: "openbsd:openssh", Version: "7.1p1"}, 3, "", "", "", ""},
-		{"no version", Instance{IP: ip, Port: 22, CPE: "openbsd:openssh", Product: "OpenSSH"}, 0, "", "", "", ""},
-		{"untracked", Instance{IP: ip, Port: 9, CPE: "acme:widget:1.0", Product: "Widget", Version: "1.0"}, 0, "", "", "", ""},
-		{"alias cpe", Instance{IP: ip, Port: 80, CPE: "apache:httpd:2.4.49", Version: ""}, 3, "", "", "", ""},
+			2, 0, "Low", ConfidenceLow, ""},
+		{"openssh 7.1p1", Instance{IP: ip, Port: 22, CPE: "openbsd:openssh", Version: "7.1p1"}, 3, 0, "", "", ""},
+		{"no version", Instance{IP: ip, Port: 22, CPE: "openbsd:openssh", Product: "OpenSSH"}, 0, 0, "", "", ""},
+		{"untracked", Instance{IP: ip, Port: 9, CPE: "acme:widget:1.0", Product: "Widget", Version: "1.0"}, 0, 0, "", "", ""},
+		{"alias cpe", Instance{IP: ip, Port: 80, CPE: "apache:httpd:2.4.49", Version: ""}, 3, 2, "", "", ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := m.Match(tt.in)
 			if tt.want == 0 {
 				if got != nil {
-					t.Fatalf("want no match, got %s", got.Title())
+					t.Fatalf("want no match, got %+v", got)
 				}
 				return
 			}
@@ -247,8 +247,8 @@ func TestMatch(t *testing.T) {
 			if len(got.Hits) != tt.want {
 				t.Errorf("hits = %d, want %d (%v)", len(got.Hits), tt.want, got.Hits)
 			}
-			if tt.title != "" && got.Title() != tt.title {
-				t.Errorf("title = %q, want %q", got.Title(), tt.title)
+			if got.KEV != tt.kev {
+				t.Errorf("KEV hits = %d, want %d", got.KEV, tt.kev)
 			}
 			if tt.severity != "" && got.Severity != tt.severity {
 				t.Errorf("severity = %q, want %q", got.Severity, tt.severity)
@@ -286,7 +286,7 @@ func TestEmbeddedData(t *testing.T) {
 	if ssh == nil || !hasHit(ssh, "CVE-2018-15473") {
 		t.Fatalf("OpenSSH 7.4 should match CVE-2018-15473, got %+v", ssh)
 	}
-	t.Logf("%s; %s", ap.Title(), ssh.Title())
+	t.Logf("%s %s: %d CVEs, %s %s: %d CVEs", ap.Name, ap.Version, len(ap.Hits), ssh.Name, ssh.Version, len(ssh.Hits))
 }
 
 func hasHit(m *Match, id string) bool {
@@ -299,35 +299,79 @@ func hasHit(m *Match, id string) bool {
 }
 
 func TestReport(t *testing.T) {
-	m := NewMatcher(testDB(), Products())
-	ip := netip.MustParseAddr("172.30.0.26")
-	ms := []Match{*m.Match(Instance{IP: ip, Port: 22, Proto: "tcp", CPE: "openbsd:openssh:7.4p1", Version: "7.4p1 Debian 10+deb9u7"})}
-	b, err := Report(ms, time.Date(2026, 11, 21, 0, 0, 0, 0, time.UTC))
-	if err != nil {
-		t.Fatal(err)
+	m := Match{
+		IP: netip.MustParseAddr("172.30.0.21"), Port: 80, Proto: "tcp",
+		Name: "Apache httpd", Version: "2.4.49", CPE: "apache:http_server", Confidence: ConfidenceHigh,
+		Hits: []Hit{
+			{ID: "CVE-2021-41773", CVSS: 7.5, EPSS: 0.91, KEV: true},
+			{ID: "CVE-2021-40438", CVSS: 5.1, EPSS: 0.23},
+			{ID: "CVE-2021-41524"},
+		},
 	}
-	var doc struct {
-		Findings []map[string]any `json:"findings"`
+	for _, tc := range []struct {
+		name              string
+		distro            bool
+		confidence        string
+		scannerConfidence int
+		severities        []string
+	}{
+		{"upstream", false, ConfidenceHigh, 1, []string{"Critical", "Medium", "Info"}},
+		{"distribution", true, ConfidenceLow, 6, []string{"Low", "Low", "Info"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			m.Distro, m.Confidence = tc.distro, tc.confidence
+			b, err := Report([]Match{m}, time.Date(2026, 11, 21, 0, 0, 0, 0, time.UTC))
+			if err != nil {
+				t.Fatal(err)
+			}
+			var doc struct {
+				Findings []genericFinding `json:"findings"`
+			}
+			if err := json.Unmarshal(b, &doc); err != nil || len(doc.Findings) != 3 {
+				t.Fatalf("report: %s (%v)", b, err)
+			}
+			for i, f := range doc.Findings {
+				h := m.Hits[i]
+				wantTitle := h.ID + " in Apache httpd 2.4.49 (172.30.0.21:80/tcp)"
+				wantUID := "172.30.0.21:80:apache:http_server:2.4.49:tcp:" + h.ID
+				if f.Title != wantTitle || f.UniqueIDFromTool != wantUID || !slices.Equal(f.VulnerabilityIDs, []string{h.ID}) {
+					t.Errorf("finding %d identity: %+v", i, f)
+				}
+				if f.Severity != tc.severities[i] || f.CVSSv3Score != h.CVSS || f.EPSSScore != h.EPSS || f.KnownExploited != h.KEV {
+					t.Errorf("finding %d scores: %+v", i, f)
+				}
+				if f.ScannerConfidence != tc.scannerConfidence || slices.Contains(f.Tags, TagDistroBuild) != tc.distro ||
+					strings.Contains(f.Description, "fixes may be backported") != tc.distro ||
+					!strings.Contains(f.Description, h.ID) || !strings.Contains(f.Description, m.CPE) {
+					t.Errorf("finding %d evidence: %+v", i, f)
+				}
+				for _, other := range m.Hits {
+					if other.ID != h.ID && strings.Contains(f.Description, other.ID) {
+						t.Errorf("finding %s includes %s in its description", h.ID, other.ID)
+					}
+				}
+			}
+			if strings.Contains(string(b), `"service":`) {
+				t.Error("finding has a service field: Dojo would not close it on reimport")
+			}
+		})
 	}
-	if err := json.Unmarshal(b, &doc); err != nil || len(doc.Findings) != 1 {
-		t.Fatalf("report: %s (%v)", b, err)
-	}
-	f := doc.Findings[0]
-	if f["title"] != "OpenSSH 7.4p1: 2 known CVEs (0 KEV)" || f["severity"] != "Low" ||
-		f["unique_id_from_tool"] != "172.30.0.26:22:openbsd:openssh:7.4p1" {
-		t.Errorf("finding: %v", f)
-	}
-	if ids, _ := f["vulnerability_ids"].([]any); len(ids) != 2 || ids[0] != "CVE-2023-38408" {
-		t.Errorf("vulnerability_ids = %v", f["vulnerability_ids"])
-	}
-	if tags := fmt.Sprint(f["tags"]); !strings.Contains(tags, TagDistroBuild) {
-		t.Errorf("tags = %s, want %s", tags, TagDistroBuild)
-	}
-	if _, ok := f["service"]; ok {
-		t.Error("finding has a service field: Dojo would not close it on reimport")
-	}
+
 	if empty, _ := Report(nil, time.Now()); string(empty) != `{"findings":[]}` {
 		t.Errorf("empty report = %s", empty)
+	}
+}
+
+func TestHashTracksFindingMetadata(t *testing.T) {
+	matches := []Match{{Hits: []Hit{{ID: "CVE-2021-41773", CVSS: 7.5, EPSS: 0.2}}}}
+	before := Hash(matches)
+	matches[0].MatchedAt = time.Now()
+	if Hash(matches) != before {
+		t.Fatal("match timestamp changed the finding hash")
+	}
+	matches[0].Hits[0].EPSS = 0.9
+	if Hash(matches) == before {
+		t.Fatal("EPSS change was not reflected in the finding hash")
 	}
 }
 

@@ -6,7 +6,7 @@ import type { Schemas } from '../../api/client'
 import { AuthContext } from '../../auth/AuthContext'
 import { ChangesPage } from './ChangesPage'
 import { HostTimelinePage } from './HostTimeline'
-import { counts, diffRows, runParam, shownFields } from './ui'
+import { compareRuns, counts, diffRows, runParam, shownFields } from './ui'
 
 afterEach(() => {
   cleanup()
@@ -51,7 +51,7 @@ const run = (id: number): Schemas['DiffRun'] => ({
   id,
   profile_id: 1,
   status: 'done',
-  started_at: '2026-11-21T10:00:00Z',
+  started_at: id === 4 ? '2026-11-21T09:00:00Z' : '2026-11-21T10:00:00Z',
   finished_at: '2026-11-21T10:05:00Z',
 })
 const fp = (o: Partial<Schemas['ServiceFingerprint']> = {}): Schemas['ServiceFingerprint'] => ({
@@ -85,7 +85,7 @@ const diff: Schemas['RunDiff'] = {
 }
 
 const runList: Schemas['RunList'] = {
-  items: [3, 2, 1].map((id) => ({
+  items: [4, 3, 2, 1].map((id) => ({
     ...run(id),
     status: id === 3 ? 'running' : 'done',
     created_at: '2026-11-21T10:00:00Z',
@@ -96,7 +96,7 @@ const runList: Schemas['RunList'] = {
     batches_failed: 0,
     stats: {},
   })),
-  total: 3,
+  total: 4,
 }
 
 function mockApi(changes: (url: URL) => Response) {
@@ -106,6 +106,9 @@ function mockApi(changes: (url: URL) => Response) {
     if (url.pathname === '/api/profiles')
       return json({ items: [{ id: 1, name: 'Lab', enabled: true, nmap_max_rate: 100 }], total: 1 })
     if (url.pathname === '/api/runs') return json(runList)
+    const id = Number(url.pathname.match(/^\/api\/runs\/(\d+)$/)?.[1])
+    const item = runList.items.find((r) => r.id === id)
+    if (item) return json(item)
     return json({}, 404)
   })
 }
@@ -116,6 +119,16 @@ describe('helpers', () => {
     expect(runParam(p, 'from')).toBe(4)
     expect(runParam(p, 'to')).toBeNull()
     expect(runParam(new URLSearchParams('from=0'), 'from')).toBeNull()
+  })
+  it('uses ID only when timestamps match at database precision', () => {
+    expect(compareRuns(run(1), run(2))).toBeLessThan(0)
+    expect(compareRuns(run(4), run(1))).toBeLessThan(0)
+    expect(
+      compareRuns(
+        { id: 20, started_at: '2026-11-21T10:00:00.123450Z' },
+        { id: 10, started_at: '2026-11-21T11:00:00.123451+01:00' },
+      ),
+    ).toBeLessThan(0)
   })
   it('flattens the diff new → changed → gone and counts it', () => {
     expect(diffRows(diff).map((r) => r.kind + ':' + r.type)).toEqual([
@@ -174,15 +187,28 @@ describe('ChangesPage', () => {
     expect(within(at(rows, 0)).getByText('down')).toBeTruthy()
   })
 
-  it('syncs from/to with the URL', async () => {
+  it('offers only chronological choices and syncs a selection with the URL', async () => {
     const fetch = mockApi(() => json(diff))
     renderAt('/changes?from=1&to=2')
     await screen.findByRole('table', { name: 'Changes' })
-    expect(String(at(fetch.mock.calls, 0)[0])).toBe('/api/changes?from=1&to=2')
-    await waitFor(() => expect(within(screen.getByLabelText('To')).getByText(/Run #1/)).toBeTruthy())
-    fireEvent.change(screen.getByLabelText('From (baseline)'), { target: { value: '2' } })
-    fireEvent.change(screen.getByLabelText('To'), { target: { value: '1' } })
-    expect(screen.getByTestId('location').textContent).toBe('/changes?from=2&to=1')
+    expect(fetch.mock.calls.map(([url]) => url)).toContain('/api/changes?from=1&to=2')
+    const from = screen.getByLabelText<HTMLSelectElement>('From (baseline)')
+    const to = screen.getByLabelText<HTMLSelectElement>('To')
+    const values = (select: HTMLSelectElement) => Array.from(select.options, (o) => o.value)
+    await waitFor(() => expect(values(from)).toEqual(['1', '4']))
+    expect(values(to)).toEqual(['2'])
+    fireEvent.change(from, { target: { value: '4' } })
+    await waitFor(() => expect(screen.getByTestId('location').textContent).toBe('/changes?from=4&to=2'))
+    await waitFor(() => expect(values(to)).toEqual(['2', '1']))
+  })
+
+  it('silently swaps a reversed URL using start time before ID', async () => {
+    const fetch = mockApi(() => json({ ...diff, from: run(4), to: run(2) }))
+    renderAt('/changes?from=2&to=4')
+    await screen.findByRole('heading', { name: /Run #4 → run #2/ })
+    await waitFor(() => expect(screen.getByTestId('location').textContent).toBe('/changes?from=4&to=2'))
+    const diffRequests = fetch.mock.calls.map(([url]) => String(url)).filter((url) => url.startsWith('/api/changes'))
+    expect(diffRequests).toEqual(['/api/changes?from=4&to=2'])
   })
 
   it('shows empty and truncated states', async () => {

@@ -371,15 +371,15 @@ Matching fingerprints to known vulnerabilities is allowed (organizers' note 2); 
 - **Confidence.**
   - `high`: an exact version from a banner/header with no distro suffix.
   - `low`: the banner shows a distro build (e.g. `OpenSSH 8.9p1 Ubuntu 3ubuntu0.10`, `Debian`, `el8`). Distros backport fixes, so these findings are capped at **Low** severity and tagged `cve:distro-build`.
-- **Findings.** **One finding per product instance** (IP + port + product + version), not one per CVE:
-  - title: `nginx 1.18.0: 7 known CVEs (2 KEV)`;
-  - severity = highest CVSS, raised by one level if any CVE is in KEV (subject to the distro cap);
-  - `vulnerability_ids` = all CVE IDs;
-  - description lists CVEs with CVSS, EPSS and KEV.
+- **Findings.** Dojo gets one finding for each CVE matched to a product instance (IP, port, protocol, CPE and version).
+  - Example title is `CVE-2021-41773 in Apache httpd 2.4.49 (172.30.0.21:80/tcp)`.
+  - Severity comes from that CVE's CVSS score, rises one level for a CISA KEV entry, and is capped at Low for distro builds.
+  - `vulnerability_ids` contains the single CVE ID. `cvssv3_score`, `epss_score` and `known_exploited` describe that CVE.
+  - The description records the CVE ID, instance, scores, KEV status, CPE and confidence, with a backport note for distro builds.
 
-  Pushed with Generic Findings Import into a per-IP Test "RAVEN CVE match", with `unique_id_from_tool = ip:port:cpe:version`. A version change closes the old finding and opens a new one on reimport.
+  Generic Findings Import reimports into the IP's "RAVEN CVE match" Test with `unique_id_from_tool = ip:port:cpe:version:proto:CVE` and `close_old_findings=true`. Reimport retains findings with the same ID and closes findings whose IDs are absent from the report. The first per-CVE reimport closes legacy aggregate findings. A version change closes findings for the old version and opens findings for any CVEs that match the new version.
 
-  A pass runs at startup and every 5 min: it rewrites `cve_matches` from the open services, then reimports the findings of every **active** IP whose match set changed (hash in `cve_push`). `GET /api/cve-matches?ip=` reads the table.
+  A pass runs at startup and every 5 min. It rewrites `cve_matches` from the open services, then reimports findings for every **active** IP whose push hash in `cve_push` has changed. The hash includes the report format so the change to per-CVE findings refreshes existing matches. The dashboard and `GET /api/cve-matches?ip=` read `cve_matches`, which groups CVEs by product instance.
 
 ## 12. Scale
 

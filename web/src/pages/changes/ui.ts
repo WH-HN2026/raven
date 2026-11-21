@@ -82,3 +82,21 @@ export function runTime(r: RunTimes): string {
 export function runLabel(r: RunTimes & { id: number }): string {
   return `Run #${r.id} · ${runTime(r)}`
 }
+
+type OrderedRun = { id: number; started_at?: string | null }
+
+/** Sort by run start, then ID. An unstarted run sorts before a started run. */
+export function compareRuns(a: OrderedRun, b: OrderedRun): number {
+  if (a.started_at && b.started_at) {
+    const millis = Date.parse(a.started_at) - Date.parse(b.started_at)
+    if (millis) return millis
+    // Date.parse truncates fractions beyond milliseconds, while Postgres keeps microseconds.
+    const fraction = (value: string) => (value.match(/\.(\d+)/)?.[1] ?? '').padEnd(9, '0')
+    const left = fraction(a.started_at)
+    const right = fraction(b.started_at)
+    if (left !== right) return left < right ? -1 : 1
+  } else if (a.started_at || b.started_at) {
+    return a.started_at ? 1 : -1
+  }
+  return a.id - b.id
+}

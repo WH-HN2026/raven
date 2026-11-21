@@ -15,7 +15,7 @@ import (
 // CVE matching (task C3, architecture §11): a periodic pass matches open
 // services against the committed CVE data, then every active IP whose match
 // set changed is reimported into its "RAVEN CVE match" test with
-// close_old_findings, so a version change closes the old finding.
+// close_old_findings, so a version change closes findings for the old version.
 
 // DefaultCVEProfile names the engagement for IPs no profile run has seen up
 // (e.g. imported hosts).

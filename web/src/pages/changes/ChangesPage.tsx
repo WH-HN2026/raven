@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { ApiError, api } from '../../api/client'
 import { ExportButton } from '../../components/ExportButton'
@@ -28,10 +28,10 @@ import {
   type ChangeFilter,
   type ChangeKind,
   type DiffRow,
-  type DiffRun,
   type Fingerprint,
   type RunDiff,
   changesKey,
+  compareRuns,
   counts,
   diffRows,
   fieldText,
@@ -50,13 +50,37 @@ function runsQuery(profileId: number) {
   }
 }
 
+function runQuery(id: number | null) {
+  return {
+    queryKey: [...changesKey, 'run', id],
+    queryFn: () => api.get('/runs/{id}', { params: { id: id ?? 0 } }),
+    enabled: id !== null,
+    staleTime: 30_000,
+  }
+}
+
 export function ChangesPage() {
   const [params, setParams] = useSearchParams()
-  const from = runParam(params, 'from')
-  const to = runParam(params, 'to')
+  const requestedFrom = runParam(params, 'from')
+  const requestedTo = runParam(params, 'to')
+  const fromRun = useQuery(runQuery(requestedFrom))
+  const toRun = useQuery(runQuery(requestedTo))
+  const reversed = !!fromRun.data && !!toRun.data && compareRuns(fromRun.data, toRun.data) > 0
+  const from = reversed ? requestedTo : requestedFrom
+  const to = reversed ? requestedFrom : requestedTo
   const qc = useQueryClient()
 
+  useEffect(() => {
+    if (reversed && from !== null && to !== null) {
+      const next = new URLSearchParams(params)
+      next.set('from', String(from))
+      next.set('to', String(to))
+      setParams(next, { replace: true })
+    }
+  }, [from, to, params, reversed, setParams])
+
   const diff = useQuery({
+    enabled: from === null || to === null || (!fromRun.isPending && !toRun.isPending),
     queryKey: [...changesKey, 'diff', from, to],
     queryFn: () => api.get('/changes', { query: { from: from ?? undefined, to: to ?? undefined } }),
     placeholderData: keepPreviousData,
@@ -70,12 +94,14 @@ export function ChangesPage() {
     queryFn: () => api.get('/profiles', { query: { limit: 1000 } }),
   })
   const [pickedProfile, setPickedProfile] = useState<number | null>(null)
-  const profileId = pickedProfile ?? d?.to.profile_id ?? profiles.data?.items[0]?.id ?? null
-  const runs = useQuery({ ...runsQuery(profileId ?? 0), enabled: profileId !== null })
-  const done = (runs.data?.items ?? []).filter((r) => r.status === 'done')
-
+  const knownRuns = [fromRun.data, toRun.data, d?.from, d?.to]
   const curFrom = from ?? d?.from.id ?? null
   const curTo = to ?? d?.to.id ?? null
+  const selectedFrom = knownRuns.find((r) => r?.id === curFrom)
+  const selectedTo = knownRuns.find((r) => r?.id === curTo)
+  const profileId = pickedProfile ?? selectedTo?.profile_id ?? selectedFrom?.profile_id ?? profiles.data?.items[0]?.id ?? null
+  const runs = useQuery({ ...runsQuery(profileId ?? 0), enabled: profileId !== null })
+  const done = (runs.data?.items ?? []).filter((r) => r.status === 'done').sort((a, b) => compareRuns(b, a))
 
   function setRuns(f: number | null, t: number | null) {
     const next = new URLSearchParams(params)
@@ -92,20 +118,27 @@ export function ChangesPage() {
   async function pickProfile(id: number) {
     setPickedProfile(id)
     const list = await qc.fetchQuery(runsQuery(id))
-    const latest = list.items.find((r) => r.status === 'done')
+    const latest = list.items.filter((r) => r.status === 'done').sort((a, b) => compareRuns(b, a))[0]
     // Latest done run of the profile; the API picks the one before it.
     setRuns(null, latest ? latest.id : null)
   }
 
-  // Options: the profile's done runs, plus the selected ones if they're not among them.
-  function options(selected: number | null, known: DiffRun | undefined) {
-    const opts = done.map((r) => ({ id: r.id, label: runLabel(r) }))
-    if (selected !== null && !opts.some((o) => o.id === selected)) {
-      opts.unshift({ id: selected, label: known && known.id === selected ? runLabel(known) : `Run #${selected}` })
-    }
-    return opts
+  function options(side: 'from' | 'to') {
+    const selected = side === 'from' ? selectedFrom : selectedTo
+    const otherID = side === 'from' ? curTo : curFrom
+    const other = (side === 'from' ? selectedTo : selectedFrom) ?? done.find((r) => r.id === otherID)
+    const candidates = selected && !done.some((r) => r.id === selected.id) ? [selected, ...done] : done
+    return candidates.filter((r) => {
+      if (otherID === null) return true
+      if (!other) return false
+      return side === 'from' ? compareRuns(r, other) < 0 : compareRuns(r, other) > 0
+    })
   }
 
+  const fromOptions = options('from')
+  const toOptions = options('to')
+  const fromValue = fromOptions.some((r) => r.id === curFrom) ? curFrom : null
+  const toValue = toOptions.some((r) => r.id === curTo) ? curTo : null
   const err = diff.error
   return (
     <>
@@ -130,13 +163,13 @@ export function ChangesPage() {
         <Field label="From (baseline)" className="flex-[0_1_320px]">
           <select
             className={inputClass}
-            value={curFrom ?? ''}
+            value={fromValue ?? ''}
             onChange={(e) => setRuns(Number(e.target.value), curTo)}
           >
-            {curFrom === null && <option value="">—</option>}
-            {options(curFrom, d?.from).map((o) => (
+            {fromValue === null && <option value="" disabled>—</option>}
+            {fromOptions.map((o) => (
               <option key={o.id} value={o.id}>
-                {o.label}
+                {runLabel(o)}
               </option>
             ))}
           </select>
@@ -145,11 +178,11 @@ export function ChangesPage() {
           →
         </span>
         <Field label="To" className="flex-[0_1_320px]">
-          <select className={inputClass} value={curTo ?? ''} onChange={(e) => setRuns(curFrom, Number(e.target.value))}>
-            {curTo === null && <option value="">—</option>}
-            {options(curTo, d?.to).map((o) => (
+          <select className={inputClass} value={toValue ?? ''} onChange={(e) => setRuns(curFrom, Number(e.target.value))}>
+            {toValue === null && <option value="" disabled>—</option>}
+            {toOptions.map((o) => (
               <option key={o.id} value={o.id}>
-                {o.label}
+                {runLabel(o)}
               </option>
             ))}
           </select>

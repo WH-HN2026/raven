@@ -7,6 +7,7 @@ import type { Schemas } from '../../api/client'
 import { AuthContext } from '../../auth/AuthContext'
 import type { Permission } from '../../auth/permissions'
 import { ManualForm, parseLines, toTextareaErrors } from './ManualForm'
+import { ScopeList } from './ScopeEditor'
 import { TargetsPage } from './index'
 import { UploadPanel } from './UploadPanel'
 
@@ -74,6 +75,28 @@ describe('ManualForm', () => {
         { value: 'example.lab', tags: ['lab', 'web'] },
       ],
     })
+  })
+})
+
+describe('duplicate targets', () => {
+  const conflict = () => json({ error: { code: 'conflict', message: 'Target already exists' } }, 409)
+
+  it('shows the conflict by the manual form and retains the entry', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(conflict())
+    wrap(<ManualForm />)
+    const input = screen.getByLabelText('Targets, one per line')
+    fireEvent.change(input, { target: { value: '10.0.0.1' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Add targets' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Target already exists')
+    expect(input).toHaveValue('10.0.0.1')
+  })
+
+  it('shows the same conflict by a scope list form', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(conflict())
+    wrap(<ScopeList list="include" title="Include" canEdit items={[]} />)
+    fireEvent.change(screen.getByLabelText('Value'), { target: { value: '10.0.0.1' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Add to include' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Target already exists')
   })
 })
 

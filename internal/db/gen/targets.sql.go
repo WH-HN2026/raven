@@ -40,6 +40,45 @@ func (q *Queries) DeleteTarget(ctx context.Context, id int64) (Target, error) {
 	return i, err
 }
 
+const insertTarget = `-- name: InsertTarget :one
+INSERT INTO targets (kind, value, source, tags, note, created_by)
+VALUES ($1, $2, $3, $4, $5, $6)
+ON CONFLICT (kind, value) DO NOTHING
+RETURNING id, kind, value, source, tags, created_by, created_at, note
+`
+
+type InsertTargetParams struct {
+	Kind      string   `json:"kind"`
+	Value     string   `json:"value"`
+	Source    string   `json:"source"`
+	Tags      []string `json:"tags"`
+	Note      string   `json:"note"`
+	CreatedBy *int64   `json:"created_by"`
+}
+
+func (q *Queries) InsertTarget(ctx context.Context, arg InsertTargetParams) (Target, error) {
+	row := q.db.QueryRow(ctx, insertTarget,
+		arg.Kind,
+		arg.Value,
+		arg.Source,
+		arg.Tags,
+		arg.Note,
+		arg.CreatedBy,
+	)
+	var i Target
+	err := row.Scan(
+		&i.ID,
+		&i.Kind,
+		&i.Value,
+		&i.Source,
+		&i.Tags,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.Note,
+	)
+	return i, err
+}
+
 const listAllTargets = `-- name: ListAllTargets :many
 SELECT id, kind, value, source, tags, created_by, created_at, note FROM targets ORDER BY id
 `

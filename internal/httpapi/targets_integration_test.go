@@ -101,6 +101,10 @@ func TestTargetsAndScopeAPI(t *testing.T) {
 	expect("admin POST 3 targets", code, body, 201, `"total":3`)
 	code, body = js("POST", "/api/targets", admin, `{"targets":[{"value":"10.0.0.2"},{"value":"10.0.0.0/8"}]}`)
 	expect("POST with a /8", code, body, 400, `"line":2`)
+	code, body = js("POST", "/api/targets", admin, `{"targets":[{"value":"10.0.0.2"},{"value":"WORDPRESS.LAB","note":"replacement"}]}`)
+	expect("duplicate existing target rolls back a batch", code, body, 409, `"message":"Target already exists"`)
+	code, body = js("POST", "/api/targets", admin, `{"targets":[{"value":"10.0.0.2"},{"value":"10.0.0.2"}]}`)
+	expect("duplicate within batch", code, body, 409, `"message":"Target already exists"`)
 	code, body = js("POST", "/api/targets", viewer, `{"targets":[{"value":"10.0.0.9"}]}`)
 	expect("viewer POST", code, body, 403, "forbidden")
 
@@ -137,7 +141,7 @@ func TestTargetsAndScopeAPI(t *testing.T) {
 	var excl gen.ScopeEntry
 	_ = json.Unmarshal([]byte(body), &excl)
 	code, body = js("POST", "/api/scope", admin, `{"value":"10.0.1.128/25","list":"exclude"}`)
-	expect("duplicate", code, body, 409, "conflict")
+	expect("duplicate scope entry", code, body, 409, `"message":"Target already exists"`)
 	code, body = js("POST", "/api/scope", admin, `{"value":"10.0.1.1","list":"include","profile_id":999}`)
 	expect("unknown profile", code, body, 400, "profile 999")
 	code, body = js("GET", "/api/scope", viewer, "")

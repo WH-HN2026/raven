@@ -130,7 +130,7 @@ paths:
         Manual entry of one or more targets (permission targets:write). Kind is auto-detected
         (ip / cidr / domain); if `kind` is given it must match. All items must be valid, otherwise
         nothing is written and the 400 response lists `errors` (line = 1-based item index).
-        Re-adding an existing target merges its tags. Target rules: IPv4 only; no loopback,
+        Target rules: IPv4 only; no loopback,
         link-local, multicast or unspecified addresses; CIDRs at most a /16.
       parameters: [{ $ref: "#/components/parameters/CSRF" }]
       requestBody:
@@ -146,7 +146,7 @@ paths:
                   items: { $ref: "#/components/schemas/TargetInput" }
       responses:
         "201":
-          description: Created (or merged) targets.
+          description: Created targets.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/TargetList" }
@@ -155,6 +155,7 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/TargetInputErrors" }
+        "409": { $ref: "#/components/responses/Error", description: "Target already exists. Nothing was written." }
         default: { $ref: "#/components/responses/Error" }
   /targets/upload:
     post:
@@ -245,6 +246,7 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ScopeEntry" }
+        "409": { $ref: "#/components/responses/Error", description: "Target already exists in this list and profile." }
         default: { $ref: "#/components/responses/Error" }
   /scope/{id}:
     parameters: [{ $ref: "#/components/parameters/Id" }]
@@ -592,6 +594,7 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/RunDiff" }
+        "400": { $ref: "#/components/responses/Error", description: "Invalid parameters or from does not precede to by run start time and ID." }
         default: { $ref: "#/components/responses/Error" }
   /changes/hosts/{ip}:
     get:
