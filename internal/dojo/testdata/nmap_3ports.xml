@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE nmaprun>
+<!-- Hand-written fixture (no real scan): 192.0.2.10 is TEST-NET-1 (RFC 5737). -->
+<nmaprun scanner="nmap" args="nmap -sS -sV -p 22,80,443 -oX - 192.0.2.10" start="1763700000" startstr="Fri Nov 21 04:40:00 2025" version="7.95" xmloutputversion="1.05">
+<scaninfo type="syn" protocol="tcp" numservices="3" services="22,80,443"/>
+<host starttime="1763700000" endtime="1763700010"><status state="up" reason="echo-reply" reason_ttl="64"/>
+<address addr="192.0.2.10" addrtype="ipv4"/>
+<hostnames>
+</hostnames>
+<ports>
+<port protocol="tcp" portid="22"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="ssh" product="OpenSSH" version="9.6p1" extrainfo="Ubuntu Linux; protocol 2.0" method="probed" conf="10"/></port>
+<port protocol="tcp" portid="80"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="http" product="nginx" version="1.27.0" method="probed" conf="10"/></port>
+<port protocol="tcp" portid="443"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="http" product="nginx" version="1.27.0" tunnel="ssl" method="probed" conf="10"/></port>
+</ports>
+<times srtt="120" rttvar="50" to="100000"/>
+</host>
+<runstats><finished time="1763700010" timestr="Fri Nov 21 04:40:10 2025" summary="Nmap done; 1 IP address (1 host up) scanned in 10.00 seconds" elapsed="10.00" exit="success"/><hosts up="1" down="0" total="1"/>
+</runstats>
+</nmaprun>
