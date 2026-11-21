@@ -18,7 +18,7 @@ import (
 var (
 	ErrNotFound  = errors.New("not found")
 	ErrForbidden = errors.New("forbidden")
-	ErrConflict  = errors.New("already exists")
+	ErrConflict  = errors.New("Target already exists")
 	ErrInvalid   = errors.New("invalid input")
 )
 
@@ -53,16 +53,25 @@ func (s *Store) ListTargets(ctx context.Context, limit, offset int32) ([]gen.Tar
 	return items, total, nil
 }
 
-// AddTargets upserts entries (re-adding merges tags) with the given source
-// (manual|csv|json) and writes one audit row.
+// AddTargets creates manual entries atomically or merges uploaded entries, then writes one audit row.
 func (s *Store) AddTargets(ctx context.Context, u *auth.User, source string, entries []Entry) ([]gen.Target, error) {
 	out := make([]gen.Target, 0, len(entries))
 	err := s.tx(ctx, func(q *gen.Queries) error {
 		values := make([]string, 0, len(entries))
 		for _, e := range entries {
-			t, err := q.UpsertTarget(ctx, gen.UpsertTargetParams{
+			params := gen.InsertTargetParams{
 				Kind: string(e.Kind), Value: e.Value, Source: source, Tags: cleanTags(e.Tags), Note: e.Note, CreatedBy: userID(u),
-			})
+			}
+			var t gen.Target
+			var err error
+			if source == "manual" {
+				t, err = q.InsertTarget(ctx, params)
+				if errors.Is(err, pgx.ErrNoRows) {
+					return ErrConflict
+				}
+			} else {
+				t, err = q.UpsertTarget(ctx, gen.UpsertTargetParams(params))
+			}
 			if err != nil {
 				return fmt.Errorf("add target %s: %w", e.Value, err)
 			}
@@ -145,7 +154,7 @@ func (s *Store) AddScopeEntry(ctx context.Context, u *auth.User, in ScopeInput) 
 		var pe *pgconn.PgError
 		switch {
 		case errors.As(err, &pe) && pe.Code == "23505":
-			return fmt.Errorf("%w: %s %s is already in this list", ErrConflict, k, v)
+			return ErrConflict
 		case errors.As(err, &pe) && pe.Code == "23503":
 			return fmt.Errorf("%w: profile %d does not exist", ErrInvalid, *in.ProfileID)
 		case err != nil:

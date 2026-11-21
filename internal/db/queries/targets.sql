@@ -7,6 +7,12 @@ SELECT count(*) FROM targets;
 -- name: ListAllTargets :many
 SELECT * FROM targets ORDER BY id;
 
+-- name: InsertTarget :one
+INSERT INTO targets (kind, value, source, tags, note, created_by)
+VALUES ($1, $2, $3, $4, $5, $6)
+ON CONFLICT (kind, value) DO NOTHING
+RETURNING *;
+
 -- name: UpsertTarget :one
 -- Re-adding an existing (kind, value) merges its tags and keeps a non-empty note.
 INSERT INTO targets (kind, value, source, tags, note, created_by)

@@ -98,7 +98,7 @@ export interface paths {
          * @description Manual entry of one or more targets (permission targets:write). Kind is auto-detected
          *     (ip / cidr / domain); if `kind` is given it must match. All items must be valid, otherwise
          *     nothing is written and the 400 response lists `errors` (line = 1-based item index).
-         *     Re-adding an existing target merges its tags. Target rules: IPv4 only; no loopback,
+         *     Target rules: IPv4 only; no loopback,
          *     link-local, multicast or unspecified addresses; CIDRs at most a /16.
          */
         post: operations["createTargets"];
@@ -1714,7 +1714,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Created (or merged) targets. */
+            /** @description Created targets. */
             201: {
                 headers: {
                     [name: string]: unknown;
@@ -1732,6 +1732,8 @@ export interface operations {
                     "application/json": components["schemas"]["TargetInputErrors"];
                 };
             };
+            /** @description Target already exists. Nothing was written. */
+            409: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };
@@ -1843,6 +1845,8 @@ export interface operations {
                     "application/json": components["schemas"]["ScopeEntry"];
                 };
             };
+            /** @description Target already exists in this list and profile. */
+            409: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };
@@ -2339,6 +2343,8 @@ export interface operations {
                     "application/json": components["schemas"]["RunDiff"];
                 };
             };
+            /** @description Invalid parameters or from does not precede to by run start time and ID. */
+            400: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState, type FormEvent } from 'react'
-import { ApiError, api, type Schemas } from '../../api/client'
+import { api, type Schemas } from '../../api/client'
 import { useCan } from '../../auth/hooks'
 import { AdminOnly, Alert, Button, ErrorText, Field, SectionHeading, inputClass } from '../../components/ui'
 import { scopeKey } from './ui'
@@ -79,9 +79,6 @@ export function ScopeList({
     e.preventDefault()
     if (value.trim()) add.mutate()
   }
-  const addErr = add.error
-  const addMsg =
-    addErr instanceof ApiError && addErr.status === 409 ? 'This entry is already on the list.' : addErr?.message
   const exclude = list === 'exclude'
 
   return (
@@ -135,7 +132,7 @@ export function ScopeList({
           </Button>
         </form>
       )}
-      {addMsg && <Alert>{addMsg}</Alert>}
+      {add.error && <Alert>{add.error.message}</Alert>}
     </div>
   )
 }

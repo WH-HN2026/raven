@@ -93,6 +93,7 @@ func (a *api) listTargets(w http.ResponseWriter, r *http.Request) {
 
 // createTargets: manual entry. All values must be valid, otherwise nothing is
 // written and the response is 400 with the per-item errors (line = 1-based index).
+// An existing target returns 409 and rolls back the whole request.
 func (a *api) createTargets(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		Targets []struct {

@@ -131,7 +131,7 @@ const latestDoneRun = `-- name: LatestDoneRun :one
 SELECT id, profile_id, status, started_at, finished_at FROM runs
 WHERE status = 'done'
   AND ($1::bigint IS NULL OR profile_id = $1::bigint)
-ORDER BY id DESC LIMIT 1
+ORDER BY started_at DESC NULLS LAST, id DESC LIMIT 1
 `
 
 type LatestDoneRunRow struct {
@@ -262,9 +262,11 @@ func (q *Queries) ListRunObservations(ctx context.Context, runID int64) ([]ListR
 }
 
 const previousDoneRun = `-- name: PreviousDoneRun :one
-SELECT id, profile_id, status, started_at, finished_at FROM runs
-WHERE status = 'done' AND profile_id = $1 AND id < $2
-ORDER BY id DESC LIMIT 1
+SELECT r.id, r.profile_id, r.status, r.started_at, r.finished_at FROM runs r
+WHERE r.status = 'done' AND r.profile_id = $1
+  AND (COALESCE(r.started_at, '-infinity'::timestamptz), r.id)
+      < (SELECT COALESCE(t.started_at, '-infinity'::timestamptz), t.id FROM runs t WHERE t.id = $2)
+ORDER BY r.started_at DESC NULLS LAST, r.id DESC LIMIT 1
 `
 
 type PreviousDoneRunParams struct {
