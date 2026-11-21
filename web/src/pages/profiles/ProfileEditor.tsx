@@ -174,7 +174,7 @@ function ProfileForm({ profile }: { profile?: Profile }) {
       </fieldset>
       <div className="flex flex-col gap-3 border-t border-line pt-5">
         <SectionHeading size="sm">Workflow</SectionHeading>
-        <WorkflowBuilder value={stages} onChange={setStages} disabled={!canWrite} />
+        <WorkflowBuilder value={stages} onChange={setStages} disabled={!canWrite} aggressiveAllowed={canAggressive} />
       </div>
       {(clientErr || serverMsg) && <Alert>{clientErr ?? serverMsg}</Alert>}
       {saved && <Alert tone="ok">Saved</Alert>}
