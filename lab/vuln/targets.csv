@@ -1,6 +1,0 @@
-value,tags,note
-10.77.1.0/24,vlab;modern,organizers' modern stack: WordPress 7.1.5 MariaDB phpMyAdmin Redis Nginx Proxy Manager
-10.77.2.0/24,vlab;modern-proxy,organizers' modern-proxy stack: Traefik Toxiproxy WordPress MariaDB Redis
-10.77.3.0/24,vlab;vulnerable,organizers' vulnerable stack: WordPress 4.7.5 MySQL 5.7 Adminer vsftpd DVWA
-10.77.4.0/24,vlab;custom-network,organizers' custom-network stack: httpbin Postgres RabbitMQ Gitea flask-app
-10.77.9.0/24,vlab;scenario,scenario hosts that appear and disappear (shadow IT)

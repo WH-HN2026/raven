@@ -38,7 +38,7 @@ build: web/node_modules
 	cd web && $(NPM) run build
 	CGO_ENABLED=0 go build -trimpath -o bin/raven ./cmd/raven
 
-## infra-up: shared Postgres (5433) + DefectDojo (8080), everything except raven
+## infra-up: shared Postgres (5433) + DefectDojo (18080), everything except raven
 infra-up:
 	scripts/shared-env.sh
 	docker compose up -d $(INFRA_SERVICES)
@@ -65,60 +65,59 @@ test-scale:
 cve-db:
 	go run ./internal/cve/gen
 
-lab-up:
+## Labs (docs/lab.md): one lab at a time, and one organizers' stack at a time.
+##   LAB=ours (default): our fixtures, compose.lab.yml on the internal network raven_lab (172.30.0.0/24).
+##   LAB=organizers STACK=quickstart|custom-network|modern|modern-proxy|vulnerable: the organizers'
+##   files in lab/organizers, run as-is with their own commands (STACK=quickstart, the default, is
+##   their ./quickstart.sh). RAVEN reaches them at 172.17.0.1 with the profile "Organizers' lab".
+LAB ?= ours
+STACK ?= quickstart
+ORG_STACKS := quickstart custom-network modern modern-proxy vulnerable
+ORG_UP_quickstart := bash quickstart.sh up
+ORG_DOWN_quickstart := bash quickstart.sh down
+ORG_UP_modern-proxy := cp -n .env.example .env && docker compose --env-file .env -f docker-compose-modern-proxy.yml up -d
+ORG_DOWN_modern-proxy := cp -n .env.example .env && docker compose --env-file .env -f docker-compose-modern-proxy.yml down
+ORG_UP = $(or $(ORG_UP_$(STACK)),docker compose -f docker-compose-$(STACK).yml up -d)
+ORG_DOWN = $(or $(ORG_DOWN_$(STACK)),docker compose -f docker-compose-$(STACK).yml down)
+
+.PHONY: lab-check lab-change lab-verify
+
+lab-check:
+	@case "$(LAB)" in \
+	  ours) ;; \
+	  organizers) case " $(ORG_STACKS) " in *" $(STACK) "*) ;; \
+	    *) echo "invalid STACK=$(STACK); use one of: $(ORG_STACKS)" >&2; exit 1;; esac;; \
+	  *) echo "invalid LAB=$(LAB); use LAB=ours or LAB=organizers" >&2; exit 1;; \
+	esac
+
+## lab-up [LAB=ours|organizers] [STACK=…]: start a lab
+lab-up: lab-check
+ifeq ($(LAB),organizers)
+	@$(MAKE) --no-print-directory lab-verify
+	cd lab/organizers && $(ORG_UP)
+	@gw=$$(docker network inspect bridge -f '{{(index .IPAM.Config 0).Gateway}}'); \
+	  echo "Docker host bridge address (docker0 gateway): $$gw"; \
+	  if [ "$$gw" != 172.17.0.1 ]; then \
+	    echo "WARNING: the gateway is $$gw, not 172.17.0.1; the \"Organizers' lab\" profile scans only 172.17.0.1" >&2; \
+	  fi; \
+	  echo "Next: in RAVEN, start a run of the profile \"Organizers' lab\""
+else
 	docker compose -f compose.lab.yml up -d --build --wait
+endif
 
-lab-down:
+## lab-down [LAB=ours|organizers] [STACK=…]: stop a lab
+lab-down: lab-check
+ifeq ($(LAB),organizers)
+	cd lab/organizers && $(ORG_DOWN)
+else
 	docker compose -f compose.lab.yml down
+endif
 
-## vuln lab (docs/vuln-lab.md): organizers' stacks on the internal raven_vlab network, 10.77.0.0/16
-VLAB := docker compose -f compose.vlab.yml
-.PHONY: vlab-pull vlab-up vlab-down vlab-ps
+## lab-change: the organizers' quickstart step 3 (= ./quickstart.sh change, stops the service on 8787)
+lab-change:
+	cd lab/organizers && bash quickstart.sh change
 
-## vlab-pull: pull the vuln lab images that are missing, retrying on Docker Hub rate limits (docker login helps)
-vlab-pull:
-	@for i in 1 2 3 4 5 6; do \
-	  missing=$$($(VLAB) --profile scenario --profile init config --images | sort -u | while read -r img; do \
-	    docker image inspect "$$img" >/dev/null 2>&1 || echo "$$img"; done); \
-	  [ -z "$$missing" ] && { echo "vlab-pull: all images present"; exit 0; }; \
-	  for img in $$missing; do docker pull -q "$$img" || true; done; \
-	  [ $$i -lt 6 ] && { echo "vlab-pull: attempt $$i incomplete, retrying in 120 s (docker login raises the Docker Hub pull limit)"; sleep 120; }; \
-	done; echo "vlab-pull: images still missing" >&2; exit 1
-
-## vlab-up: start the vuln lab, wait for health, install the WordPress sites and the Toxiproxy proxy
-vlab-up:
-	lab/vuln/preflight.sh
-	$(VLAB) up -d --wait
-	$(VLAB) run --rm vlab-init
-
-## vlab-down: detach other containers (e.g. RAVEN) from raven_vlab, then stop the lab; volumes are kept
-vlab-down:
-	@for c in $$(docker network inspect -f '{{range .Containers}}{{.Name}} {{end}}' raven_vlab 2>/dev/null); do \
-	  case $$c in raven-vlab-*) ;; *) echo "disconnect $$c"; docker network disconnect -f raven_vlab $$c;; esac; \
-	done
-	$(VLAB) --profile scenario --profile tools --profile init down
-
-vlab-ps:
-	$(VLAB) --profile scenario --profile tools ps
-
-## one-command demo (docs/vuln-lab.md §6): RAVEN + DefectDojo + vuln lab, seeded; ARGS="--scale[=N] --l1 --no-run"
-.PHONY: demo demo-down demo-reset
-demo:
-	scripts/demo.sh up $(ARGS)
-
-## demo-down: stop RAVEN, DefectDojo and the labs; data kept
-demo-down:
-	scripts/demo.sh down
-
-## demo-reset: delete RAVEN/Dojo/lab volumes and .demo-credentials, keep .env (asks first; CONFIRM=1 skips)
-demo-reset:
-	CONFIRM=$(CONFIRM) scripts/demo.sh reset
-
-## vuln lab scale layer (docs/vuln-lab.md §5): N hosts in 10.77.64.0/18, e.g. make vlab-scale-up N=1024
-.PHONY: vlab-scale-up vlab-scale-down
-vlab-scale-up:
-	scripts/vlab-scale.sh up $(N)
-
-## vlab-scale-down: remove the scale layer (run it before vlab-down)
-vlab-scale-down:
-	scripts/vlab-scale.sh down
+## lab-verify: check that lab/organizers still holds the organizers' files byte for byte (SHA256SUMS)
+lab-verify:
+	cd lab/organizers && sha256sum -c --quiet SHA256SUMS
+	@echo "lab/organizers: verbatim (SHA256SUMS OK)"

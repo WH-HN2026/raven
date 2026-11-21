@@ -16,8 +16,10 @@ printf '%s\n' https://raven-s7-nginx:443 http://172.21.0.2:80 http://172.21.0.3:
 ```
 
 `toxic-latency.jsonl` (V7) is unedited stdout of the same httpx v1.12.0 (from
-the `raven` image), run in a one-shot container on the vuln lab network
-`raven_vlab` while the vlab Toxiproxy had a `latency` toxic of 3000 ms on the
+the `raven` image), run in a one-shot container on the V1 vuln lab network
+`raven_vlab` (removed in LB1; the same images now run verbatim from
+`lab/organizers/`, see `docs/lab.md`) while the Toxiproxy of the organizers'
+`modern-proxy` stack had a `latency` toxic of 3000 ms on the
 `wordpress` proxy: Traefik (10.77.2.10:80) and the Toxiproxy listener
 (10.77.2.11:8666) both answered in ~3043 ms (`"time":"3.043…s"`).
 

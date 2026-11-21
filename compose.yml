@@ -24,7 +24,7 @@ services:
       RAVEN_DATABASE_URL: "postgres://raven:${RAVEN_DB_PASSWORD:?run scripts/gen-env.sh}@raven-db:5432/raven?sslmode=disable"
       RAVEN_ENCRYPTION_KEY: "${RAVEN_ENCRYPTION_KEY:?run scripts/gen-env.sh}"
       RAVEN_DOJO_URL: "${RAVEN_DOJO_URL:-http://nginx:8080}"
-      RAVEN_DOJO_PUBLIC_URL: "${RAVEN_DOJO_PUBLIC_URL:-http://localhost:${DD_PORT:-8080}}"
+      RAVEN_DOJO_PUBLIC_URL: "${RAVEN_DOJO_PUBLIC_URL:-http://localhost:${DD_PORT:-18080}}"
       RAVEN_DOJO_TOKEN: "${RAVEN_DOJO_TOKEN:-}"
       RAVEN_DOJO_ORGANIZATION: "${RAVEN_DOJO_ORGANIZATION:-RAVEN}"
       DD_ADMIN_USER: "${DD_ADMIN_USER:-admin}"
@@ -39,8 +39,9 @@ services:
     networks:
       - default
       - zap-internal
-    # For the organizers' lab with L2 discovery (ARP): use `network_mode: host`
-    # instead of ports and set RAVEN_DOJO_URL=http://localhost:8080.
+    # Our lab: attach to raven_lab with `-f lab/raven.compose.yml`. The organizers'
+    # stacks (lab/organizers) are reached from here at the docker0 gateway 172.17.0.1
+    # (profile "Organizers' lab"); no extra network is needed (docs/lab.md).
 
   zap:
     profiles: ["aggressive"]

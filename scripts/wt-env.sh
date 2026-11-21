@@ -54,7 +54,7 @@ RAVEN_DATABASE_URL=postgres://raven:$RAVEN_DB_PASSWORD@127.0.0.1:${RAVEN_DB_PORT
 RAVEN_ENCRYPTION_KEY=$RAVEN_ENCRYPTION_KEY
 RAVEN_ADMIN_USERNAME=${RAVEN_ADMIN_USERNAME:-admin}
 RAVEN_ADMIN_PASSWORD=$RAVEN_ADMIN_PASSWORD
-RAVEN_DOJO_URL=http://localhost:${DD_PORT:-8080}
+RAVEN_DOJO_URL=http://localhost:${DD_PORT:-18080}
 RAVEN_DOJO_TOKEN=${RAVEN_DOJO_TOKEN:-}
 RAVEN_DOJO_ORGANIZATION=${RAVEN_DOJO_ORGANIZATION:-RAVEN}
 DD_ADMIN_USER=${DD_ADMIN_USER:-admin}
@@ -66,6 +66,6 @@ cat <<EOF
   database : $db on 127.0.0.1:${RAVEN_DB_PORT:-5433}
   API      : http://127.0.0.1:$http_port/api/healthz
   UI (Vite): http://127.0.0.1:$vite_port      ← open this after 'make dev'
-  DefectDojo: http://localhost:${DD_PORT:-8080}
+  DefectDojo: http://localhost:${DD_PORT:-18080}
   login    : ${RAVEN_ADMIN_USERNAME:-admin} / see RAVEN_ADMIN_PASSWORD in .env.local
 EOF

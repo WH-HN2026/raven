@@ -82,7 +82,9 @@ make test-scale
 
 ## Real scan: vuln lab scale layer
 
-Real end-to-end scans (`nmap` → `httpx` → `nuclei` → real DefectDojo 3.5) against the vuln lab scale layer ([`vuln-lab.md`](vuln-lab.md) §5): `compose.vlab-scale.yml` (`scripts/vlab-scale.sh`) serving deterministic persona hosts inside `10.77.64.0/18` (16,384 addresses, ~98.4% empty address space at 256 hosts) on the internal `raven_vlab` bridge.
+The V4 scale layer these numbers were measured on (`compose.vlab-scale.yml`, `scripts/vlab-scale.sh`, `lab/vuln/scale/`) was removed in LB1; commit `5946594` has it. The scale harness that stays is `internal/scaletest` (above).
+
+Real end-to-end scans (`nmap` → `httpx` → `nuclei` → real DefectDojo 3.5) against the vuln lab scale layer (`docs/vuln-lab.md` §5, also removed): `compose.vlab-scale.yml` (`scripts/vlab-scale.sh`) serving deterministic persona hosts inside `10.77.64.0/18` (16,384 addresses, ~98.4% empty address space at 256 hosts) on the internal `raven_vlab` bridge.
 
 Measured on the local dev machine (8 vCPU, 16 GB RAM, Postgres 18 + DefectDojo 3.5.202 in Docker, `RAVEN_MAX_WORKERS=2`, `vuln-lab-scale` profile: ports `21,22,80,443,8080,8443,9100`, `nmap_max_rate=1000` → 500 pps/worker, `nuclei_tags=[tech,panel,ssl,waf,favicon]`, `miss_threshold=2`, `target_batch_seconds=600`, global blacklist `10.77.0.1` + `10.77.254.0/23`, dedicated Dojo org deleted afterwards).
 
