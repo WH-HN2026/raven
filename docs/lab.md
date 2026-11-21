@@ -80,3 +80,20 @@ To reproduce against the lab:
    - DefectDojo creates a `"RAVEN: wpscan"` Test (`Wpscan` scan type) under Asset `172.30.0.17` with the WordPress interesting findings (and no Wpscan Test on `172.30.0.18`).
    - After sync, the Findings page lists those findings with scanner `wpscan`.
    - Detected WordPress core/component versions are merged into `http_observations` (`wordpress:wordpress:<version>`) for offline CVE matching.
+
+## ZAP (aggressive)
+
+Start the optional `zap` service under the `aggressive` compose profile and attach both `raven` and `zap` to `raven_lab`. Both `zap-internal` and `raven_lab` are internal Docker bridges (`internal: true`), so ZAP can reach only `raven` and the lab targets with no internet egress and no published ports.
+
+```sh
+test -f .env || scripts/gen-env.sh
+RAVEN_ZAP_URL=http://zap:8080 docker compose -f compose.yml -f lab/raven.compose.yml --profile aggressive up -d --build
+```
+
+Create an admin-only aggressive profile scoped strictly to `172.30.0.19/32` (nginx `/admin`) and `172.30.0.20/32` (staging app) with stages `nmap, httpx, nuclei, zap`, then start a run with explicit confirmation (`confirm_aggressive: true`). Without `RAVEN_ZAP_URL`, the `zap` stage stays "Not available".
+
+Before `make lab-down`, detach both `raven` and `zap` from `raven_lab` (or stop the `aggressive` profile first):
+
+```sh
+docker compose -f compose.yml -f lab/raven.compose.yml --profile aggressive stop zap
+```
