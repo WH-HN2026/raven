@@ -66,11 +66,13 @@ var routePerms = map[string]auth.Permission{
 	"PUT /api/schedules/{id}":    auth.PermSchedulesWrite,
 	"DELETE /api/schedules/{id}": auth.PermSchedulesWrite,
 
-	"GET /api/signatures":           auth.PermRead,
-	"POST /api/signatures":          auth.PermSignaturesWrite,
-	"PUT /api/signatures/{id}":      auth.PermSignaturesWrite,
-	"DELETE /api/signatures/{id}":   auth.PermSignaturesWrite,
-	"POST /api/signatures/validate": auth.PermSignaturesWrite,
+	"GET /api/signatures":            auth.PermRead,
+	"POST /api/signatures":           auth.PermSignaturesWrite,
+	"PUT /api/signatures/{id}":       auth.PermSignaturesWrite,
+	"DELETE /api/signatures/{id}":    auth.PermSignaturesWrite,
+	"POST /api/signatures/validate":  auth.PermSignaturesWrite,
+	"GET /api/signatures/{id}":       auth.PermRead,
+	"POST /api/signatures/{id}/test": auth.PermSignaturesWrite,
 
 	"POST /api/import/results": auth.PermImport,
 	"GET /api/export/{kind}":   auth.PermExport,

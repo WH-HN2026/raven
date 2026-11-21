@@ -1,0 +1,7 @@
+HTTP/1.1 200 OK
+Server: Apache
+Content-Type: text/html; charset=UTF-8
+Set-Cookie: wordpress_test_cookie=WP%20Cookie%20check; path=/; secure
+Link: <http://127.0.0.1/wp-json/>; rel="https://api.w.org/"
+
+<!DOCTYPE html><html><head><title>Blog</title></head><body>Blog</body></html>

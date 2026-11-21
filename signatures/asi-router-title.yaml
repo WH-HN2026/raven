@@ -1,0 +1,22 @@
+id: asi-router-title
+info:
+  name: Router web interface
+  author: asi
+  severity: low
+  description: The page title names a router or home-gateway web interface.
+  tags: asi,iot,router,title
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}"
+    matchers:
+      - type: regex
+        part: body
+        regex:
+          - '(?i)<title>[^<]*(routeros|mikrotik|tp-link|netgear|linksys|dd-wrt|openwrt|luci|fritz!box|zyxel|draytek|edgeos|edgerouter)[^<]*</title>'
+    extractors:
+      - type: regex
+        part: body
+        group: 1
+        regex:
+          - '(?i)<title>([^<]*)</title>'

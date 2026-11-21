@@ -21,6 +21,7 @@ import (
 	"github.com/WH-HN2026/zadanie-agh-asi/internal/httpapi"
 	"github.com/WH-HN2026/zadanie-agh-asi/internal/pipeline"
 	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner/nmap"
+	"github.com/WH-HN2026/zadanie-agh-asi/internal/signatures"
 )
 
 func main() {
@@ -52,6 +53,7 @@ func run() error {
 		return err
 	}
 	q := gen.New(pool)
+	signatures.LoadBuiltins(ctx, pool) // seed/update the built-in signature pack (C2)
 
 	authSvc := auth.NewService(q, cfg.SessionTTL)
 	if err := authSvc.EnsureBootstrapAdmin(ctx, cfg.AdminUsername, cfg.AdminPassword); err != nil {

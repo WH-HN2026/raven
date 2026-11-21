@@ -1,0 +1,16 @@
+id: asi-cookie-phpsessid
+info:
+  name: PHP session cookie
+  author: asi
+  severity: info
+  description: The response sets PHPSESSID, the default PHP session cookie.
+  tags: asi,cookies,tech,php
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}"
+    matchers:
+      - type: regex
+        part: header
+        regex:
+          - '(?mi)^set-cookie:[ \t]*PHPSESSID='

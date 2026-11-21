@@ -1,0 +1,7 @@
+HTTP/1.1 200 OK
+Cache-Control: no-cache, private
+Content-Type: text/html; charset=UTF-8
+X-Debug-Token: 3c1b0e
+X-Debug-Token-Link: http://127.0.0.1/_profiler/3c1b0e
+
+<!DOCTYPE html><html><head><title>Shop</title></head><body>Shop</body></html>

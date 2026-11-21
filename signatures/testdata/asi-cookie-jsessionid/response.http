@@ -1,0 +1,6 @@
+HTTP/1.1 200 OK
+Set-Cookie: JSESSIONID=1A2B3C4D5E6F708192A3B4C5D6E7F801; Path=/app; HttpOnly
+Content-Type: text/html;charset=UTF-8
+Content-Language: en
+
+<html><head><title>App</title></head><body>App</body></html>

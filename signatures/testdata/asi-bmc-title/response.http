@@ -1,0 +1,6 @@
+HTTP/1.1 200 OK
+Content-Type: text/html
+
+<!DOCTYPE html>
+<html><head><title>Integrated Dell Remote Access Controller 9</title></head>
+<body><div id="login">iDRAC9</div></body></html>

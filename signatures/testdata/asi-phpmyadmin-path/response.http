@@ -1,0 +1,13 @@
+HTTP/1.1 200 OK
+Server: Apache/2.4.57 (Debian)
+X-Powered-By: PHP/8.2.12
+Set-Cookie: phpMyAdmin=4c0ffee; path=/phpmyadmin/; HttpOnly
+Content-Type: text/html; charset=utf-8
+
+<!doctype html>
+<html lang="en" dir="ltr">
+<head><meta charset="utf-8"><title>phpMyAdmin</title></head>
+<body><form method="post" id="login_form" action="index.php?route=/" name="login_form" class="disableAjax hide js-show">
+<input type="text" name="pma_username" id="input_username" value="">
+<input type="password" name="pma_password" id="input_password" value="">
+</form></body></html>

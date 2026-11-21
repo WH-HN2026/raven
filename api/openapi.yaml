@@ -667,7 +667,7 @@ paths:
     get:
       tags: [signatures]
       operationId: listSignatures
-      description: stub
+      description: Signatures, built-ins first.
       parameters:
         - { $ref: "#/components/parameters/Limit" }
         - { $ref: "#/components/parameters/Offset" }
@@ -681,7 +681,10 @@ paths:
     post:
       tags: [signatures]
       operationId: createSignature
-      description: stub
+      description: >-
+        Validate and store a template. A template that fails the safe-subset
+        validator is still stored, disabled, with `valid=false` and its
+        `validation_error`; only a template without a usable `id` is rejected (400).
       parameters: [{ $ref: "#/components/parameters/CSRF" }]
       requestBody:
         required: true
@@ -694,12 +697,18 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Signature" }
+        "400":
+          description: No usable template id.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SignatureInvalid" }
+        "409": { $ref: "#/components/responses/Error" }
         default: { $ref: "#/components/responses/Error" }
   /signatures/validate:
     post:
       tags: [signatures]
       operationId: validateSignature
-      description: stub. Validate a template against the safe subset without saving.
+      description: Validate a template against the safe subset without saving.
       parameters: [{ $ref: "#/components/parameters/CSRF" }]
       requestBody:
         required: true
@@ -719,30 +728,70 @@ paths:
         default: { $ref: "#/components/responses/Error" }
   /signatures/{id}:
     parameters: [{ $ref: "#/components/parameters/Id" }]
+    get:
+      tags: [signatures]
+      operationId: getSignature
+      responses:
+        "200":
+          description: The signature.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Signature" }
+        default: { $ref: "#/components/responses/Error" }
     put:
       tags: [signatures]
       operationId: updateSignature
-      description: stub
+      description: >-
+        Partial update. A new template is re-validated (invalid → stored disabled).
+        Enabling an invalid signature is 400; changing a built-in's template is 403.
       parameters: [{ $ref: "#/components/parameters/CSRF" }]
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: "#/components/schemas/SignatureInput" }
+            schema: { $ref: "#/components/schemas/SignatureUpdate" }
       responses:
         "200":
           description: Updated.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Signature" }
+        "400":
+          description: Invalid template id, or enabling an invalid signature.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SignatureInvalid" }
+        "403": { $ref: "#/components/responses/Forbidden" }
         default: { $ref: "#/components/responses/Error" }
     delete:
       tags: [signatures]
       operationId: deleteSignature
-      description: stub
+      description: Built-in signatures can't be deleted (403).
       parameters: [{ $ref: "#/components/parameters/CSRF" }]
       responses:
         "204": { description: Deleted. }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        default: { $ref: "#/components/responses/Error" }
+  /signatures/{id}/test:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    post:
+      tags: [signatures]
+      operationId: testSignature
+      description: >-
+        stub (501) until the nuclei scanner (S4) exposes a single-template run.
+        Will run this signature against one lab URL and return the matches.
+      parameters: [{ $ref: "#/components/parameters/CSRF" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [url]
+              properties:
+                url: { type: string }
+      responses:
+        "501": { $ref: "#/components/responses/Error" }
         default: { $ref: "#/components/responses/Error" }
 
   # ───────────────────────── exchange (P3) ─────────────────────────
@@ -1417,27 +1466,58 @@ components:
     # ── signatures ──
     SignatureInput:
       type: object
-      required: [name, template_yaml]
+      description: A nuclei template. Its `id` becomes the signature name and must be unique.
+      required: [template_yaml]
       properties:
-        name: { type: string }
+        template_yaml: { type: string }
+        enabled: { type: boolean, description: "Default true; an invalid template is always stored disabled." }
+    SignatureUpdate:
+      type: object
+      description: Partial update. Built-ins accept only `enabled`.
+      properties:
         template_yaml: { type: string }
         enabled: { type: boolean }
     Signature:
-      allOf:
-        - $ref: "#/components/schemas/SignatureInput"
-        - type: object
-          required: [id, valid]
-          properties:
-            id: { type: integer, format: int64 }
-            valid: { type: boolean }
-            validation_error: { type: string }
-            builtin: { type: boolean }
+      type: object
+      required: [id, name, template_yaml, enabled, valid, validation_error, builtin, created_by, created_at]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string, description: The template id. }
+        template_yaml: { type: string }
+        enabled: { type: boolean }
+        valid: { type: boolean }
+        validation_error: { type: string }
+        builtin: { type: boolean, description: "Shipped in signatures/: can be disabled, not edited or deleted." }
+        created_by: { type: [integer, "null"], format: int64 }
+        created_at: { type: string, format: date-time }
+    SignatureIssue:
+      type: object
+      required: [line, message]
+      properties:
+        line: { type: integer, description: "1-based line in the YAML; 0 = no position." }
+        message: { type: string }
     SignatureValidation:
       type: object
-      required: [valid, errors]
+      required: [valid, errors, issues, id, name, severity, tags]
       properties:
         valid: { type: boolean }
-        errors: { type: array, items: { type: string } }
+        errors: { type: array, items: { type: string }, description: '"line N: message" strings.' }
+        issues: { type: array, items: { $ref: "#/components/schemas/SignatureIssue" } }
+        id: { type: string }
+        name: { type: string }
+        severity: { type: string }
+        tags: { type: array, items: { type: string } }
+    SignatureInvalid:
+      type: object
+      required: [error, issues]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string, examples: [invalid_signature] }
+            message: { type: string }
+        issues: { type: array, items: { $ref: "#/components/schemas/SignatureIssue" } }
     SignatureList:
       type: object
       required: [items, total]

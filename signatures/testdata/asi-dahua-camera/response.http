@@ -1,0 +1,6 @@
+HTTP/1.1 200 OK
+Content-Type: text/html
+
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>WEB SERVICE</title></head>
+<body><div id="login"></div><script src="/jsBase/lib/jquery.js"></script></body></html>

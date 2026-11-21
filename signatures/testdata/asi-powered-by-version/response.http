@@ -1,0 +1,8 @@
+HTTP/1.1 200 OK
+Content-Type: text/html; charset=UTF-8
+
+<!DOCTYPE html>
+<html><head><title>Explore</title></head>
+<body><div class="ui container">Repositories</div>
+<div class="left-links">Powered by <a href="https://about.gitea.com">Gitea</a> Version: 1.21.0 Page: 2ms</div>
+</body></html>

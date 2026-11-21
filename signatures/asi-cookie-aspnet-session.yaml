@@ -1,0 +1,16 @@
+id: asi-cookie-aspnet-session
+info:
+  name: ASP.NET session cookie
+  author: asi
+  severity: info
+  description: The response sets ASP.NET_SessionId, the ASP.NET session cookie.
+  tags: asi,cookies,tech,aspnet
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}"
+    matchers:
+      - type: regex
+        part: header
+        regex:
+          - '(?mi)^set-cookie:[ \t]*ASP\.NET_SessionId='

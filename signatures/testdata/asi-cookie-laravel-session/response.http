@@ -1,0 +1,8 @@
+HTTP/1.1 200 OK
+Server: nginx
+Content-Type: text/html; charset=UTF-8
+Cache-Control: no-cache, private
+Set-Cookie: XSRF-TOKEN=eyJpdiI6IjEyMyJ9; expires=Thu, 21 Nov 2026 12:00:00 GMT; Max-Age=7200; path=/; samesite=lax
+Set-Cookie: laravel_session=eyJpdiI6IjQ1NiJ9; expires=Thu, 21 Nov 2026 12:00:00 GMT; Max-Age=7200; path=/; httponly; samesite=lax
+
+<!DOCTYPE html><html><head><title>Dashboard</title></head><body>Dashboard</body></html>

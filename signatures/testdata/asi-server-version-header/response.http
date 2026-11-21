@@ -1,0 +1,7 @@
+HTTP/1.1 200 OK
+Date: Thu, 21 Nov 2026 10:00:00 GMT
+Server: Apache/2.4.49 (Unix)
+Last-Modified: Mon, 11 Jun 2007 18:53:14 GMT
+Content-Type: text/html
+
+<html><body><h1>It works!</h1></body></html>
