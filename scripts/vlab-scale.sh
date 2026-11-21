@@ -20,7 +20,7 @@ die() { echo "vlab-scale: $*" >&2; exit 1; }
 
 # cur VAR: the value of VAR in the running swarm, empty if it isn't running.
 cur() {
-  docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$CONTAINER" 2>/dev/null | sed -n "s/^$1=//p"
+  docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$CONTAINER" 2>/dev/null | sed -n "s/^$1=//p" || true
 }
 
 start() { # start N SEED EPOCH
