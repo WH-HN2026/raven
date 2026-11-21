@@ -63,6 +63,7 @@ type nucleiMatch struct {
 	Tags       []string                `json:"tags"`
 	Matcher    string                  `json:"matcher,omitempty"`
 	URL        string                  `json:"url"`
+	Tech       string                  `json:"tech,omitempty"`
 	CPE        string                  `json:"cpe,omitempty"`
 	Version    string                  `json:"version,omitempty"`
 }
@@ -115,7 +116,7 @@ func (s *Service) ingestNuclei(ctx context.Context, q *gen.Queries, b gen.Batch,
 		m.facts = append(m.facts, nucleiMatch{
 			Kind: o.Kind, TemplateID: o.Match.TemplateID, Name: o.Match.Name,
 			Severity: o.Match.Severity, Tags: nonNil(o.Match.Tags), Matcher: o.Match.Matcher,
-			URL: u.String(), CPE: cpeStr, Version: ver,
+			URL: u.String(), Tech: o.Tech, CPE: cpeStr, Version: ver,
 		})
 		m.evidence = append(m.evidence, nonNil(o.Match.Extracted))
 		if o.Kind == scanner.ObsTech && o.Tech != "" {

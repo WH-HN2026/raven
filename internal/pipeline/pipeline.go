@@ -47,10 +47,12 @@ type BatchHook interface {
 	AfterBatch(ctx context.Context, b BatchResult) error
 }
 
-// BatchResult is what a hook gets: the batch, the IPs that responded in it
-// (only those may be reimported, architecture §3.7) and the raw scanner result.
+// BatchResult is what a hook gets: the batch, the executed stages of the run,
+// the IPs that responded in it (only those may be reimported, architecture §3.7)
+// and the raw scanner result.
 type BatchResult struct {
 	RunID, BatchID, ProfileID int64
+	Stages                    []string
 	Responding                []netip.Addr
 	Scanner                   scanner.Scanner
 	Result                    *scanner.Result
@@ -141,6 +143,7 @@ type Run struct {
 	BatchesTotal  int64           `json:"batches_total"`
 	BatchesDone   int64           `json:"batches_done"`
 	BatchesFailed int64           `json:"batches_failed"`
+	Stages        []string        `json:"stages"`
 	Stats         json.RawMessage `json:"stats"`
 }
 
@@ -148,7 +151,8 @@ func runView(r gen.Run, total, done, failed int64) Run {
 	return Run{ID: r.ID, ProfileID: r.ProfileID, ScheduleID: r.ScheduleID, Status: r.Status,
 		CreatedAt: r.CreatedAt, StartedAt: r.StartedAt, FinishedAt: r.FinishedAt,
 		HostsTotal: r.HostsTotal, HostsUp: r.HostsUp,
-		BatchesTotal: total, BatchesDone: done, BatchesFailed: failed, Stats: r.Stats}
+		BatchesTotal: total, BatchesDone: done, BatchesFailed: failed,
+		Stages: EffectiveStages(r.Stages), Stats: r.Stats}
 }
 
 // Batch is the API view of a batch.
@@ -294,10 +298,11 @@ func (s *Service) startRun(ctx context.Context, u *auth.User, profileID int64, s
 		if n > 0 {
 			return fmt.Errorf("%w: profile %q already has a pending or running run", ErrConflict, prof.Name)
 		}
+		stages := EffectiveStages(lockedProfile.Stages)
 		run, err = q.InsertRun(ctx, gen.InsertRunParams{
 			ProfileID: profileID, Status: status, CreatedBy: userID(u),
 			StartedAt: &now, FinishedAt: finished, HostsTotal: int32(len(sl.IPs)), Stats: statsJSON,
-			ScheduleID: scheduleID, ScheduleWindowEnd: windowEnd,
+			ScheduleID: scheduleID, ScheduleWindowEnd: windowEnd, Stages: stages,
 		})
 		if err != nil {
 			return fmt.Errorf("insert run: %w", err)
@@ -330,7 +335,7 @@ func (s *Service) startRun(ctx context.Context, u *auth.User, profileID int64, s
 		if err := s.enqueueBatches(ctx, tx, ids, params); err != nil {
 			return err
 		}
-		diff := map[string]any{"profile_id": profileID, "hosts_total": len(sl.IPs), "batches": len(batches), "batch_size": plan.Size}
+		diff := map[string]any{"profile_id": profileID, "hosts_total": len(sl.IPs), "batches": len(batches), "batch_size": plan.Size, "stages": stages}
 		if scheduleID != nil {
 			diff["schedule_id"] = *scheduleID
 		}

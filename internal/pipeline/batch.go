@@ -47,6 +47,7 @@ func (s *Service) runBatch(ctx context.Context, a BatchArgs, jobID int64, attemp
 	var (
 		b      gen.Batch
 		prof   gen.Profile
+		stages []string
 		window gen.Run
 		closed bool
 	)
@@ -59,6 +60,7 @@ func (s *Service) runBatch(ctx context.Context, a BatchArgs, jobID int64, attemp
 		if !isActive(run.Status) {
 			return errSkip
 		}
+		stages = EffectiveStages(run.Stages)
 		if run.ScheduleID != nil {
 			owned, err := scheduledJobOwnsBatch(ctx, q, a.BatchID, &jobID)
 			if err != nil {
@@ -120,20 +122,20 @@ func (s *Service) runBatch(ctx context.Context, a BatchArgs, jobID int64, attemp
 	res, err := s.cfg.Scanner.Run(ctx, in,
 		scanner.Options{Ports: prof.Ports, MaxRate: s.nmapRate(prof)})
 	var web *scanner.Result
-	if err == nil {
+	if err == nil && HasStage(stages, StageHTTPX) {
 		if webIn := httpx.BuildInput(in, res.Observations); len(webIn.URLs) > 0 {
 			web, err = s.cfg.HTTPX.Run(ctx, webIn, scanner.Options{RateLimit: s.webRate(prof)})
 		}
 	}
 	var detection *scanner.Result
-	if err == nil {
+	if err == nil && HasStage(stages, StageNuclei) {
 		detection, err = s.scanNuclei(ctx, b, prof, web)
 	}
 	if err == nil {
 		var plan Plan
 		plan, err = s.ingestBatch(ctx, b, prof, hostnames, res, web, detection, start)
 		if err == nil {
-			s.afterBatch(jobCtx, b, prof, plan, res)
+			s.afterBatch(jobCtx, b, prof, stages, plan, res)
 			return nil
 		}
 	}
@@ -314,9 +316,9 @@ func (s *Service) batchFailed(ctx context.Context, b gen.Batch, start time.Time,
 	return fmt.Errorf("batch %d: %w", b.ID, cause)
 }
 
-func (s *Service) afterBatch(ctx context.Context, b gen.Batch, prof gen.Profile, plan Plan, res *scanner.Result) {
+func (s *Service) afterBatch(ctx context.Context, b gen.Batch, prof gen.Profile, stages []string, plan Plan, res *scanner.Result) {
 	err := s.cfg.Hook.AfterBatch(ctx, BatchResult{
-		RunID: b.RunID, BatchID: b.ID, ProfileID: prof.ID,
+		RunID: b.RunID, BatchID: b.ID, ProfileID: prof.ID, Stages: stages,
 		Responding: plan.Up, Scanner: s.cfg.Scanner, Result: res,
 	})
 	if err != nil {
