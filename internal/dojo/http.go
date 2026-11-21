@@ -111,7 +111,10 @@ func (c *HTTPClient) do(ctx context.Context, method, path string, q url.Values, 
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		msg, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
+		msg, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		if strings.Contains(resp.Header.Get("Content-Type"), "html") {
+			msg = []byte("(html error page)") // e.g. nginx 502 while Dojo boots
+		}
 		return fmt.Errorf("%s %s: HTTP %d: %s", method, path, resp.StatusCode, bytes.TrimSpace(msg))
 	}
 	if out == nil {
