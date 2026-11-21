@@ -124,7 +124,6 @@ describe('Findings page', () => {
 
     fireEvent.change(screen.getByLabelText('IP or CIDR'), { target: { value: '172.30.0.0/24' } })
     fireEvent.change(screen.getByLabelText('Source'), { target: { value: 'nuclei' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Apply' }))
     await waitFor(() =>
       expect(urls(spy)).toContain(
         '/api/findings?severity=High&active=true&ip=172.30.0.0%2F24&scanner=nuclei&limit=50&offset=0',
@@ -140,7 +139,6 @@ describe('Findings page', () => {
     // Status filter sends expanded flags (e.g. false_p) and asset
     fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'false_p' } })
     fireEvent.change(screen.getByLabelText('Asset'), { target: { value: '42' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Apply' }))
     await waitFor(() =>
       expect(urls(spy)).toContain(
         '/api/findings?severity=Critical%2CHigh&false_p=true&asset=42&ip=172.30.0.0%2F24&scanner=nuclei&limit=50&offset=0',
@@ -152,8 +150,9 @@ describe('Findings page', () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(async () => json({ items: [], total: 0 }))
     renderAs('viewer', <FindingsPage />, { path: '/findings' })
     expect(await screen.findByText('No findings yet.')).toBeInTheDocument()
-    fireEvent.change(screen.getByLabelText('IP or CIDR'), { target: { value: 'not an ip' } })
-    expect(screen.getByRole('button', { name: 'Apply' })).toBeDisabled()
+    const input = screen.getByLabelText('IP or CIDR')
+    fireEvent.change(input, { target: { value: 'not an ip' } })
+    expect(input).toHaveAttribute('aria-invalid', 'true')
   })
 
   it.each([700, 1400])('places the selected detail at %ipx', async (width) => {

@@ -124,13 +124,23 @@ func (q *Queries) GetUserForUpdate(ctx context.Context, id int64) (User, error) 
 const listUsers = `-- name: ListUsers :many
 SELECT id, username, role, disabled, created_at
 FROM users
-ORDER BY username
-LIMIT $1 OFFSET $2
+ORDER BY
+    CASE WHEN $1::text = 'username_asc' THEN lower(username) END ASC NULLS LAST,
+    CASE WHEN $1::text = 'username_desc' THEN lower(username) END DESC NULLS LAST,
+    CASE WHEN $1::text = 'role_asc' THEN role END ASC NULLS LAST,
+    CASE WHEN $1::text = 'role_desc' THEN role END DESC NULLS LAST,
+    CASE WHEN $1::text = 'status_asc' THEN disabled END ASC NULLS LAST,
+    CASE WHEN $1::text = 'status_desc' THEN disabled END DESC NULLS LAST,
+    CASE WHEN $1::text = 'created_at_asc' THEN created_at END ASC NULLS LAST,
+    CASE WHEN $1::text = 'created_at_desc' THEN created_at END DESC NULLS LAST,
+    CASE WHEN $1::text = '' THEN username END, id
+LIMIT $3 OFFSET $2
 `
 
 type ListUsersParams struct {
-	Limit  int32 `json:"limit"`
-	Offset int32 `json:"offset"`
+	SortKey string `json:"sort_key"`
+	Off     int32  `json:"off"`
+	Lim     int32  `json:"lim"`
 }
 
 type ListUsersRow struct {
@@ -142,7 +152,7 @@ type ListUsersRow struct {
 }
 
 func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]ListUsersRow, error) {
-	rows, err := q.db.Query(ctx, listUsers, arg.Limit, arg.Offset)
+	rows, err := q.db.Query(ctx, listUsers, arg.SortKey, arg.Off, arg.Lim)
 	if err != nil {
 		return nil, err
 	}

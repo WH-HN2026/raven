@@ -20,10 +20,9 @@ import (
 var (
 	ServiceStates = []string{"open", "gone"}
 	ServiceProtos = []string{"tcp", "udp"}
-	ServiceSorts  = []string{"ip", "port", "product", "version", "state", "first_seen", "last_seen"}
+	ServiceSorts  = []string{"ip", "port", "name", "product", "version", "state", "technologies", "cves", "first_seen", "last_seen"}
 	TechStates    = []string{"open", "gone", "all"}
-	TechSorts     = []string{"hosts", "services", "technology", "cves"}
-	SortOrders    = []string{"asc", "desc"}
+	TechSorts     = []string{"hosts", "services", "technology", "version", "cves"}
 )
 
 // ServiceFilter selects services for GET /api/services (and service export).
@@ -174,22 +173,28 @@ func serviceOrderBy(sort, order string) string {
 	if order == "desc" {
 		dir = "DESC"
 	}
+	column := "s.ip"
 	switch sort {
 	case "port":
-		return "s.port " + dir + ", s.proto ASC, s.ip ASC"
+		return "s.port " + dir + ", s.proto " + dir + ", s.ip, s.id"
+	case "name":
+		column = "lower(" + effNameExpr + ")"
 	case "product":
-		return "lower(" + effProductExpr + ") " + dir + ", lower(" + effVersionExpr + ") " + dir + ", s.ip ASC, s.port ASC"
+		return "lower(" + effProductExpr + ") " + dir + ", lower(" + effVersionExpr + ") " + dir + ", s.ip, s.port, s.id"
 	case "version":
-		return "lower(" + effVersionExpr + ") " + dir + ", lower(" + effProductExpr + ") ASC, s.ip ASC, s.port ASC"
+		return "lower(" + effVersionExpr + ") " + dir + ", lower(" + effProductExpr + ") ASC, s.ip, s.port, s.id"
 	case "state":
-		return "s.state " + dir + ", s.ip ASC, s.port ASC"
+		column = "s.state"
+	case "technologies":
+		column = "COALESCE(st.technologies, '{}')"
+	case "cves":
+		column = "COALESCE(cardinality(cm.cve_ids), 0)"
 	case "first_seen":
-		return "s.first_seen " + dir + ", s.ip ASC, s.port ASC"
+		column = "s.first_seen"
 	case "last_seen":
-		return "s.last_seen " + dir + ", s.ip ASC, s.port ASC"
-	default: // "ip"
-		return "s.ip " + dir + ", s.port ASC, s.proto ASC"
+		column = "s.last_seen"
 	}
+	return column + " " + dir + ", s.ip, s.port, s.proto, s.id"
 }
 
 func buildServiceList(f ServiceFilter) (list, count string, args []any) {
@@ -460,7 +465,7 @@ func ListTechnologies(ctx context.Context, pool *pgxpool.Pool, f TechnologyFilte
 	}
 	order := f.Order
 	if order == "" {
-		if sortField == "technology" {
+		if sortField == "technology" || sortField == "version" {
 			order = "asc"
 		} else {
 			order = "desc"
@@ -477,6 +482,8 @@ func ListTechnologies(ctx context.Context, pool *pgxpool.Pool, f TechnologyFilte
 			if d == 0 {
 				d = cmp.Compare(a.CVEMatchCount, b.CVEMatchCount)
 			}
+		case "version":
+			d = cmp.Compare(strings.ToLower(a.Version), strings.ToLower(b.Version))
 		case "technology":
 			d = cmp.Compare(strings.ToLower(a.Technology), strings.ToLower(b.Technology))
 			if d == 0 {

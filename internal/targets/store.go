@@ -12,6 +12,7 @@ import (
 
 	"github.com/WH-HN2026/raven/internal/audit"
 	"github.com/WH-HN2026/raven/internal/auth"
+	"github.com/WH-HN2026/raven/internal/db"
 	"github.com/WH-HN2026/raven/internal/db/gen"
 )
 
@@ -40,9 +41,9 @@ func userID(u *auth.User) *int64 {
 }
 
 // ListTargets returns one page of targets and the total count.
-func (s *Store) ListTargets(ctx context.Context, limit, offset int32) ([]gen.Target, int64, error) {
+func (s *Store) ListTargets(ctx context.Context, limit, offset int32, order db.ListOrder) ([]gen.Target, int64, error) {
 	q := gen.New(s.Pool)
-	items, err := q.ListTargets(ctx, gen.ListTargetsParams{Limit: limit, Offset: offset})
+	items, err := q.ListTargets(ctx, gen.ListTargetsParams{SortKey: order.Key(), Lim: limit, Off: offset})
 	if err != nil {
 		return nil, 0, fmt.Errorf("list targets: %w", err)
 	}

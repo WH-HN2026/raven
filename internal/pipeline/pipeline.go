@@ -22,6 +22,7 @@ import (
 
 	"github.com/WH-HN2026/raven/internal/audit"
 	"github.com/WH-HN2026/raven/internal/auth"
+	"github.com/WH-HN2026/raven/internal/db"
 	"github.com/WH-HN2026/raven/internal/db/gen"
 	"github.com/WH-HN2026/raven/internal/scanner"
 	"github.com/WH-HN2026/raven/internal/scanner/httpx"
@@ -178,9 +179,9 @@ func (s *Service) GetRun(ctx context.Context, id int64) (Run, error) {
 }
 
 // ListRuns returns runs newest first, optionally of one profile.
-func (s *Service) ListRuns(ctx context.Context, profileID *int64, limit, offset int32) ([]Run, int64, error) {
+func (s *Service) ListRuns(ctx context.Context, profileID *int64, limit, offset int32, order db.ListOrder) ([]Run, int64, error) {
 	q := gen.New(s.pool)
-	rows, err := q.ListRunViews(ctx, gen.ListRunViewsParams{ProfileID: profileID, Limit: limit, Offset: offset})
+	rows, err := q.ListRunViews(ctx, gen.ListRunViewsParams{ProfileID: profileID, SortKey: order.Key(), Lim: limit, Off: offset})
 	if err != nil {
 		return nil, 0, fmt.Errorf("list runs: %w", err)
 	}

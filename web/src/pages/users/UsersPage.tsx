@@ -1,3 +1,4 @@
+import { SortTh, useTableSort, useListOffset } from '../../components/SortTh'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Fragment, useState, type FormEvent } from 'react'
 import { api, type Schemas } from '../../api/client'
@@ -30,10 +31,11 @@ const PAGE = 50
 const usersKey = ['users'] as const
 
 export function UsersPage() {
-  const [offset, setOffset] = useState(0)
+  const [offset, setOffset] = useListOffset()
+  const sort = useTableSort(['username', 'role', 'status', 'created_at'], { offset: 'offset', initial: 'username' })
   const q = useQuery({
-    queryKey: [...usersKey, offset],
-    queryFn: () => api.get('/users', { query: { limit: PAGE, offset } }),
+    queryKey: [...usersKey, offset, sort.query],
+    queryFn: () => api.get('/users', { query: { limit: PAGE, offset, ...sort.query } }),
   })
   const total = q.data?.total
   return (
@@ -49,10 +51,10 @@ export function UsersPage() {
           <Table label="Users" minWidth={880}>
             <thead>
               <THeadRow>
-                <Th>Username</Th>
-                <Th>Role</Th>
-                <Th>Status</Th>
-                <Th>Created</Th>
+                <SortTh sort={sort} col="username">Username</SortTh>
+                <SortTh sort={sort} col="role">Role</SortTh>
+                <SortTh sort={sort} col="status">Status</SortTh>
+                <SortTh sort={sort} col="created_at">Created</SortTh>
                 <Th className="text-right">Actions</Th>
               </THeadRow>
             </thead>

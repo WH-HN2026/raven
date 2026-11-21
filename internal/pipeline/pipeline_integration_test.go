@@ -17,6 +17,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/WH-HN2026/raven/internal/db"
 	"github.com/WH-HN2026/raven/internal/dbtest"
 	"github.com/WH-HN2026/raven/internal/scanner"
 	"github.com/WH-HN2026/raven/internal/scanner/httpx"
@@ -429,7 +430,7 @@ func TestPipeline(t *testing.T) {
 		t.Fatalf("empty run = %+v stats=%s", r4, r4.Stats)
 	}
 
-	runs, total, err := s.ListRuns(ctx, &pid, 10, 0)
+	runs, total, err := s.ListRuns(ctx, &pid, 10, 0, db.ListOrder{})
 	if err != nil || total != 3 || runs[0].ID != r3.ID {
 		t.Fatalf("ListRuns = %d runs, total %d, err %v", len(runs), total, err)
 	}

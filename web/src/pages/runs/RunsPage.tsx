@@ -1,3 +1,4 @@
+import { SortTh, useTableSort, useListOffset } from '../../components/SortTh'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
@@ -15,7 +16,6 @@ import {
   SectionHeading,
   Table,
   Td,
-  Th,
   THeadRow,
   Tr,
   inputClass,
@@ -60,9 +60,10 @@ export function StartRunForm() {
   const err = start.error
   const conflict = err instanceof ApiError && err.status === 409
   // The run that blocks a new one, if it's in the cached list.
-  const runs = qc.getQueryData<Schemas['RunList']>([...runsKey, 0])
   const blocking = conflict
-    ? runs?.items.find((r) => r.profile_id === profileId && isActive(r.status))
+    ? qc.getQueriesData<Schemas['RunList']>({ queryKey: runsKey })
+        .flatMap(([, data]) => data?.items ?? [])
+        .find((r) => r.profile_id === profileId && isActive(r.status))
     : undefined
 
   return (
@@ -125,12 +126,13 @@ export function StartRunForm() {
 }
 
 export function RunsTable() {
-  const [offset, setOffset] = useState(0)
+  const [offset, setOffset] = useListOffset()
+  const sort = useTableSort(['id', 'profile', 'status', 'progress', 'hosts_up', 'started_at', 'duration'], { offset: 'offset', initial: 'id', direction: 'desc' })
   const profiles = useProfiles()
   const names = new Map((profiles.data?.items ?? []).map((p) => [p.id, p.name]))
   const q = useQuery({
-    queryKey: [...runsKey, offset],
-    queryFn: () => api.get('/runs', { query: { limit: PAGE, offset } }),
+    queryKey: [...runsKey, offset, sort.query],
+    queryFn: () => api.get('/runs', { query: { limit: PAGE, offset, ...sort.query } }),
     placeholderData: keepPreviousData,
     refetchInterval: (query) => pollWhile(!!query.state.data?.items.some((r) => isActive(r.status))),
   })
@@ -144,13 +146,13 @@ export function RunsTable() {
       <Table minWidth={760}>
         <thead>
           <THeadRow>
-            <Th>Run</Th>
-            <Th>Profile</Th>
-            <Th>Status</Th>
-            <Th>Progress</Th>
-            <Th>Hosts up / total</Th>
-            <Th>Started</Th>
-            <Th className="text-right">Duration</Th>
+            <SortTh sort={sort} col="id">Run</SortTh>
+            <SortTh sort={sort} col="profile">Profile</SortTh>
+            <SortTh sort={sort} col="status">Status</SortTh>
+            <SortTh sort={sort} col="progress">Progress</SortTh>
+            <SortTh sort={sort} col="hosts_up">Hosts up / total</SortTh>
+            <SortTh sort={sort} col="started_at">Started</SortTh>
+            <SortTh sort={sort} col="duration" className="text-right">Duration</SortTh>
           </THeadRow>
         </thead>
         <tbody>

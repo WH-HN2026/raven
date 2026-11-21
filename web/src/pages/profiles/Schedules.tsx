@@ -1,3 +1,4 @@
+import { SortTh, useTableSort } from '../../components/SortTh'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState, type FormEvent } from 'react'
 import { ApiError, api } from '../../api/client'
@@ -53,7 +54,8 @@ export function Schedules() {
   const canWrite = useCan('schedules:write')
   const profiles = useProfiles()
   const names = new Map((profiles.data?.items ?? []).map((p) => [p.id, p.name]))
-  const q = useQuery({ queryKey: schedulesKey, queryFn: () => api.get('/schedules', { query: { limit: 1000 } }) })
+  const sort = useTableSort(['name', 'profile', 'source', 'repeats', 'window', 'next_window', 'timezone', 'enabled'], { prefix: 'schedule_' })
+  const q = useQuery({ queryKey: [...schedulesKey, sort.query], queryFn: () => api.get('/schedules', { query: { limit: 1000, ...sort.query } }) })
   const items = q.data?.items ?? []
   // null = closed, 'new' = create form, a schedule = edit form.
   const [editing, setEditing] = useState<Schedule | 'new' | null>(null)
@@ -83,14 +85,14 @@ export function Schedules() {
       <Table minWidth={960} label="Schedules">
         <thead>
           <THeadRow>
-            <Th>Schedule</Th>
-            <Th>Profile</Th>
-            <Th>Source</Th>
-            <Th>Repeats</Th>
-            <Th>Window</Th>
-            <Th>Next window</Th>
-            <Th>Timezone</Th>
-            <Th>Enabled</Th>
+            <SortTh sort={sort} col="name">Schedule</SortTh>
+            <SortTh sort={sort} col="profile">Profile</SortTh>
+            <SortTh sort={sort} col="source">Source</SortTh>
+            <SortTh sort={sort} col="repeats">Repeats</SortTh>
+            <SortTh sort={sort} col="window">Window</SortTh>
+            <SortTh sort={sort} col="next_window">Next window</SortTh>
+            <SortTh sort={sort} col="timezone">Timezone</SortTh>
+            <SortTh sort={sort} col="enabled">Enabled</SortTh>
             {canWrite && <Th className="text-right">Actions</Th>}
           </THeadRow>
         </thead>

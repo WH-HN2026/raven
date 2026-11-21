@@ -38,10 +38,25 @@ SELECT sqlc.embed(r),
     (SELECT count(*) FROM batches b WHERE b.run_id = r.id) AS batches_total,
     (SELECT count(*) FROM batches b WHERE b.run_id = r.id AND b.status = 'done') AS batches_done,
     (SELECT count(*) FROM batches b WHERE b.run_id = r.id AND b.status = 'failed') AS batches_failed
-FROM runs r
+FROM runs r JOIN profiles p ON p.id = r.profile_id
 WHERE sqlc.narg(profile_id)::bigint IS NULL OR r.profile_id = sqlc.narg(profile_id)::bigint
-ORDER BY r.id DESC
-LIMIT $1 OFFSET $2;
+ORDER BY
+    CASE WHEN @sort_key::text = 'id_asc' THEN r.id END ASC NULLS LAST,
+    CASE WHEN @sort_key::text = 'id_desc' THEN r.id END DESC NULLS LAST,
+    CASE WHEN @sort_key::text = 'profile_asc' THEN lower(p.name) END ASC NULLS LAST,
+    CASE WHEN @sort_key::text = 'profile_desc' THEN lower(p.name) END DESC NULLS LAST,
+    CASE WHEN @sort_key::text = 'status_asc' THEN r.status END ASC NULLS LAST,
+    CASE WHEN @sort_key::text = 'status_desc' THEN r.status END DESC NULLS LAST,
+    CASE WHEN @sort_key::text = 'progress_asc' THEN COALESCE((SELECT count(*) FILTER (WHERE b.status = 'done')::numeric / NULLIF(count(*), 0) FROM batches b WHERE b.run_id = r.id), 0) END ASC NULLS LAST,
+    CASE WHEN @sort_key::text = 'progress_desc' THEN COALESCE((SELECT count(*) FILTER (WHERE b.status = 'done')::numeric / NULLIF(count(*), 0) FROM batches b WHERE b.run_id = r.id), 0) END DESC NULLS LAST,
+    CASE WHEN @sort_key::text = 'hosts_up_asc' THEN r.hosts_up END ASC NULLS LAST,
+    CASE WHEN @sort_key::text = 'hosts_up_desc' THEN r.hosts_up END DESC NULLS LAST,
+    CASE WHEN @sort_key::text = 'started_at_asc' THEN COALESCE(r.started_at, r.created_at) END ASC NULLS LAST,
+    CASE WHEN @sort_key::text = 'started_at_desc' THEN COALESCE(r.started_at, r.created_at) END DESC NULLS LAST,
+    CASE WHEN @sort_key::text = 'duration_asc' THEN (CASE WHEN r.finished_at IS NOT NULL THEN r.finished_at WHEN r.status IN ('pending', 'running') THEN now() END) - r.started_at END ASC NULLS LAST,
+    CASE WHEN @sort_key::text = 'duration_desc' THEN (CASE WHEN r.finished_at IS NOT NULL THEN r.finished_at WHEN r.status IN ('pending', 'running') THEN now() END) - r.started_at END DESC NULLS LAST,
+    r.id DESC
+LIMIT sqlc.arg(lim) OFFSET sqlc.arg(off);
 
 -- name: CountRuns :one
 SELECT count(*) FROM runs

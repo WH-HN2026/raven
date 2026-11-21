@@ -41,11 +41,15 @@ func usersError(w http.ResponseWriter, op string, err error) {
 }
 
 func (a *api) listUsers(w http.ResponseWriter, r *http.Request) {
+	order, ok := listOrder(w, r, "username", "role", "status", "created_at")
+	if !ok {
+		return
+	}
 	limit, offset, ok := pageParams(w, r)
 	if !ok {
 		return
 	}
-	items, total, err := a.userStore().List(r.Context(), limit, offset)
+	items, total, err := a.userStore().List(r.Context(), limit, offset, order)
 	if err != nil {
 		usersError(w, "list users", err)
 		return

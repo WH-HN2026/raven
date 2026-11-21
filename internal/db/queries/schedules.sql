@@ -57,6 +57,9 @@ SELECT id FROM schedules WHERE enabled ORDER BY id;
 -- name: ListSchedules :many
 SELECT * FROM schedules ORDER BY id LIMIT $1 OFFSET $2;
 
+-- name: ListAllSchedules :many
+SELECT * FROM schedules ORDER BY id;
+
 -- name: CountSchedules :one
 SELECT count(*) FROM schedules;
 

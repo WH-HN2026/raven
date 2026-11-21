@@ -7,9 +7,13 @@ import (
 	"net/netip"
 	"strconv"
 	"strings"
+
+	"github.com/WH-HN2026/raven/internal/db"
 )
 
 // States are the valid host states (hosts.state).
+var HostSorts = []string{"ip", "hostnames", "state", "open_ports", "active_finding_count", "technologies", "tags", "first_seen", "last_seen", "misses"}
+
 var States = []string{"active", "unstable", "inactive"}
 
 // Filter selects hosts for GET /api/hosts. Zero values mean "no filter".
@@ -21,6 +25,7 @@ type Filter struct {
 	// Q is an IP/CIDR (containment), otherwise an IP text prefix ("10.0.")
 	// or a case-insensitive hostname substring.
 	Q      string
+	Order  db.ListOrder
 	Limit  int32
 	Offset int32
 }
@@ -76,25 +81,62 @@ func parsePrefix(s string) (netip.Prefix, bool) {
 	return netip.Prefix{}, false
 }
 
+const openPorts = `ARRAY(SELECT DISTINCT s.port FROM services s WHERE s.ip = h.ip AND s.state = 'open' ORDER BY s.port)`
+const technologies = `ARRAY(SELECT DISTINCT t FROM services s JOIN http_observations o ON o.service_id = s.id,
+		unnest(o.technologies) AS t WHERE s.ip = h.ip ORDER BY t)`
+
+const activeFindingCount = `(SELECT count(*) FROM dojo_findings f WHERE f.ip = h.ip AND f.active)`
+
 // listColumns are the columns of one list item (see scanItem).
 const listColumns = `h.ip, h.hostnames, h.state, h.first_seen, h.last_seen, h.miss_count, h.dojo_asset_id,
 	h.owner, h.criticality, h.user_tags, h.overrides, u.username AS edited_by, h.edited_at,
 	(SELECT count(*) FROM services s WHERE s.ip = h.ip AND s.state = 'open') AS open_services,
-	ARRAY(SELECT DISTINCT s.port FROM services s WHERE s.ip = h.ip AND s.state = 'open' ORDER BY s.port) AS open_ports,
-	ARRAY(SELECT DISTINCT t FROM services s JOIN http_observations o ON o.service_id = s.id,
-		unnest(o.technologies) AS t WHERE s.ip = h.ip ORDER BY t) AS technologies,
-	(SELECT count(*) FROM dojo_findings f WHERE f.ip = h.ip AND f.active) AS active_finding_count`
+	` + openPorts + ` AS open_ports,
+	` + technologies + ` AS technologies,
+	` + activeFindingCount + ` AS active_finding_count`
+
+func hostOrderBy(order db.ListOrder) string {
+	if order == (db.ListOrder{}) {
+		return "h.ip"
+	}
+	column := "h.ip"
+	switch order.Column {
+	case "hostnames":
+		column = "lower(array_to_string(h.hostnames, ', '))"
+	case "state":
+		column = "h.state"
+	case "open_ports":
+		column = openPorts
+	case "active_finding_count":
+		column = activeFindingCount
+	case "technologies":
+		column = technologies
+	case "tags":
+		column = "lower(array_to_string(h.user_tags, ', '))"
+	case "first_seen":
+		column = "h.first_seen"
+	case "last_seen":
+		column = "h.last_seen"
+	case "misses":
+		column = "h.miss_count"
+	}
+	if column == "h.ip" {
+		return column + " " + order.SQLDirection()
+	}
+	return column + " " + order.SQLDirection() + ", h.ip"
+}
 
 // buildList returns the page query and the count query; the count query
-// uses args without the trailing limit/offset. Paginating in a subquery before
-// computing the correlated service, technology and findings aggregates ensures Postgres only
-// evaluates them for the returned page, not for all offset+limit rows.
+// uses args without the trailing limit/offset. Paginating in the subquery limits
+// display-only aggregates to the returned page. An aggregate used as the sort
+// key must also be evaluated for every matching host before pagination.
 func buildList(f Filter) (list, count string, args []any) {
 	where, args := buildWhere(f)
 	count = "SELECT count(*) FROM hosts h" + where
 	n := len(args)
+	order := hostOrderBy(f.Order)
 	list = "SELECT " + listColumns + " FROM (SELECT h.* FROM hosts h" + where +
-		" ORDER BY h.ip LIMIT $" + strconv.Itoa(n+1) + " OFFSET $" + strconv.Itoa(n+2) +
-		") h LEFT JOIN users u ON u.id = h.edited_by ORDER BY h.ip"
+		" ORDER BY " + order + " LIMIT $" + strconv.Itoa(n+1) + " OFFSET $" + strconv.Itoa(n+2) +
+		") h LEFT JOIN users u ON u.id = h.edited_by ORDER BY " + order
 	return list, count, append(args, f.Limit, f.Offset)
 }

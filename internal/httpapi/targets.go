@@ -79,11 +79,15 @@ func targetsError(w http.ResponseWriter, op string, err error) {
 }
 
 func (a *api) listTargets(w http.ResponseWriter, r *http.Request) {
+	order, ok := listOrder(w, r, "value", "kind", "source", "tags", "note", "created_at")
+	if !ok {
+		return
+	}
 	limit, offset, ok := pageParams(w, r)
 	if !ok {
 		return
 	}
-	items, total, err := a.targetStore().ListTargets(r.Context(), limit, offset)
+	items, total, err := a.targetStore().ListTargets(r.Context(), limit, offset, order)
 	if err != nil {
 		targetsError(w, "list targets", err)
 		return

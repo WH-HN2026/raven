@@ -12,6 +12,7 @@ import (
 
 	"github.com/WH-HN2026/raven/internal/audit"
 	"github.com/WH-HN2026/raven/internal/auth"
+	"github.com/WH-HN2026/raven/internal/db"
 	"github.com/WH-HN2026/raven/internal/db/gen"
 )
 
@@ -39,9 +40,9 @@ func (s *Store) tx(ctx context.Context, fn func(q *gen.Queries) error) error {
 }
 
 // List returns one page of users (ordered by username) and the total count.
-func (s *Store) List(ctx context.Context, limit, offset int32) ([]User, int64, error) {
+func (s *Store) List(ctx context.Context, limit, offset int32, order db.ListOrder) ([]User, int64, error) {
 	q := gen.New(s.Pool)
-	rows, err := q.ListUsers(ctx, gen.ListUsersParams{Limit: limit, Offset: offset})
+	rows, err := q.ListUsers(ctx, gen.ListUsersParams{SortKey: order.Key(), Lim: limit, Off: offset})
 	if err != nil {
 		return nil, 0, fmt.Errorf("list users: %w", err)
 	}

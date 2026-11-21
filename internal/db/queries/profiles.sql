@@ -1,5 +1,23 @@
 -- name: ListProfiles :many
-SELECT * FROM profiles ORDER BY name LIMIT $1 OFFSET $2;
+SELECT * FROM profiles ORDER BY
+    CASE WHEN @sort_key::text = 'name_asc' THEN lower(name) END ASC NULLS LAST,
+    CASE WHEN @sort_key::text = 'name_desc' THEN lower(name) END DESC NULLS LAST,
+    CASE WHEN @sort_key::text = 'ports_asc' THEN ports END ASC NULLS LAST,
+    CASE WHEN @sort_key::text = 'ports_desc' THEN ports END DESC NULLS LAST,
+    CASE WHEN @sort_key::text = 'nmap_rate_asc' THEN nmap_max_rate END ASC NULLS LAST,
+    CASE WHEN @sort_key::text = 'nmap_rate_desc' THEN nmap_max_rate END DESC NULLS LAST,
+    CASE WHEN @sort_key::text = 'nuclei_rate_asc' THEN nuclei_rate END ASC NULLS LAST,
+    CASE WHEN @sort_key::text = 'nuclei_rate_desc' THEN nuclei_rate END DESC NULLS LAST,
+    CASE WHEN @sort_key::text = 'nuclei_tags_asc' THEN nuclei_tags END ASC NULLS LAST,
+    CASE WHEN @sort_key::text = 'nuclei_tags_desc' THEN nuclei_tags END DESC NULLS LAST,
+    CASE WHEN @sort_key::text = 'miss_threshold_asc' THEN miss_threshold END ASC NULLS LAST,
+    CASE WHEN @sort_key::text = 'miss_threshold_desc' THEN miss_threshold END DESC NULLS LAST,
+    CASE WHEN @sort_key::text = 'batch_asc' THEN target_batch_seconds END ASC NULLS LAST,
+    CASE WHEN @sort_key::text = 'batch_desc' THEN target_batch_seconds END DESC NULLS LAST,
+    CASE WHEN @sort_key::text = 'enabled_asc' THEN enabled END ASC NULLS LAST,
+    CASE WHEN @sort_key::text = 'enabled_desc' THEN enabled END DESC NULLS LAST,
+    CASE WHEN @sort_key::text = '' THEN name END, id
+LIMIT sqlc.arg(lim) OFFSET sqlc.arg(off);
 
 -- name: CountProfiles :one
 SELECT count(*) FROM profiles;

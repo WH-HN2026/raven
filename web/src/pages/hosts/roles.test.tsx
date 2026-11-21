@@ -28,14 +28,14 @@ const host: Schemas['Host'] = {
   overrides: {},
 }
 
-// The hosts list has only filter controls; host detail edit controls need hosts:edit (operator and up).
+// The hosts list has read-only controls; host detail edit controls need hosts:edit (operator and up).
 describe('Hosts controls per role', () => {
   it.each(ROLES)('hosts list as %s', async (role) => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(json({ items: [host], total: 1 }))
     renderAs(role, <HostsPage />, { path: '/hosts' })
     expect(await screen.findByText('10.10.0.2')).toBeInTheDocument()
     const filters = screen.getByRole('search')
-    const outside = screen.queryAllByRole('button').filter((b) => !filters.contains(b) && b.textContent !== 'Previous' && b.textContent !== 'Next')
+    const outside = screen.queryAllByRole('button').filter((b) => !filters.contains(b) && !b.closest('th[aria-sort]') && b.textContent !== 'Previous' && b.textContent !== 'Next')
     expect(outside.map((b) => b.textContent)).toEqual([])
   })
 
@@ -60,7 +60,9 @@ describe('Hosts controls per role', () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(json(detail))
     renderAs(role, <HostDetailPage />, { path: '/hosts/10.10.0.2', route: '/hosts/:ip' })
     expect(await screen.findByText('ssh')).toBeInTheDocument()
-    const buttons = screen.queryAllByRole('button').map((b) => b.getAttribute('aria-label') ?? b.textContent)
+    const buttons = screen.queryAllByRole('button')
+      .filter((b) => !b.closest('th[aria-sort]'))
+      .map((b) => b.getAttribute('aria-label') ?? b.textContent)
     expect(buttons).toEqual(role === 'viewer' ? [] : ['Edit 22/tcp', 'Edit'])
   })
 })

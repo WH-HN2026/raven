@@ -15,8 +15,17 @@ SELECT count(*) FROM users WHERE role = 'admin' AND NOT disabled;
 -- name: ListUsers :many
 SELECT id, username, role, disabled, created_at
 FROM users
-ORDER BY username
-LIMIT $1 OFFSET $2;
+ORDER BY
+    CASE WHEN @sort_key::text = 'username_asc' THEN lower(username) END ASC NULLS LAST,
+    CASE WHEN @sort_key::text = 'username_desc' THEN lower(username) END DESC NULLS LAST,
+    CASE WHEN @sort_key::text = 'role_asc' THEN role END ASC NULLS LAST,
+    CASE WHEN @sort_key::text = 'role_desc' THEN role END DESC NULLS LAST,
+    CASE WHEN @sort_key::text = 'status_asc' THEN disabled END ASC NULLS LAST,
+    CASE WHEN @sort_key::text = 'status_desc' THEN disabled END DESC NULLS LAST,
+    CASE WHEN @sort_key::text = 'created_at_asc' THEN created_at END ASC NULLS LAST,
+    CASE WHEN @sort_key::text = 'created_at_desc' THEN created_at END DESC NULLS LAST,
+    CASE WHEN @sort_key::text = '' THEN username END, id
+LIMIT sqlc.arg(lim) OFFSET sqlc.arg(off);
 
 -- name: CountUsers :one
 SELECT count(*) FROM users;

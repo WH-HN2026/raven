@@ -139,6 +139,7 @@ M0 is sequential and blocking. Do it in **one** worktree, as fast as possible, t
 - [x] **U3 Findings layout + active findings counts.** Finding detail opens next to (wide) or under (narrow) the clicked row; active findings on the dashboard, hosts list and host detail.
 - [x] **U4 Behaviour fixes.** One Dojo finding per matched CVE; adding an existing target shows "Target already exists"; run comparison only older → newer.
 - [x] **U2 Naming & navigation fixes.** User profile page, flat breadcrumbs, clearer labels (intermittent hosts, exclude, signature status, type, profile enabled, batch duration).
+- [x] **U1 Sortable columns + instant filters.** Every list view has asc/desc sort on its column headers; filters apply immediately (no Apply button).
 
 ## M4 — MCP (last)
 

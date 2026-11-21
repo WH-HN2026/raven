@@ -51,19 +51,18 @@ func scanConfigError(w http.ResponseWriter, op string, err error) {
 }
 
 func (a *api) listSchedules(w http.ResponseWriter, r *http.Request) {
+	order, ok := listOrder(w, r, "name", "profile", "source", "repeats", "window", "next_window", "timezone", "enabled")
+	if !ok {
+		return
+	}
 	limit, offset, ok := pageParams(w, r)
 	if !ok {
 		return
 	}
 	ctx := r.Context()
-	rows, err := a.Queries.ListSchedules(ctx, gen.ListSchedulesParams{Limit: limit, Offset: offset})
+	rows, total, err := a.scanConfig().ListSchedules(ctx, limit, offset, order)
 	if err != nil {
 		scanConfigError(w, "list schedules", err)
-		return
-	}
-	total, err := a.Queries.CountSchedules(ctx)
-	if err != nil {
-		scanConfigError(w, "count schedules", err)
 		return
 	}
 	items := make([]scheduleView, len(rows))

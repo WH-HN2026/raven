@@ -19,11 +19,15 @@ func (a *api) mountProfiles(r chi.Router) {
 }
 
 func (a *api) listProfiles(w http.ResponseWriter, r *http.Request) {
+	order, ok := listOrder(w, r, "name", "ports", "nmap_rate", "nuclei_rate", "nuclei_tags", "miss_threshold", "batch", "enabled")
+	if !ok {
+		return
+	}
 	limit, offset, ok := pageParams(w, r)
 	if !ok {
 		return
 	}
-	items, err := a.Queries.ListProfiles(r.Context(), gen.ListProfilesParams{Limit: limit, Offset: offset})
+	items, err := a.Queries.ListProfiles(r.Context(), gen.ListProfilesParams{SortKey: order.Key(), Lim: limit, Off: offset})
 	if err != nil {
 		scanConfigError(w, "list profiles", err)
 		return

@@ -10,8 +10,8 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-// The dashboard is read-only: every role sees every block. The only control
-// is the "Start scan" link to /runs, shown to roles with runs:control.
+// Dashboard tables are sortable for all roles. The "Start scan" link
+// is shown to roles with runs:control.
 const canRun: Record<Role, boolean> = { viewer: false, operator: false, editor: true, admin: true }
 
 describe('Dashboard per role', () => {
@@ -22,7 +22,7 @@ describe('Dashboard per role', () => {
     for (const name of ['Active findings by severity', 'New devices', 'Top web technologies', 'CVE matches', 'Intermittent hosts', 'Recent runs']) {
       expect(screen.getByRole('heading', { name })).toBeInTheDocument()
     }
-    expect(screen.queryByRole('button')).toBeNull()
+    expect(screen.queryAllByRole('button').filter((b) => !b.closest('th[aria-sort]'))).toEqual([])
     expect(screen.queryByRole('link', { name: 'Start scan' }) !== null).toBe(canRun[role])
   })
 })
