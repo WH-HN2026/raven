@@ -113,16 +113,31 @@ func (q *Queries) ListAllTargets(ctx context.Context) ([]Target, error) {
 }
 
 const listTargets = `-- name: ListTargets :many
-SELECT id, kind, value, source, tags, created_by, created_at, note FROM targets ORDER BY id LIMIT $1 OFFSET $2
+SELECT id, kind, value, source, tags, created_by, created_at, note FROM targets ORDER BY
+    CASE WHEN $1::text = 'value_asc' THEN lower(value) END ASC NULLS LAST,
+    CASE WHEN $1::text = 'value_desc' THEN lower(value) END DESC NULLS LAST,
+    CASE WHEN $1::text = 'kind_asc' THEN kind END ASC NULLS LAST,
+    CASE WHEN $1::text = 'kind_desc' THEN kind END DESC NULLS LAST,
+    CASE WHEN $1::text = 'source_asc' THEN source END ASC NULLS LAST,
+    CASE WHEN $1::text = 'source_desc' THEN source END DESC NULLS LAST,
+    CASE WHEN $1::text = 'tags_asc' THEN tags END ASC NULLS LAST,
+    CASE WHEN $1::text = 'tags_desc' THEN tags END DESC NULLS LAST,
+    CASE WHEN $1::text = 'note_asc' THEN lower(note) END ASC NULLS LAST,
+    CASE WHEN $1::text = 'note_desc' THEN lower(note) END DESC NULLS LAST,
+    CASE WHEN $1::text = 'created_at_asc' THEN created_at END ASC NULLS LAST,
+    CASE WHEN $1::text = 'created_at_desc' THEN created_at END DESC NULLS LAST,
+    id
+LIMIT $3 OFFSET $2
 `
 
 type ListTargetsParams struct {
-	Limit  int32 `json:"limit"`
-	Offset int32 `json:"offset"`
+	SortKey string `json:"sort_key"`
+	Off     int32  `json:"off"`
+	Lim     int32  `json:"lim"`
 }
 
 func (q *Queries) ListTargets(ctx context.Context, arg ListTargetsParams) ([]Target, error) {
-	rows, err := q.db.Query(ctx, listTargets, arg.Limit, arg.Offset)
+	rows, err := q.db.Query(ctx, listTargets, arg.SortKey, arg.Off, arg.Lim)
 	if err != nil {
 		return nil, err
 	}

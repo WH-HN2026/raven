@@ -33,7 +33,11 @@ func (a *api) getChanges(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	c, err := changes.Compare(r.Context(), a.Queries, from, to, limit)
+	order, ok := listOrder(w, r, "change", "ip", "service", "field", "before", "after")
+	if !ok {
+		return
+	}
+	c, err := changes.CompareSorted(r.Context(), a.Queries, from, to, limit, order)
 	switch {
 	case errors.Is(err, changes.ErrRunNotFound), errors.Is(err, changes.ErrNoRuns):
 		httpx.Error(w, http.StatusNotFound, "not_found", err.Error())

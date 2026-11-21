@@ -169,6 +169,11 @@ func parseFindingFilter(r *http.Request) (dojo.FindingFilter, string) {
 		f.IP = &p
 	}
 	f.Q = strings.TrimSpace(qs.Get("q"))
+	order, msg := parseListOrder(qs, dojo.FindingSorts, false)
+	if msg != "" {
+		return f, msg
+	}
+	f.Order = order
 	f.Scanner = strings.TrimSpace(qs.Get("scanner"))
 	return f, ""
 }

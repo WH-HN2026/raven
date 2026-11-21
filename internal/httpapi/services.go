@@ -80,18 +80,11 @@ func parseServiceListFilter(r *http.Request) (hosts.ServiceFilter, string) {
 	f.Technology = strings.TrimSpace(cmp.Or(qs.Get("technology"), qs.Get("tech")))
 	f.Version = strings.TrimSpace(qs.Get("version"))
 	f.Q = strings.TrimSpace(qs.Get("q"))
-	if v := strings.ToLower(strings.TrimSpace(qs.Get("sort"))); v != "" {
-		if !slices.Contains(hosts.ServiceSorts, v) {
-			return f, "sort must be one of " + strings.Join(hosts.ServiceSorts, ", ")
-		}
-		f.Sort = v
+	order, msg := parseListOrder(qs, hosts.ServiceSorts, true)
+	if msg != "" {
+		return f, msg
 	}
-	if v := strings.ToLower(strings.TrimSpace(qs.Get("order"))); v != "" {
-		if !slices.Contains(hosts.SortOrders, v) {
-			return f, "order must be one of " + strings.Join(hosts.SortOrders, ", ")
-		}
-		f.Order = v
-	}
+	f.Sort, f.Order = order.Column, order.Direction
 	return f, ""
 }
 
@@ -125,17 +118,10 @@ func parseTechnologyFilter(r *http.Request) (hosts.TechnologyFilter, string) {
 		f.State = v
 	}
 	f.Q = strings.TrimSpace(qs.Get("q"))
-	if v := strings.ToLower(strings.TrimSpace(qs.Get("sort"))); v != "" {
-		if !slices.Contains(hosts.TechSorts, v) {
-			return f, "sort must be one of " + strings.Join(hosts.TechSorts, ", ")
-		}
-		f.Sort = v
+	order, msg := parseListOrder(qs, hosts.TechSorts, true)
+	if msg != "" {
+		return f, msg
 	}
-	if v := strings.ToLower(strings.TrimSpace(qs.Get("order"))); v != "" {
-		if !slices.Contains(hosts.SortOrders, v) {
-			return f, "order must be one of " + strings.Join(hosts.SortOrders, ", ")
-		}
-		f.Order = v
-	}
+	f.Sort, f.Order = order.Column, order.Direction
 	return f, ""
 }

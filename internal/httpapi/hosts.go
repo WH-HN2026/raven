@@ -117,6 +117,11 @@ func parseHostFilter(r *http.Request) (hosts.Filter, string) {
 	f.Tech = strings.TrimSpace(qs.Get("tech"))
 	f.Tag = strings.TrimSpace(qs.Get("tag"))
 	f.Q = strings.TrimSpace(qs.Get("q"))
+	order, msg := parseListOrder(qs, hosts.HostSorts, false)
+	if msg != "" {
+		return f, msg
+	}
+	f.Order = order
 	return f, ""
 }
 

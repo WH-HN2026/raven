@@ -205,6 +205,42 @@ func (q *Queries) ListAllProfileNames(ctx context.Context) ([]ListAllProfileName
 	return items, nil
 }
 
+const listAllSchedules = `-- name: ListAllSchedules :many
+SELECT id, profile_id, source, dojo_engagement_id, cron, window_start, window_end, timezone, enabled, created_at, name FROM schedules ORDER BY id
+`
+
+func (q *Queries) ListAllSchedules(ctx context.Context) ([]Schedule, error) {
+	rows, err := q.db.Query(ctx, listAllSchedules)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Schedule{}
+	for rows.Next() {
+		var i Schedule
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProfileID,
+			&i.Source,
+			&i.DojoEngagementID,
+			&i.Cron,
+			&i.WindowStart,
+			&i.WindowEnd,
+			&i.Timezone,
+			&i.Enabled,
+			&i.CreatedAt,
+			&i.Name,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listDojoScheduleRunStatuses = `-- name: ListDojoScheduleRunStatuses :many
 SELECT DISTINCT ON (s.id)
     s.id AS schedule_id,

@@ -1,6 +1,7 @@
 package signatures
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/WH-HN2026/raven/internal/audit"
 	"github.com/WH-HN2026/raven/internal/auth"
+	"github.com/WH-HN2026/raven/internal/db"
 	"github.com/WH-HN2026/raven/internal/db/gen"
 )
 
@@ -43,10 +45,16 @@ type Signature struct {
 
 // ListFilter selects signatures for List. Zero values mean "no filter".
 type ListFilter struct {
-	Tag string // exact tag match (case-insensitive)
+	Tag   string // exact tag match (case-insensitive)
+	Order db.ListOrder
 }
 
 func enrich(r gen.Signature) Signature {
+	sig, _ := signatureMetadata(r)
+	return sig
+}
+
+func signatureMetadata(r gen.Signature) (Signature, string) {
 	tpl, _ := Validate([]byte(r.TemplateYaml))
 	tags := make([]string, len(tpl.Tags))
 	copy(tags, tpl.Tags)
@@ -62,7 +70,7 @@ func enrich(r gen.Signature) Signature {
 		Builtin:         r.Builtin,
 		CreatedBy:       r.CreatedBy,
 		CreatedAt:       r.CreatedAt,
-	}
+	}, cmp.Or(tpl.Name, r.Name)
 }
 
 func hasTag(tags []string, want string) bool {
@@ -114,7 +122,7 @@ func ids(id int64) string { return strconv.FormatInt(id, 10) }
 func (s *Store) List(ctx context.Context, f ListFilter, limit, offset int32) ([]Signature, int64, error) {
 	q := gen.New(s.Pool)
 	tag := strings.TrimSpace(f.Tag)
-	if tag == "" {
+	if tag == "" && f.Order.Column == "" {
 		rows, err := q.ListSignatures(ctx, gen.ListSignaturesParams{Limit: limit, Offset: offset})
 		if err != nil {
 			return nil, 0, fmt.Errorf("list signatures: %w", err)
@@ -133,12 +141,25 @@ func (s *Store) List(ctx context.Context, f ListFilter, limit, offset int32) ([]
 	if err != nil {
 		return nil, 0, fmt.Errorf("list signatures: %w", err)
 	}
-	matched := make([]Signature, 0, len(rows))
+	type namedSignature struct {
+		Signature
+		displayName string
+	}
+	matched := make([]namedSignature, 0, len(rows))
 	for _, r := range rows {
-		sig := enrich(r)
-		if hasTag(sig.Tags, tag) {
-			matched = append(matched, sig)
+		sig, name := signatureMetadata(r)
+		if tag == "" || hasTag(sig.Tags, tag) {
+			matched = append(matched, namedSignature{sig, name})
 		}
+	}
+	if f.Order.Column != "" {
+		slices.SortFunc(matched, func(a, b namedSignature) int {
+			n := compareSignatures(f.Order.Column, a.Signature, b.Signature, a.displayName, b.displayName)
+			if f.Order.Direction == "desc" {
+				n = -n
+			}
+			return cmp.Or(n, cmp.Compare(a.ID, b.ID))
+		})
 	}
 	total := int64(len(matched))
 	start := int(offset)
@@ -149,7 +170,11 @@ func (s *Store) List(ctx context.Context, f ListFilter, limit, offset int32) ([]
 	if limit > 0 && start+int(limit) < end {
 		end = start + int(limit)
 	}
-	return matched[start:end], total, nil
+	items := make([]Signature, end-start)
+	for i, sig := range matched[start:end] {
+		items[i] = sig.Signature
+	}
+	return items, total, nil
 }
 
 // Get returns one signature.

@@ -116,6 +116,8 @@ paths:
       parameters:
         - { $ref: "#/components/parameters/Limit" }
         - { $ref: "#/components/parameters/Offset" }
+        - { name: sort, in: query, schema: { type: string, enum: [value, kind, source, tags, note, created_at] } }
+        - { name: dir, in: query, schema: { type: string, enum: [asc, desc] } }
       responses:
         "200":
           description: Targets.
@@ -268,6 +270,8 @@ paths:
         - { name: profile_id, in: query, schema: { type: integer, format: int64 } }
         - { $ref: "#/components/parameters/Limit" }
         - { $ref: "#/components/parameters/Offset" }
+        - { name: sort, in: query, schema: { type: string, enum: [id, profile, status, progress, hosts_up, started_at, duration], default: id } }
+        - { name: dir, in: query, schema: { type: string, enum: [asc, desc] } }
       responses:
         "200":
           description: Runs, newest first.
@@ -348,7 +352,7 @@ paths:
     get:
       tags: [hosts]
       operationId: listHosts
-      description: Hosts ordered by IP. All filters are optional and combined with AND.
+      description: Hosts ordered by IP by default. All filters are optional and combined with AND.
       parameters:
         - { name: state, in: query, schema: { $ref: "#/components/schemas/HostState" } }
         - { name: port, in: query, schema: { type: integer, minimum: 0, maximum: 65535 }, description: "has an open service on this port" }
@@ -357,6 +361,8 @@ paths:
         - { name: q, in: query, schema: { type: string }, description: "IP or CIDR (containment); otherwise IP text prefix or hostname substring" }
         - { $ref: "#/components/parameters/Limit" }
         - { $ref: "#/components/parameters/Offset" }
+        - { name: sort, in: query, schema: { type: string, enum: [ip, hostnames, state, open_ports, technologies, tags, first_seen, last_seen, misses], default: ip } }
+        - { name: dir, in: query, schema: { type: string, enum: [asc, desc] } }
       responses:
         "200":
           description: Hosts.
@@ -418,10 +424,11 @@ paths:
         - { name: state, in: query, schema: { type: string, enum: [open, gone] } }
         - { name: ip, in: query, schema: { type: string }, description: "IP or CIDR containment" }
         - { name: q, in: query, schema: { type: string }, description: "search across IP, hostname, name, product, version, CPE, technology" }
-        - { name: sort, in: query, schema: { type: string, enum: [ip, port, product, version, state, first_seen, last_seen], default: ip } }
-        - { name: order, in: query, schema: { type: string, enum: [asc, desc], default: asc } }
+        - { name: order, in: query, schema: { type: string, enum: [asc, desc] }, deprecated: true }
         - { $ref: "#/components/parameters/Limit" }
         - { $ref: "#/components/parameters/Offset" }
+        - { name: sort, in: query, schema: { type: string, enum: [ip, port, name, product, version, state, technologies, cves, first_seen, last_seen], default: ip } }
+        - { name: dir, in: query, schema: { type: string, enum: [asc, desc] } }
       responses:
         "200":
           description: Services.
@@ -437,10 +444,11 @@ paths:
       parameters:
         - { name: state, in: query, schema: { type: string, enum: [open, gone, all], default: open } }
         - { name: q, in: query, schema: { type: string }, description: "case-insensitive substring of technology or version" }
-        - { name: sort, in: query, schema: { type: string, enum: [hosts, services, technology, cves], default: hosts } }
-        - { name: order, in: query, schema: { type: string, enum: [asc, desc] } }
+        - { name: order, in: query, schema: { type: string, enum: [asc, desc] }, deprecated: true }
         - { $ref: "#/components/parameters/Limit" }
         - { $ref: "#/components/parameters/Offset" }
+        - { name: sort, in: query, schema: { type: string, enum: [hosts, services, technology, version, cves], default: hosts } }
+        - { name: dir, in: query, schema: { type: string, enum: [asc, desc] } }
       responses:
         "200":
           description: Aggregated technologies.
@@ -523,6 +531,8 @@ paths:
         - { name: scanner, in: query, description: "nmap, nuclei, raven (our INFO findings), …", schema: { type: string } }
         - { $ref: "#/components/parameters/Limit" }
         - { $ref: "#/components/parameters/Offset" }
+        - { name: sort, in: query, schema: { type: string, enum: [severity, title, ip, scanner, status, date], default: severity } }
+        - { name: dir, in: query, schema: { type: string, enum: [asc, desc] } }
       responses:
         "200":
           description: Findings.
@@ -588,6 +598,8 @@ paths:
         - { name: from, in: query, schema: { type: integer, format: int64, minimum: 1 } }
         - { name: to, in: query, schema: { type: integer, format: int64, minimum: 1 } }
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 5000, default: 1000 } }
+        - { name: sort, in: query, schema: { type: string, enum: [change, ip, service, field, before, after] } }
+        - { name: dir, in: query, schema: { type: string, enum: [asc, desc] } }
       responses:
         "200":
           description: Changes.
@@ -639,6 +651,8 @@ paths:
       parameters:
         - { $ref: "#/components/parameters/Limit" }
         - { $ref: "#/components/parameters/Offset" }
+        - { name: sort, in: query, schema: { type: string, enum: [name, ports, nmap_rate, nuclei_rate, nuclei_tags, miss_threshold, batch, enabled], default: name } }
+        - { name: dir, in: query, schema: { type: string, enum: [asc, desc] } }
       responses:
         "200":
           description: Profiles.
@@ -700,6 +714,8 @@ paths:
       parameters:
         - { $ref: "#/components/parameters/Limit" }
         - { $ref: "#/components/parameters/Offset" }
+        - { name: sort, in: query, schema: { type: string, enum: [name, profile, source, repeats, window, next_window, timezone, enabled] } }
+        - { name: dir, in: query, schema: { type: string, enum: [asc, desc] } }
       responses:
         "200":
           description: Schedules from the UI and Dojo.
@@ -762,6 +778,8 @@ paths:
         - { name: tag, in: query, schema: { type: string }, description: "Filter by exact tag (case-insensitive)." }
         - { $ref: "#/components/parameters/Limit" }
         - { $ref: "#/components/parameters/Offset" }
+        - { name: sort, in: query, schema: { type: string, enum: [name, severity, tags, source, validation, status] } }
+        - { name: dir, in: query, schema: { type: string, enum: [asc, desc] } }
       responses:
         "200":
           description: Signatures.
@@ -960,6 +978,8 @@ paths:
       parameters:
         - { $ref: "#/components/parameters/Limit" }
         - { $ref: "#/components/parameters/Offset" }
+        - { name: sort, in: query, schema: { type: string, enum: [username, role, status, created_at], default: username } }
+        - { name: dir, in: query, schema: { type: string, enum: [asc, desc] } }
       responses:
         "200":
           description: Users.

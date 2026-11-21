@@ -293,7 +293,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Hosts ordered by IP. All filters are optional and combined with AND. */
+        /** @description Hosts ordered by IP by default. All filters are optional and combined with AND. */
         get: operations["listHosts"];
         put?: never;
         post?: never;
@@ -1677,6 +1677,8 @@ export interface operations {
             query?: {
                 limit?: components["parameters"]["Limit"];
                 offset?: components["parameters"]["Offset"];
+                sort?: "value" | "kind" | "source" | "tags" | "note" | "created_at";
+                dir?: "asc" | "desc";
             };
             header?: never;
             path?: never;
@@ -1880,6 +1882,8 @@ export interface operations {
                 profile_id?: number;
                 limit?: components["parameters"]["Limit"];
                 offset?: components["parameters"]["Offset"];
+                sort?: "id" | "profile" | "status" | "progress" | "hosts_up" | "started_at" | "duration";
+                dir?: "asc" | "desc";
             };
             header?: never;
             path?: never;
@@ -2016,6 +2020,8 @@ export interface operations {
                 q?: string;
                 limit?: components["parameters"]["Limit"];
                 offset?: components["parameters"]["Offset"];
+                sort?: "ip" | "hostnames" | "state" | "open_ports" | "technologies" | "tags" | "first_seen" | "last_seen" | "misses";
+                dir?: "asc" | "desc";
             };
             header?: never;
             path?: never;
@@ -2106,10 +2112,12 @@ export interface operations {
                 ip?: string;
                 /** @description search across IP, hostname, name, product, version, CPE, technology */
                 q?: string;
-                sort?: "ip" | "port" | "product" | "version" | "state" | "first_seen" | "last_seen";
+                /** @deprecated */
                 order?: "asc" | "desc";
                 limit?: components["parameters"]["Limit"];
                 offset?: components["parameters"]["Offset"];
+                sort?: "ip" | "port" | "name" | "product" | "version" | "state" | "technologies" | "cves" | "first_seen" | "last_seen";
+                dir?: "asc" | "desc";
             };
             header?: never;
             path?: never;
@@ -2135,10 +2143,12 @@ export interface operations {
                 state?: "open" | "gone" | "all";
                 /** @description case-insensitive substring of technology or version */
                 q?: string;
-                sort?: "hosts" | "services" | "technology" | "cves";
+                /** @deprecated */
                 order?: "asc" | "desc";
                 limit?: components["parameters"]["Limit"];
                 offset?: components["parameters"]["Offset"];
+                sort?: "hosts" | "services" | "technology" | "version" | "cves";
+                dir?: "asc" | "desc";
             };
             header?: never;
             path?: never;
@@ -2242,6 +2252,8 @@ export interface operations {
                 scanner?: string;
                 limit?: components["parameters"]["Limit"];
                 offset?: components["parameters"]["Offset"];
+                sort?: "severity" | "title" | "ip" | "scanner" | "status" | "date";
+                dir?: "asc" | "desc";
             };
             header?: never;
             path?: never;
@@ -2327,6 +2339,8 @@ export interface operations {
                 from?: number;
                 to?: number;
                 limit?: number;
+                sort?: "change" | "ip" | "service" | "field" | "before" | "after";
+                dir?: "asc" | "desc";
             };
             header?: never;
             path?: never;
@@ -2399,6 +2413,8 @@ export interface operations {
             query?: {
                 limit?: components["parameters"]["Limit"];
                 offset?: components["parameters"]["Offset"];
+                sort?: "name" | "ports" | "nmap_rate" | "nuclei_rate" | "nuclei_tags" | "miss_threshold" | "batch" | "enabled";
+                dir?: "asc" | "desc";
             };
             header?: never;
             path?: never;
@@ -2505,6 +2521,8 @@ export interface operations {
             query?: {
                 limit?: components["parameters"]["Limit"];
                 offset?: components["parameters"]["Offset"];
+                sort?: "name" | "profile" | "source" | "repeats" | "window" | "next_window" | "timezone" | "enabled";
+                dir?: "asc" | "desc";
             };
             header?: never;
             path?: never;
@@ -2613,6 +2631,8 @@ export interface operations {
                 tag?: string;
                 limit?: components["parameters"]["Limit"];
                 offset?: components["parameters"]["Offset"];
+                sort?: "name" | "severity" | "tags" | "source" | "validation" | "status";
+                dir?: "asc" | "desc";
             };
             header?: never;
             path?: never;
@@ -2890,6 +2910,8 @@ export interface operations {
             query?: {
                 limit?: components["parameters"]["Limit"];
                 offset?: components["parameters"]["Offset"];
+                sort?: "username" | "role" | "status" | "created_at";
+                dir?: "asc" | "desc";
             };
             header?: never;
             path?: never;

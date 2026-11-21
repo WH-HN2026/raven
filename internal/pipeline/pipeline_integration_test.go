@@ -429,7 +429,7 @@ func TestPipeline(t *testing.T) {
 		t.Fatalf("empty run = %+v stats=%s", r4, r4.Stats)
 	}
 
-	runs, total, err := s.ListRuns(ctx, &pid, 10, 0)
+	runs, total, err := s.ListRuns(ctx, &pid, 10, 0, db.ListOrder{})
 	if err != nil || total != 3 || runs[0].ID != r3.ID {
 		t.Fatalf("ListRuns = %d runs, total %d, err %v", len(runs), total, err)
 	}

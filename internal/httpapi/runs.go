@@ -46,6 +46,10 @@ func (a *api) pipelineReady(w http.ResponseWriter) bool {
 }
 
 func (a *api) listRuns(w http.ResponseWriter, r *http.Request) {
+	order, ok := listOrder(w, r, "id", "profile", "status", "progress", "hosts_up", "started_at", "duration")
+	if !ok {
+		return
+	}
 	if !a.pipelineReady(w) {
 		return
 	}
@@ -62,7 +66,7 @@ func (a *api) listRuns(w http.ResponseWriter, r *http.Request) {
 		}
 		profileID = &n
 	}
-	items, total, err := a.Pipeline.ListRuns(r.Context(), profileID, limit, offset)
+	items, total, err := a.Pipeline.ListRuns(r.Context(), profileID, limit, offset, order)
 	if err != nil {
 		runsError(w, "list runs", err)
 		return

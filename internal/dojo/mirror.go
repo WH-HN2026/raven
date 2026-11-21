@@ -10,7 +10,11 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/WH-HN2026/raven/internal/db"
 )
+
+var FindingSorts = []string{"severity", "title", "ip", "scanner", "status", "date"}
 
 // FindingFilter selects findings from the mirror (GET /api/findings).
 // Zero values mean "no filter".
@@ -28,6 +32,7 @@ type FindingFilter struct {
 	IP           *netip.Prefix // a single IP is a /32 (/128) prefix
 	Q            string        // case-insensitive title substring
 	Scanner      string        // exact: nmap, nuclei, raven, …
+	Order        db.ListOrder
 	Limit        int32
 	Offset       int32
 }
@@ -52,8 +57,34 @@ type MirrorFinding struct {
 	DojoURL      string      `json:"dojo_url"`
 }
 
-// severityOrder sorts Critical first; it is a constant, not user input.
-const severityOrder = `CASE severity WHEN 'Critical' THEN 0 WHEN 'High' THEN 1 WHEN 'Medium' THEN 2 WHEN 'Low' THEN 3 ELSE 4 END`
+const severityRank = `CASE severity WHEN 'Critical' THEN 4 WHEN 'High' THEN 3 WHEN 'Medium' THEN 2 WHEN 'Low' THEN 1 ELSE 0 END`
+
+// Match the first applicable status displayed in the findings table.
+const findingStatus = `CASE WHEN duplicate THEN 'duplicate' WHEN false_p THEN 'false positive'
+	WHEN out_of_scope THEN 'out of scope' WHEN risk_accepted THEN 'risk accepted'
+	WHEN is_mitigated THEN 'mitigated' WHEN active AND verified THEN 'verified'
+	WHEN active THEN 'active' ELSE 'inactive' END`
+
+func findingOrderBy(order db.ListOrder) string {
+	column := severityRank
+	switch order.Column {
+	case "title":
+		column = "lower(title)"
+	case "ip":
+		column = "ip"
+	case "scanner":
+		column = "lower(scanner)"
+	case "status":
+		column = findingStatus
+	case "date":
+		column = "date"
+	}
+	direction := order.SQLDirection()
+	if order.Column == "" && order.Direction == "" {
+		direction = "DESC"
+	}
+	return column + " " + direction + " NULLS LAST, date DESC NULLS LAST, id DESC"
+}
 
 // buildFindingWhere returns the WHERE clause (with leading " WHERE " or
 // empty) and its args. Values are always bound as parameters.
@@ -128,7 +159,7 @@ func buildFindingList(f FindingFilter) (list string, count string, args []any) {
 	n := len(args)
 	list = "SELECT id, asset_id, ip, title, severity, active, verified, false_p, out_of_scope, risk_accepted, duplicate, is_mitigated, tags, scanner, " +
 		"to_char(date, 'YYYY-MM-DD') FROM dojo_findings" + where +
-		" ORDER BY " + severityOrder + ", date DESC NULLS LAST, id DESC" +
+		" ORDER BY " + findingOrderBy(f.Order) +
 		" LIMIT $" + strconv.Itoa(n+1) + " OFFSET $" + strconv.Itoa(n+2)
 	return list, count, append(args, f.Limit, f.Offset)
 }

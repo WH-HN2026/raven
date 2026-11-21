@@ -74,7 +74,11 @@ func (a *api) listSignatures(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	f := signatures.ListFilter{Tag: r.URL.Query().Get("tag")}
+	order, ok := listOrder(w, r, "name", "severity", "tags", "source", "validation", "status")
+	if !ok {
+		return
+	}
+	f := signatures.ListFilter{Tag: r.URL.Query().Get("tag"), Order: order}
 	items, total, err := a.signatureStore().List(r.Context(), f, limit, offset)
 	if err != nil {
 		signaturesError(w, "list signatures", err)

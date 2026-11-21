@@ -74,16 +74,35 @@ func (q *Queries) DeleteProfile(ctx context.Context, id int64) error {
 }
 
 const listProfiles = `-- name: ListProfiles :many
-SELECT id, name, ports, nmap_max_rate, nuclei_rate, nuclei_tags, miss_threshold, target_batch_seconds, enabled, created_at FROM profiles ORDER BY name LIMIT $1 OFFSET $2
+SELECT id, name, ports, nmap_max_rate, nuclei_rate, nuclei_tags, miss_threshold, target_batch_seconds, enabled, created_at FROM profiles ORDER BY
+    CASE WHEN $1::text = 'name_asc' THEN lower(name) END ASC NULLS LAST,
+    CASE WHEN $1::text = 'name_desc' THEN lower(name) END DESC NULLS LAST,
+    CASE WHEN $1::text = 'ports_asc' THEN ports END ASC NULLS LAST,
+    CASE WHEN $1::text = 'ports_desc' THEN ports END DESC NULLS LAST,
+    CASE WHEN $1::text = 'nmap_rate_asc' THEN nmap_max_rate END ASC NULLS LAST,
+    CASE WHEN $1::text = 'nmap_rate_desc' THEN nmap_max_rate END DESC NULLS LAST,
+    CASE WHEN $1::text = 'nuclei_rate_asc' THEN nuclei_rate END ASC NULLS LAST,
+    CASE WHEN $1::text = 'nuclei_rate_desc' THEN nuclei_rate END DESC NULLS LAST,
+    CASE WHEN $1::text = 'nuclei_tags_asc' THEN nuclei_tags END ASC NULLS LAST,
+    CASE WHEN $1::text = 'nuclei_tags_desc' THEN nuclei_tags END DESC NULLS LAST,
+    CASE WHEN $1::text = 'miss_threshold_asc' THEN miss_threshold END ASC NULLS LAST,
+    CASE WHEN $1::text = 'miss_threshold_desc' THEN miss_threshold END DESC NULLS LAST,
+    CASE WHEN $1::text = 'batch_asc' THEN target_batch_seconds END ASC NULLS LAST,
+    CASE WHEN $1::text = 'batch_desc' THEN target_batch_seconds END DESC NULLS LAST,
+    CASE WHEN $1::text = 'enabled_asc' THEN enabled END ASC NULLS LAST,
+    CASE WHEN $1::text = 'enabled_desc' THEN enabled END DESC NULLS LAST,
+    CASE WHEN $1::text = '' THEN name END, id
+LIMIT $3 OFFSET $2
 `
 
 type ListProfilesParams struct {
-	Limit  int32 `json:"limit"`
-	Offset int32 `json:"offset"`
+	SortKey string `json:"sort_key"`
+	Off     int32  `json:"off"`
+	Lim     int32  `json:"lim"`
 }
 
 func (q *Queries) ListProfiles(ctx context.Context, arg ListProfilesParams) ([]Profile, error) {
-	rows, err := q.db.Query(ctx, listProfiles, arg.Limit, arg.Offset)
+	rows, err := q.db.Query(ctx, listProfiles, arg.SortKey, arg.Off, arg.Lim)
 	if err != nil {
 		return nil, err
 	}

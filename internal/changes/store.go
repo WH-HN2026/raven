@@ -12,6 +12,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/WH-HN2026/raven/internal/db"
 	"github.com/WH-HN2026/raven/internal/db/gen"
 	"github.com/WH-HN2026/raven/internal/scanner"
 	"github.com/WH-HN2026/raven/internal/scanner/nmap"
@@ -59,6 +60,11 @@ type Changes struct {
 // from's profile if from is given); a nil from means the finished run of
 // to's profile right before to. limit caps each list.
 func Compare(ctx context.Context, q *gen.Queries, from, to *int64, limit int) (*Changes, error) {
+	return CompareSorted(ctx, q, from, to, limit, db.ListOrder{})
+}
+
+// CompareSorted orders each category before applying its limit.
+func CompareSorted(ctx context.Context, q *gen.Queries, from, to *int64, limit int, order db.ListOrder) (*Changes, error) {
 	f, t, err := resolve(ctx, q, from, to)
 	if err != nil {
 		return nil, err
@@ -72,6 +78,7 @@ func Compare(ctx context.Context, q *gen.Queries, from, to *int64, limit int) (*
 		return nil, err
 	}
 	r := Diff(a, b)
+	r.orderLists(order)
 	c := &Changes{
 		From: f, To: t,
 		Summary: Summary{
