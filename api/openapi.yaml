@@ -507,19 +507,37 @@ paths:
   /changes:
     get:
       tags: [changes]
-      operationId: listChanges
-      description: stub. Diff between two runs.
+      operationId: getChanges
+      description: |
+        Diff between two runs (read). Defaults: `to` = the latest done run (of `from`'s profile if `from` is given),
+        `from` = the done run of `to`'s profile right before it. Hosts: new = up in `to` and not up in `from`;
+        gone = up in `from` and down in `to`. Services are compared only on hosts up in both runs.
+        Each list is capped at `limit`; `summary` has the full counts.
       parameters:
-        - { name: from, in: query, required: true, schema: { type: integer, format: int64 } }
-        - { name: to, in: query, required: true, schema: { type: integer, format: int64 } }
-        - { $ref: "#/components/parameters/Limit" }
-        - { $ref: "#/components/parameters/Offset" }
+        - { name: from, in: query, schema: { type: integer, format: int64, minimum: 1 } }
+        - { name: to, in: query, schema: { type: integer, format: int64, minimum: 1 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 5000, default: 1000 } }
       responses:
         "200":
           description: Changes.
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/ChangeList" }
+              schema: { $ref: "#/components/schemas/RunDiff" }
+        default: { $ref: "#/components/responses/Error" }
+  /changes/hosts/{ip}:
+    get:
+      tags: [changes]
+      operationId: getHostTimeline
+      description: Host and port up/down in the last `runs` runs that scanned this IP, newest first (read).
+      parameters:
+        - { name: ip, in: path, required: true, schema: { type: string } }
+        - { name: runs, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 20 } }
+      responses:
+        "200":
+          description: Timeline.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HostTimeline" }
         default: { $ref: "#/components/responses/Error" }
 
   # ───────────────────────── profiles (W7) ─────────────────────────
@@ -1266,22 +1284,81 @@ components:
         total: { type: integer }
 
     # ── changes ──
-    Change:
+    DiffRun:
       type: object
-      required: [kind, ip]
+      required: [id, profile_id, status, started_at, finished_at]
       properties:
-        kind: { type: string, enum: [host_new, host_gone, service_new, service_gone, service_changed, http_changed] }
+        id: { type: integer, format: int64 }
+        profile_id: { type: integer, format: int64 }
+        status: { $ref: "#/components/schemas/RunStatus" }
+        started_at: { type: [string, "null"], format: date-time }
+        finished_at: { type: [string, "null"], format: date-time }
+    DiffSummary:
+      type: object
+      required: [hosts_new, hosts_gone, services_new, services_gone, services_changed]
+      properties:
+        hosts_new: { type: integer }
+        hosts_gone: { type: integer }
+        services_new: { type: integer }
+        services_gone: { type: integer }
+        services_changed: { type: integer }
+    HostChange:
+      type: object
+      required: [ip, other_run, ports]
+      properties:
         ip: { type: string }
-        port: { type: [integer, "null"] }
-        field: { type: string, description: "changed field, e.g. product, version, title, technologies" }
-        before: {}
-        after: {}
-    ChangeList:
+        other_run: { type: string, enum: [down, not_scanned], description: "the host's state in the run where it wasn't up" }
+        ports: { type: array, items: { type: integer }, description: "open ports in the run where it was up" }
+    ServiceFingerprint:
       type: object
-      required: [items, total]
+      required: [name, product, version, title, technologies]
       properties:
-        items: { type: array, items: { $ref: "#/components/schemas/Change" } }
-        total: { type: integer }
+        name: { type: string }
+        product: { type: string }
+        version: { type: string }
+        title: { type: string }
+        technologies: { type: array, items: { type: string } }
+    ServiceChange:
+      type: object
+      required: [ip, port, proto, before, after, fields]
+      properties:
+        ip: { type: string }
+        port: { type: integer }
+        proto: { type: string }
+        before: { oneOf: [{ $ref: "#/components/schemas/ServiceFingerprint" }, { type: "null" }], description: "null for new services" }
+        after: { oneOf: [{ $ref: "#/components/schemas/ServiceFingerprint" }, { type: "null" }], description: "null for gone services" }
+        fields:
+          type: array
+          items: { type: string, enum: [name, product, version, title, technologies] }
+          description: changed fields (only for changed services)
+    RunDiff:
+      type: object
+      required: [from, to, summary, hosts_new, hosts_gone, services_new, services_gone, services_changed, truncated]
+      properties:
+        from: { $ref: "#/components/schemas/DiffRun" }
+        to: { $ref: "#/components/schemas/DiffRun" }
+        summary: { $ref: "#/components/schemas/DiffSummary" }
+        hosts_new: { type: array, items: { $ref: "#/components/schemas/HostChange" } }
+        hosts_gone: { type: array, items: { $ref: "#/components/schemas/HostChange" } }
+        services_new: { type: array, items: { $ref: "#/components/schemas/ServiceChange" } }
+        services_gone: { type: array, items: { $ref: "#/components/schemas/ServiceChange" } }
+        services_changed: { type: array, items: { $ref: "#/components/schemas/ServiceChange" } }
+        truncated: { type: boolean, description: "some list was cut at limit" }
+    HostTimelineRun:
+      type: object
+      required: [run, up, observed_at, open_ports]
+      properties:
+        run: { $ref: "#/components/schemas/DiffRun" }
+        up: { type: boolean }
+        observed_at: { type: string, format: date-time }
+        open_ports: { type: array, items: { type: integer } }
+    HostTimeline:
+      type: object
+      required: [ip, ports, runs]
+      properties:
+        ip: { type: string }
+        ports: { type: array, items: { type: integer }, description: "every port open in any of the runs" }
+        runs: { type: array, items: { $ref: "#/components/schemas/HostTimelineRun" } }
 
     # ── profiles / schedules ──
     ProfileInput:

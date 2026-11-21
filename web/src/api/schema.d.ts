@@ -425,8 +425,30 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description stub. Diff between two runs. */
-        get: operations["listChanges"];
+        /**
+         * @description Diff between two runs (read). Defaults: `to` = the latest done run (of `from`'s profile if `from` is given),
+         *     `from` = the done run of `to`'s profile right before it. Hosts: new = up in `to` and not up in `from`;
+         *     gone = up in `from` and down in `to`. Services are compared only on hosts up in both runs.
+         *     Each list is capped at `limit`; `summary` has the full counts.
+         */
+        get: operations["getChanges"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/changes/hosts/{ip}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Host and port up/down in the last `runs` runs that scanned this IP, newest first (read). */
+        get: operations["getHostTimeline"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1016,19 +1038,76 @@ export interface components {
             items: components["schemas"]["Finding"][];
             total: number;
         };
-        Change: {
-            /** @enum {string} */
-            kind: "host_new" | "host_gone" | "service_new" | "service_gone" | "service_changed" | "http_changed";
-            ip: string;
-            port?: number | null;
-            /** @description changed field, e.g. product, version, title, technologies */
-            field?: string;
-            before?: unknown;
-            after?: unknown;
+        DiffRun: {
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            profile_id: number;
+            status: components["schemas"]["RunStatus"];
+            /** Format: date-time */
+            started_at: string | null;
+            /** Format: date-time */
+            finished_at: string | null;
         };
-        ChangeList: {
-            items: components["schemas"]["Change"][];
-            total: number;
+        DiffSummary: {
+            hosts_new: number;
+            hosts_gone: number;
+            services_new: number;
+            services_gone: number;
+            services_changed: number;
+        };
+        HostChange: {
+            ip: string;
+            /**
+             * @description the host's state in the run where it wasn't up
+             * @enum {string}
+             */
+            other_run: "down" | "not_scanned";
+            /** @description open ports in the run where it was up */
+            ports: number[];
+        };
+        ServiceFingerprint: {
+            name: string;
+            product: string;
+            version: string;
+            title: string;
+            technologies: string[];
+        };
+        ServiceChange: {
+            ip: string;
+            port: number;
+            proto: string;
+            /** @description null for new services */
+            before: components["schemas"]["ServiceFingerprint"] | null;
+            /** @description null for gone services */
+            after: components["schemas"]["ServiceFingerprint"] | null;
+            /** @description changed fields (only for changed services) */
+            fields: ("name" | "product" | "version" | "title" | "technologies")[];
+        };
+        RunDiff: {
+            from: components["schemas"]["DiffRun"];
+            to: components["schemas"]["DiffRun"];
+            summary: components["schemas"]["DiffSummary"];
+            hosts_new: components["schemas"]["HostChange"][];
+            hosts_gone: components["schemas"]["HostChange"][];
+            services_new: components["schemas"]["ServiceChange"][];
+            services_gone: components["schemas"]["ServiceChange"][];
+            services_changed: components["schemas"]["ServiceChange"][];
+            /** @description some list was cut at limit */
+            truncated: boolean;
+        };
+        HostTimelineRun: {
+            run: components["schemas"]["DiffRun"];
+            up: boolean;
+            /** Format: date-time */
+            observed_at: string;
+            open_ports: number[];
+        };
+        HostTimeline: {
+            ip: string;
+            /** @description every port open in any of the runs */
+            ports: number[];
+            runs: components["schemas"]["HostTimelineRun"][];
         };
         ProfileInput: {
             name: string;
@@ -1831,13 +1910,12 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
-    listChanges: {
+    getChanges: {
         parameters: {
-            query: {
-                from: number;
-                to: number;
-                limit?: components["parameters"]["Limit"];
-                offset?: components["parameters"]["Offset"];
+            query?: {
+                from?: number;
+                to?: number;
+                limit?: number;
             };
             header?: never;
             path?: never;
@@ -1851,7 +1929,32 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ChangeList"];
+                    "application/json": components["schemas"]["RunDiff"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getHostTimeline: {
+        parameters: {
+            query?: {
+                runs?: number;
+            };
+            header?: never;
+            path: {
+                ip: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Timeline. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostTimeline"];
                 };
             };
             default: components["responses"]["Error"];
