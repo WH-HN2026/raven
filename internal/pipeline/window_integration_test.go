@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/WH-HN2026/zadanie-agh-asi/internal/db/gen"
@@ -18,9 +19,9 @@ import (
 )
 
 type windowScanner struct {
-	slow      netip.Addr
-	cancelled chan error
-	once      sync.Once
+	slow, down netip.Addr
+	cancelled  chan error
+	once       sync.Once
 }
 
 func (*windowScanner) Name() string         { return "nmap" }
@@ -40,14 +41,24 @@ func (f *windowScanner) Run(ctx context.Context, in scanner.Input, _ scanner.Opt
 	}
 	return &scanner.Result{
 		Raw:          []byte("<nmaprun/>"),
-		Observations: []scanner.Observation{{Kind: scanner.ObsHost, IP: in.IPs[0], Up: true}},
+		Observations: []scanner.Observation{{Kind: scanner.ObsHost, IP: in.IPs[0], Up: in.IPs[0] != f.down}},
 	}, nil
 }
 
-func setupWindowPipeline(t *testing.T, pool *pgxpool.Pool, scan scanner.Scanner) (*Service, scheduler.Scheduler, int64) {
+type windowFinishedHook struct{ nopHook }
+
+func (windowFinishedHook) AfterRunFinished(ctx context.Context, tx pgx.Tx, runID int64) error {
+	_, err := tx.Exec(ctx, `UPDATE runs SET stats = stats || jsonb_build_object(
+		'test_finish_hook_calls', COALESCE((stats->>'test_finish_hook_calls')::int, 0) + 1
+	) WHERE id = $1`, runID)
+	return err
+}
+
+func setupWindowPipeline(t *testing.T, pool *pgxpool.Pool, cfg Config) (*Service, scheduler.Scheduler, int64) {
 	t.Helper()
 	ctx := context.Background()
-	s, err := New(pool, Config{Scanner: scan, BatchSize: 1, Workers: 1})
+	cfg.BatchSize, cfg.Workers = 1, 1
+	s, err := New(pool, cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,8 +88,21 @@ func setupWindowPipeline(t *testing.T, pool *pgxpool.Pool, scan scanner.Scanner)
 func TestScheduledRunResumesPendingBatches(t *testing.T) {
 	pool := dbtest.Fresh(t)
 	ctx := context.Background()
-	scan := &windowScanner{slow: netip.MustParseAddr("172.30.0.18"), cancelled: make(chan error, 1)}
-	service, ticker, profileID := setupWindowPipeline(t, pool, scan)
+	scan := &windowScanner{
+		slow:      netip.MustParseAddr("172.30.0.18"),
+		down:      netip.MustParseAddr("172.30.0.19"),
+		cancelled: make(chan error, 1),
+	}
+	service, ticker, profileID := setupWindowPipeline(t, pool, Config{Scanner: scan, Hook: windowFinishedHook{}})
+	// The last batch will record the third miss for a previously seen host.
+	if _, err := pool.Exec(ctx, "INSERT INTO hosts (ip, state, miss_count) VALUES ($1, 'unstable', 2)", scan.down); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `WITH previous AS (
+		INSERT INTO runs (profile_id, status) VALUES ($1, 'done') RETURNING id
+	) INSERT INTO run_observations (run_id, ip, up) SELECT id, $2, true FROM previous`, profileID, scan.down); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := pool.Exec(ctx, `INSERT INTO targets (kind, value, source) VALUES
 		('ip', '172.30.0.17', 'manual'), ('ip', '172.30.0.18', 'manual'), ('ip', '172.30.0.19', 'manual')`); err != nil {
 		t.Fatal(err)
@@ -113,6 +137,9 @@ func TestScheduledRunResumesPendingBatches(t *testing.T) {
 	if err != nil || len(batches) != 3 || batches[0].Status != "done" || batches[1].Status != "pending" || batches[2].Status != "pending" {
 		t.Fatalf("batches after deadline = %+v, %v", batches, err)
 	}
+	if n := count(t, pool, "SELECT count(*) FROM runs WHERE id = $1 AND stats ? 'test_finish_hook_calls'", run.ID); n != 0 {
+		t.Fatal("finish hook ran during suspension")
+	}
 	if err := ticker.RunOnce(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -138,6 +165,9 @@ func TestScheduledRunResumesPendingBatches(t *testing.T) {
 	if err != nil || len(batches) != 3 || batches[0].Attempts != 1 || batches[1].Attempts != 2 || batches[2].Attempts != 1 {
 		t.Fatalf("attempts after resumption = %+v, %v", batches, err)
 	}
+	if n := count(t, pool, "SELECT count(*) FROM runs WHERE id = $1 AND stats->>'test_finish_hook_calls' = '1' AND stats->>'became_inactive' = '1'", run.ID); n != 1 {
+		t.Fatal("resumed run did not record exactly one finish hook call for the inactive host")
+	}
 	if n := count(t, pool, "SELECT count(*) FROM runs WHERE schedule_id = $1", id); n != 1 {
 		t.Fatalf("scheduled runs = %d, want 1", n)
 	}
@@ -149,7 +179,7 @@ func TestScheduledRunResumesPendingBatches(t *testing.T) {
 func TestDojoScheduleStartsExactlyOnce(t *testing.T) {
 	pool := dbtest.Fresh(t)
 	ctx := context.Background()
-	_, ticker, profileID := setupWindowPipeline(t, pool, &windowScanner{})
+	_, ticker, profileID := setupWindowPipeline(t, pool, Config{Scanner: &windowScanner{}})
 	engagementID := int64(123)
 	now := time.Now()
 	start, end := now.Add(-time.Minute), now.Add(time.Minute)

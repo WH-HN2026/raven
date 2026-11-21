@@ -329,8 +329,11 @@ func (s *Service) startRun(ctx context.Context, u *auth.User, profileID int64, s
 		if err := s.enqueueBatches(ctx, tx, ids, params); err != nil {
 			return err
 		}
-		return audit.Log(ctx, q, userID(u), "runs.start", "run", strconv.FormatInt(run.ID, 10),
-			map[string]any{"profile_id": profileID, "schedule_id": scheduleID, "hosts_total": len(sl.IPs), "batches": len(batches), "batch_size": plan.Size})
+		diff := map[string]any{"profile_id": profileID, "hosts_total": len(sl.IPs), "batches": len(batches), "batch_size": plan.Size}
+		if scheduleID != nil {
+			diff["schedule_id"] = *scheduleID
+		}
+		return audit.Log(ctx, q, userID(u), "runs.start", "run", strconv.FormatInt(run.ID, 10), diff)
 	})
 	if err != nil {
 		return Run{}, err

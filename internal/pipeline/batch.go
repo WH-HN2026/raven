@@ -143,7 +143,7 @@ func (s *Service) runBatch(ctx context.Context, a BatchArgs, jobID int64, attemp
 		return s.pauseScheduledRun(recordCtx, window)
 	}
 	if errors.Is(err, errSkip) {
-		return river.JobCancel(errSkip)
+		return river.JobCancel(errors.New("run stopped"))
 	}
 	return s.batchFailed(ctx, b, start, err, attempt, maxAttempts)
 }
