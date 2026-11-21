@@ -139,6 +139,7 @@ type HttpObservation struct {
 	FaviconHash  string          `json:"favicon_hash"`
 	RunID        *int64          `json:"run_id"`
 	ObservedAt   time.Time       `json:"observed_at"`
+	Cpes         []string        `json:"cpes"`
 }
 
 type Profile struct {
@@ -191,6 +192,7 @@ type Schedule struct {
 	Timezone         string      `json:"timezone"`
 	Enabled          bool        `json:"enabled"`
 	CreatedAt        time.Time   `json:"created_at"`
+	Name             string      `json:"name"`
 }
 
 type ScopeEntry struct {

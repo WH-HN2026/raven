@@ -24,12 +24,13 @@ func (q *Queries) CountSchedules(ctx context.Context) (int64, error) {
 }
 
 const createSchedule = `-- name: CreateSchedule :one
-INSERT INTO schedules (profile_id, source, cron, window_start, window_end, timezone, enabled)
-VALUES ($1, 'ui', $2, $3, $4, $5, $6)
-RETURNING id, profile_id, source, dojo_engagement_id, cron, window_start, window_end, timezone, enabled, created_at
+INSERT INTO schedules (name, profile_id, source, cron, window_start, window_end, timezone, enabled)
+VALUES ($1, $2, 'ui', $3, $4, $5, $6, $7)
+RETURNING id, profile_id, source, dojo_engagement_id, cron, window_start, window_end, timezone, enabled, created_at, name
 `
 
 type CreateScheduleParams struct {
+	Name        string      `json:"name"`
 	ProfileID   int64       `json:"profile_id"`
 	Cron        pgtype.Text `json:"cron"`
 	WindowStart *time.Time  `json:"window_start"`
@@ -40,6 +41,7 @@ type CreateScheduleParams struct {
 
 func (q *Queries) CreateSchedule(ctx context.Context, arg CreateScheduleParams) (Schedule, error) {
 	row := q.db.QueryRow(ctx, createSchedule,
+		arg.Name,
 		arg.ProfileID,
 		arg.Cron,
 		arg.WindowStart,
@@ -59,6 +61,7 @@ func (q *Queries) CreateSchedule(ctx context.Context, arg CreateScheduleParams) 
 		&i.Timezone,
 		&i.Enabled,
 		&i.CreatedAt,
+		&i.Name,
 	)
 	return i, err
 }
@@ -114,7 +117,7 @@ func (q *Queries) GetLatestScheduledRun(ctx context.Context, scheduleID *int64) 
 }
 
 const getSchedule = `-- name: GetSchedule :one
-SELECT id, profile_id, source, dojo_engagement_id, cron, window_start, window_end, timezone, enabled, created_at FROM schedules WHERE id = $1
+SELECT id, profile_id, source, dojo_engagement_id, cron, window_start, window_end, timezone, enabled, created_at, name FROM schedules WHERE id = $1
 `
 
 func (q *Queries) GetSchedule(ctx context.Context, id int64) (Schedule, error) {
@@ -131,12 +134,13 @@ func (q *Queries) GetSchedule(ctx context.Context, id int64) (Schedule, error) {
 		&i.Timezone,
 		&i.Enabled,
 		&i.CreatedAt,
+		&i.Name,
 	)
 	return i, err
 }
 
 const getScheduleByDojoEngagement = `-- name: GetScheduleByDojoEngagement :one
-SELECT id, profile_id, source, dojo_engagement_id, cron, window_start, window_end, timezone, enabled, created_at FROM schedules WHERE dojo_engagement_id = $1
+SELECT id, profile_id, source, dojo_engagement_id, cron, window_start, window_end, timezone, enabled, created_at, name FROM schedules WHERE dojo_engagement_id = $1
 `
 
 func (q *Queries) GetScheduleByDojoEngagement(ctx context.Context, dojoEngagementID *int64) (Schedule, error) {
@@ -153,6 +157,7 @@ func (q *Queries) GetScheduleByDojoEngagement(ctx context.Context, dojoEngagemen
 		&i.Timezone,
 		&i.Enabled,
 		&i.CreatedAt,
+		&i.Name,
 	)
 	return i, err
 }
@@ -273,7 +278,7 @@ func (q *Queries) ListEnabledScheduleIDs(ctx context.Context) ([]int64, error) {
 }
 
 const listSchedules = `-- name: ListSchedules :many
-SELECT id, profile_id, source, dojo_engagement_id, cron, window_start, window_end, timezone, enabled, created_at FROM schedules ORDER BY id LIMIT $1 OFFSET $2
+SELECT id, profile_id, source, dojo_engagement_id, cron, window_start, window_end, timezone, enabled, created_at, name FROM schedules ORDER BY id LIMIT $1 OFFSET $2
 `
 
 type ListSchedulesParams struct {
@@ -301,6 +306,7 @@ func (q *Queries) ListSchedules(ctx context.Context, arg ListSchedulesParams) ([
 			&i.Timezone,
 			&i.Enabled,
 			&i.CreatedAt,
+			&i.Name,
 		); err != nil {
 			return nil, err
 		}
@@ -313,7 +319,7 @@ func (q *Queries) ListSchedules(ctx context.Context, arg ListSchedulesParams) ([
 }
 
 const lockSchedule = `-- name: LockSchedule :one
-SELECT id, profile_id, source, dojo_engagement_id, cron, window_start, window_end, timezone, enabled, created_at FROM schedules WHERE id = $1 FOR UPDATE
+SELECT id, profile_id, source, dojo_engagement_id, cron, window_start, window_end, timezone, enabled, created_at, name FROM schedules WHERE id = $1 FOR UPDATE
 `
 
 func (q *Queries) LockSchedule(ctx context.Context, id int64) (Schedule, error) {
@@ -330,6 +336,7 @@ func (q *Queries) LockSchedule(ctx context.Context, id int64) (Schedule, error) 
 		&i.Timezone,
 		&i.Enabled,
 		&i.CreatedAt,
+		&i.Name,
 	)
 	return i, err
 }
@@ -374,14 +381,15 @@ func (q *Queries) SuspendScheduledRun(ctx context.Context, id int64) error {
 }
 
 const updateUISchedule = `-- name: UpdateUISchedule :one
-UPDATE schedules SET profile_id = $1, cron = $2,
-    window_start = $3, window_end = $4,
-    timezone = $5, enabled = $6
-WHERE id = $7 AND source = 'ui'
-RETURNING id, profile_id, source, dojo_engagement_id, cron, window_start, window_end, timezone, enabled, created_at
+UPDATE schedules SET name = $1, profile_id = $2, cron = $3,
+    window_start = $4, window_end = $5,
+    timezone = $6, enabled = $7
+WHERE id = $8 AND source = 'ui'
+RETURNING id, profile_id, source, dojo_engagement_id, cron, window_start, window_end, timezone, enabled, created_at, name
 `
 
 type UpdateUIScheduleParams struct {
+	Name        string      `json:"name"`
 	ProfileID   int64       `json:"profile_id"`
 	Cron        pgtype.Text `json:"cron"`
 	WindowStart *time.Time  `json:"window_start"`
@@ -393,6 +401,7 @@ type UpdateUIScheduleParams struct {
 
 func (q *Queries) UpdateUISchedule(ctx context.Context, arg UpdateUIScheduleParams) (Schedule, error) {
 	row := q.db.QueryRow(ctx, updateUISchedule,
+		arg.Name,
 		arg.ProfileID,
 		arg.Cron,
 		arg.WindowStart,
@@ -413,24 +422,27 @@ func (q *Queries) UpdateUISchedule(ctx context.Context, arg UpdateUISchedulePara
 		&i.Timezone,
 		&i.Enabled,
 		&i.CreatedAt,
+		&i.Name,
 	)
 	return i, err
 }
 
 const upsertDojoSchedule = `-- name: UpsertDojoSchedule :one
-INSERT INTO schedules (profile_id, source, dojo_engagement_id, cron, window_start, window_end, timezone, enabled)
-VALUES ($1, 'dojo', $2, NULL, $3, $4, $5, true)
+INSERT INTO schedules (name, profile_id, source, dojo_engagement_id, cron, window_start, window_end, timezone, enabled)
+VALUES ($1, $2, 'dojo', $3, NULL, $4, $5, $6, true)
 ON CONFLICT (dojo_engagement_id) DO UPDATE SET
+    name         = EXCLUDED.name,
     profile_id   = EXCLUDED.profile_id,
     cron         = NULL,
     window_start = EXCLUDED.window_start,
     window_end   = EXCLUDED.window_end,
     timezone     = EXCLUDED.timezone,
     enabled      = true
-RETURNING id, profile_id, source, dojo_engagement_id, cron, window_start, window_end, timezone, enabled, created_at
+RETURNING id, profile_id, source, dojo_engagement_id, cron, window_start, window_end, timezone, enabled, created_at, name
 `
 
 type UpsertDojoScheduleParams struct {
+	Name             string     `json:"name"`
 	ProfileID        int64      `json:"profile_id"`
 	DojoEngagementID *int64     `json:"dojo_engagement_id"`
 	WindowStart      *time.Time `json:"window_start"`
@@ -440,6 +452,7 @@ type UpsertDojoScheduleParams struct {
 
 func (q *Queries) UpsertDojoSchedule(ctx context.Context, arg UpsertDojoScheduleParams) (Schedule, error) {
 	row := q.db.QueryRow(ctx, upsertDojoSchedule,
+		arg.Name,
 		arg.ProfileID,
 		arg.DojoEngagementID,
 		arg.WindowStart,
@@ -458,6 +471,7 @@ func (q *Queries) UpsertDojoSchedule(ctx context.Context, arg UpsertDojoSchedule
 		&i.Timezone,
 		&i.Enabled,
 		&i.CreatedAt,
+		&i.Name,
 	)
 	return i, err
 }

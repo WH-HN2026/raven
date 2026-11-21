@@ -670,7 +670,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description stub (501) until the nuclei scanner (S4) exposes a single-template run. Will run this signature against one lab URL and return the matches. */
+        /** @description Run this single signature template with nuclei (same safe flags as the pipeline: -no-interactsh, rate limit, timeout) against one in-scope URL. The URL's host must resolve to an IP inside configured targets/scope and not in the blacklist (400 otherwise). Writes an audit_log entry. */
         post: operations["testSignature"];
         delete?: never;
         options?: never;
@@ -1391,6 +1391,8 @@ export interface components {
             total: number;
         };
         ScheduleInput: {
+            /** @description Optional label for UI schedules; engagement name for Dojo schedules. */
+            name?: string;
             /** Format: int64 */
             profile_id: number;
             /** @description Required for UI writes. Supported forms are * * * * *, *\/N * * * *, 0 *\/N * * *, M * * * *, and M H * * *, where N is a positive step, M is 0–59, and H is 0–23. Evaluated in timezone. Null for Dojo. */
@@ -1416,6 +1418,8 @@ export interface components {
             source: "ui" | "dojo";
             /** Format: int64 */
             dojo_engagement_id?: number | null;
+            /** @description Link to the planned engagement in the Dojo UI (RAVEN_DOJO_PUBLIC_URL); empty for UI schedules or if Dojo is not configured. */
+            dojo_url: string;
         };
         ScheduleList: {
             items: components["schemas"]["Schedule"][];
@@ -1478,6 +1482,19 @@ export interface components {
         SignatureList: {
             items: components["schemas"]["Signature"][];
             total: number;
+        };
+        SignatureTestMatch: {
+            template_id: string;
+            name: string;
+            severity: string;
+            matcher: string;
+            matched_at: string;
+            extracted: string[];
+        };
+        SignatureTestResult: {
+            matched: boolean;
+            url: string;
+            matches: components["schemas"]["SignatureTestMatch"][];
         };
     };
     responses: {
@@ -2779,7 +2796,16 @@ export interface operations {
             };
         };
         responses: {
-            501: components["responses"]["Error"];
+            /** @description Test result. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignatureTestResult"];
+                };
+            };
+            400: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };

@@ -14,16 +14,34 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const backfillServiceCPE = `-- name: BackfillServiceCPE :exec
+UPDATE services
+SET cpe = $1
+WHERE ip = $2 AND port = $3 AND proto = 'tcp' AND cpe = ''
+`
+
+type BackfillServiceCPEParams struct {
+	Cpe  string     `json:"cpe"`
+	Ip   netip.Addr `json:"ip"`
+	Port int32      `json:"port"`
+}
+
+// Only fills services.cpe when nmap did not report one; never overwrites nmap or user overrides.
+func (q *Queries) BackfillServiceCPE(ctx context.Context, arg BackfillServiceCPEParams) error {
+	_, err := q.db.Exec(ctx, backfillServiceCPE, arg.Cpe, arg.Ip, arg.Port)
+	return err
+}
+
 const insertHTTPObservation = `-- name: InsertHTTPObservation :execrows
 INSERT INTO http_observations (
     service_id, url, status, title, headers_enc, cookies_enc, tls_cert_enc,
-    redirects, technologies, favicon_hash, run_id, observed_at
+    redirects, technologies, cpes, favicon_hash, run_id, observed_at
 )
 SELECT id, $1, $2, $3, raven_enc($4::text), raven_enc($5::text),
-       raven_enc(NULLIF($6::text, '')), $7, $8, $9,
-       $10, $11
+       raven_enc(NULLIF($6::text, '')), $7, $8, $9, $10,
+       $11, $12
 FROM services
-WHERE ip = $12 AND port = $13 AND proto = 'tcp'
+WHERE ip = $13 AND port = $14 AND proto = 'tcp'
 `
 
 type InsertHTTPObservationParams struct {
@@ -35,6 +53,7 @@ type InsertHTTPObservationParams struct {
 	TlsCert      string          `json:"tls_cert"`
 	Redirects    json.RawMessage `json:"redirects"`
 	Technologies []string        `json:"technologies"`
+	Cpes         []string        `json:"cpes"`
 	FaviconHash  string          `json:"favicon_hash"`
 	RunID        *int64          `json:"run_id"`
 	ObservedAt   time.Time       `json:"observed_at"`
@@ -52,6 +71,7 @@ func (q *Queries) InsertHTTPObservation(ctx context.Context, arg InsertHTTPObser
 		arg.TlsCert,
 		arg.Redirects,
 		arg.Technologies,
+		arg.Cpes,
 		arg.FaviconHash,
 		arg.RunID,
 		arg.ObservedAt,
@@ -67,12 +87,13 @@ func (q *Queries) InsertHTTPObservation(ctx context.Context, arg InsertHTTPObser
 const insertHTTPObservations = `-- name: InsertHTTPObservations :execrows
 INSERT INTO http_observations (
     service_id, url, status, title, headers_enc, cookies_enc, tls_cert_enc,
-    redirects, technologies, favicon_hash, run_id, observed_at
+    redirects, technologies, cpes, favicon_hash, run_id, observed_at
 )
 SELECT s.id, o.url, o.status, o.title,
        raven_enc(o.headers), raven_enc(o.cookies), raven_enc(NULLIF(o.tls_cert, '')),
        o.redirects::jsonb,
        COALESCE(ARRAY(SELECT jsonb_array_elements_text(o.technologies::jsonb)), '{}'::text[]),
+       COALESCE(ARRAY(SELECT jsonb_array_elements_text(o.cpes::jsonb)), '{}'::text[]),
        o.favicon_hash, $1, o.observed_at
 FROM (
     SELECT unnest($2::inet[]) AS ip,
@@ -85,8 +106,9 @@ FROM (
            unnest($9::text[]) AS tls_cert,
            unnest($10::text[]) AS redirects,
            unnest($11::text[]) AS technologies,
-           unnest($12::text[]) AS favicon_hash,
-           unnest($13::timestamptz[]) AS observed_at
+           unnest($12::text[]) AS cpes,
+           unnest($13::text[]) AS favicon_hash,
+           unnest($14::timestamptz[]) AS observed_at
 ) AS o
 JOIN services s ON s.ip = o.ip AND s.port = o.port AND s.proto = 'tcp'
 `
@@ -103,6 +125,7 @@ type InsertHTTPObservationsParams struct {
 	TlsCerts         []string     `json:"tls_certs"`
 	Redirects        []string     `json:"redirects"`
 	TechnologiesJson []string     `json:"technologies_json"`
+	CpesJson         []string     `json:"cpes_json"`
 	FaviconHashes    []string     `json:"favicon_hashes"`
 	ObservedAts      []time.Time  `json:"observed_ats"`
 }
@@ -120,6 +143,7 @@ func (q *Queries) InsertHTTPObservations(ctx context.Context, arg InsertHTTPObse
 		arg.TlsCerts,
 		arg.Redirects,
 		arg.TechnologiesJson,
+		arg.CpesJson,
 		arg.FaviconHashes,
 		arg.ObservedAts,
 	)

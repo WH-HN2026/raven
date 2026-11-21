@@ -13,6 +13,77 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const mergeNucleiCPEs = `-- name: MergeNucleiCPEs :execrows
+UPDATE http_observations AS h
+SET cpes = ARRAY(
+    SELECT DISTINCT c FROM unnest(h.cpes || $1::text[]) AS c ORDER BY c
+)
+FROM services AS s
+WHERE h.service_id = s.id AND s.ip = $2 AND s.port = $3 AND s.proto = 'tcp'
+    AND h.run_id = $4 AND h.url = $5
+`
+
+type MergeNucleiCPEsParams struct {
+	Cpes  []string   `json:"cpes"`
+	Ip    netip.Addr `json:"ip"`
+	Port  int32      `json:"port"`
+	RunID *int64     `json:"run_id"`
+	Url   string     `json:"url"`
+}
+
+func (q *Queries) MergeNucleiCPEs(ctx context.Context, arg MergeNucleiCPEsParams) (int64, error) {
+	result, err := q.db.Exec(ctx, mergeNucleiCPEs,
+		arg.Cpes,
+		arg.Ip,
+		arg.Port,
+		arg.RunID,
+		arg.Url,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const mergeNucleiCPEsBatch = `-- name: MergeNucleiCPEsBatch :execrows
+UPDATE http_observations AS h
+SET cpes = ARRAY(
+    SELECT DISTINCT c
+    FROM unnest(h.cpes || COALESCE(ARRAY(SELECT jsonb_array_elements_text(m.cpes::jsonb)), '{}'::text[])) AS c
+    ORDER BY c
+)
+FROM (
+    SELECT unnest($2::inet[]) AS ip,
+           unnest($3::int[]) AS port,
+           unnest($4::text[]) AS url,
+           unnest($5::text[]) AS cpes
+) AS m
+JOIN services AS s ON s.ip = m.ip AND s.port = m.port AND s.proto = 'tcp'
+WHERE h.service_id = s.id AND h.run_id = $1 AND h.url = m.url
+`
+
+type MergeNucleiCPEsBatchParams struct {
+	RunID    *int64       `json:"run_id"`
+	Ips      []netip.Addr `json:"ips"`
+	Ports    []int32      `json:"ports"`
+	Urls     []string     `json:"urls"`
+	CpesJson []string     `json:"cpes_json"`
+}
+
+func (q *Queries) MergeNucleiCPEsBatch(ctx context.Context, arg MergeNucleiCPEsBatchParams) (int64, error) {
+	result, err := q.db.Exec(ctx, mergeNucleiCPEsBatch,
+		arg.RunID,
+		arg.Ips,
+		arg.Ports,
+		arg.Urls,
+		arg.CpesJson,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const mergeNucleiTechnologies = `-- name: MergeNucleiTechnologies :execrows
 UPDATE http_observations AS h
 SET technologies = ARRAY(

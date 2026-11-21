@@ -9,15 +9,37 @@ FROM services s
 WHERE s.state = 'open' AND (s.cpe <> '' OR s.product <> '')
 ORDER BY s.ip, s.port, s.proto;
 
+-- name: ListHTTPTechCVECandidates :many
+-- Latest HTTP observations per (service, URL) on open services, carrying mapped CPEs and raw technologies.
+SELECT DISTINCT ON (ho.service_id, ho.url)
+    s.ip, s.port, s.proto, ho.cpes, ho.technologies
+FROM http_observations ho
+JOIN services s ON s.id = ho.service_id
+WHERE s.state = 'open'
+  AND (cardinality(ho.cpes) > 0 OR cardinality(ho.technologies) > 0)
+ORDER BY ho.service_id, ho.url, ho.observed_at DESC, ho.id DESC;
+
+-- name: ListNucleiCVECandidates :many
+-- Latest nuclei matches per open service for CPE+version CVE matching.
+SELECT DISTINCT ON (ro.ip, ro.port)
+    s.ip, s.port, s.proto, ro.nuclei_matches
+FROM run_observations ro
+JOIN services s ON s.ip = ro.ip AND s.port = ro.port AND s.proto = 'tcp'
+WHERE s.state = 'open'
+  AND ro.up
+  AND ro.port IS NOT NULL
+  AND ro.nuclei_matches <> '[]'::jsonb
+ORDER BY ro.ip, ro.port, ro.observed_at DESC;
+
 -- name: UpsertCVEMatch :exec
 INSERT INTO cve_matches (ip, port, proto, product, cpe, version, cve_ids, hits, max_cvss, kev,
                          distro, confidence, severity, matched_at, updated_at)
 VALUES (@ip, @port, @proto, @product, @cpe, @version, @cve_ids, @hits, @max_cvss, @kev,
         @distro, @confidence, @severity, @now, @now)
-ON CONFLICT (ip, port, proto) DO UPDATE SET
-    matched_at = CASE WHEN cve_matches.cpe = EXCLUDED.cpe AND cve_matches.version = EXCLUDED.version
+ON CONFLICT (ip, port, proto, cpe) DO UPDATE SET
+    matched_at = CASE WHEN cve_matches.version = EXCLUDED.version
                       THEN cve_matches.matched_at ELSE EXCLUDED.matched_at END,
-    product = EXCLUDED.product, cpe = EXCLUDED.cpe, version = EXCLUDED.version,
+    product = EXCLUDED.product, version = EXCLUDED.version,
     cve_ids = EXCLUDED.cve_ids, hits = EXCLUDED.hits, max_cvss = EXCLUDED.max_cvss,
     kev = EXCLUDED.kev, distro = EXCLUDED.distro, confidence = EXCLUDED.confidence,
     severity = EXCLUDED.severity, updated_at = EXCLUDED.updated_at;
@@ -29,7 +51,7 @@ DELETE FROM cve_matches WHERE updated_at < @now;
 -- name: ListCVEMatches :many
 SELECT * FROM cve_matches
 WHERE (sqlc.narg(ip)::inet IS NULL OR ip = sqlc.narg(ip)::inet)
-ORDER BY max_cvss DESC, ip, port;
+ORDER BY max_cvss DESC, ip, port, cpe;
 
 -- name: ListCVEPushHosts :many
 -- Active hosts that have matches or had some pushed before; the caller

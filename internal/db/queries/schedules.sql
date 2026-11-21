@@ -4,9 +4,10 @@
 SELECT id, name FROM profiles ORDER BY id;
 
 -- name: UpsertDojoSchedule :one
-INSERT INTO schedules (profile_id, source, dojo_engagement_id, cron, window_start, window_end, timezone, enabled)
-VALUES (@profile_id, 'dojo', @dojo_engagement_id, NULL, sqlc.narg(window_start), sqlc.narg(window_end), @timezone, true)
+INSERT INTO schedules (name, profile_id, source, dojo_engagement_id, cron, window_start, window_end, timezone, enabled)
+VALUES (@name, @profile_id, 'dojo', @dojo_engagement_id, NULL, sqlc.narg(window_start), sqlc.narg(window_end), @timezone, true)
 ON CONFLICT (dojo_engagement_id) DO UPDATE SET
+    name         = EXCLUDED.name,
     profile_id   = EXCLUDED.profile_id,
     cron         = NULL,
     window_start = EXCLUDED.window_start,
@@ -60,12 +61,12 @@ SELECT * FROM schedules ORDER BY id LIMIT $1 OFFSET $2;
 SELECT count(*) FROM schedules;
 
 -- name: CreateSchedule :one
-INSERT INTO schedules (profile_id, source, cron, window_start, window_end, timezone, enabled)
-VALUES (@profile_id, 'ui', sqlc.narg(cron), sqlc.narg(window_start), sqlc.narg(window_end), @timezone, @enabled)
+INSERT INTO schedules (name, profile_id, source, cron, window_start, window_end, timezone, enabled)
+VALUES (@name, @profile_id, 'ui', sqlc.narg(cron), sqlc.narg(window_start), sqlc.narg(window_end), @timezone, @enabled)
 RETURNING *;
 
 -- name: UpdateUISchedule :one
-UPDATE schedules SET profile_id = @profile_id, cron = sqlc.narg(cron),
+UPDATE schedules SET name = @name, profile_id = @profile_id, cron = sqlc.narg(cron),
     window_start = sqlc.narg(window_start), window_end = sqlc.narg(window_end),
     timezone = @timezone, enabled = @enabled
 WHERE id = @id AND source = 'ui'
