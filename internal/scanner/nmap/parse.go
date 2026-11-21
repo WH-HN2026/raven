@@ -38,12 +38,13 @@ type xmlPort struct {
 		State string `xml:"state,attr"`
 	} `xml:"state"`
 	Service struct {
-		Name      string `xml:"name,attr"`
-		Product   string `xml:"product,attr"`
-		Version   string `xml:"version,attr"`
-		ExtraInfo string `xml:"extrainfo,attr"`
-		Tunnel    string `xml:"tunnel,attr"`
-		ServiceFP string `xml:"servicefp,attr"`
+		Name      string   `xml:"name,attr"`
+		Product   string   `xml:"product,attr"`
+		Version   string   `xml:"version,attr"`
+		ExtraInfo string   `xml:"extrainfo,attr"`
+		Tunnel    string   `xml:"tunnel,attr"`
+		ServiceFP string   `xml:"servicefp,attr"`
+		CPEs      []string `xml:"cpe"`
 	} `xml:"service"`
 	Scripts []xmlScript `xml:"script"`
 }
@@ -179,6 +180,7 @@ func (h xmlHost) observations(ip netip.Addr, runStart int64) []scanner.Observati
 			Service: serviceName(p.Service.Name, p.Service.Tunnel),
 			Product: p.Service.Product,
 			Version: p.Service.Version,
+			CPE:     selectCPE(p.Service.CPEs),
 			Banner:  p.Service.ServiceFP,
 		}
 		info := &scanner.HTTPInfo{}
@@ -236,6 +238,85 @@ func serviceName(name, tunnel string) string {
 		return "https"
 	}
 	return "ssl/" + name
+}
+
+// selectCPE picks a single normalized CPE to store on a service when nmap
+// emits zero, one, or multiple <cpe> elements (e.g. an application CPE plus
+// an OS CPE like cpe:/o:linux:linux_kernel).
+//
+// Policy: keep the most specific application CPE:
+//  1. Prefer part "a" (application) over "o" (OS) over "h" (hardware).
+//  2. Within the same part, prefer a CPE that includes a version over one without.
+//  3. Break ties by first appearance in nmap's XML output.
+func selectCPE(raws []string) string {
+	var (
+		best     string
+		bestPart int
+		bestVer  bool
+	)
+	for _, raw := range raws {
+		norm, part, hasVer := parseCPE(raw)
+		if norm == "" {
+			continue
+		}
+		if part > bestPart || (part == bestPart && hasVer && !bestVer) {
+			best, bestPart, bestVer = norm, part, hasVer
+		}
+	}
+	return best
+}
+
+// normalizeCPE converts an nmap CPE URI (CPE 2.2 "cpe:/a:vendor:product[:version...]"
+// or CPE 2.3 "cpe:2.3:a:vendor:product[:version...]") into "vendor:product" or
+// "vendor:product:version". Invalid or incomplete CPEs return "".
+func normalizeCPE(raw string) string {
+	norm, _, _ := parseCPE(raw)
+	return norm
+}
+
+func parseCPE(raw string) (norm string, partRank int, hasVersion bool) {
+	s := strings.TrimSpace(strings.ToLower(raw))
+	var rest string
+	switch {
+	case strings.HasPrefix(s, "cpe:/"):
+		rest = strings.TrimPrefix(s, "cpe:/")
+	case strings.HasPrefix(s, "cpe:2.3:"):
+		rest = strings.TrimPrefix(s, "cpe:2.3:")
+	default:
+		return "", 0, false
+	}
+	parts := strings.Split(rest, ":")
+	if len(parts) < 3 {
+		return "", 0, false
+	}
+	switch parts[0] {
+	case "a":
+		partRank = 3
+	case "o":
+		partRank = 2
+	case "h":
+		partRank = 1
+	default:
+		return "", 0, false
+	}
+	vendor, product := cleanCPEPart(parts[1]), cleanCPEPart(parts[2])
+	if vendor == "" || product == "" {
+		return "", 0, false
+	}
+	if len(parts) >= 4 {
+		if ver := cleanCPEPart(parts[3]); ver != "" {
+			return vendor + ":" + product + ":" + ver, partRank, true
+		}
+	}
+	return vendor + ":" + product, partRank, false
+}
+
+func cleanCPEPart(p string) string {
+	p = strings.TrimSpace(p)
+	if p == "" || p == "*" || p == "-" {
+		return ""
+	}
+	return p
 }
 
 // parseHeaders reads http-headers output ("  Name: value" lines, then a

@@ -60,6 +60,7 @@ type Observation struct {
 	Service    string // nmap service name, e.g. "http"
 	Product    string
 	Version    string
+	CPE        string // normalized "vendor:product" or "vendor:product:version" (architecture §11)
 	Banner     string
 	URL        string // ObsHTTP, ObsTech, ObsMatch
 	HTTP       *HTTPInfo

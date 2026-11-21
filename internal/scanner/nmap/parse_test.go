@@ -47,6 +47,7 @@ type key struct {
 	Service string
 	Product string
 	Version string
+	CPE     string
 	URL     string
 	Title   string
 }
@@ -55,7 +56,7 @@ func keys(obs []scanner.Observation) []key {
 	out := make([]key, 0, len(obs))
 	for _, o := range obs {
 		k := key{Kind: o.Kind, IP: o.IP.String(), Up: o.Up, Port: o.Port, Proto: o.Proto,
-			Service: o.Service, Product: o.Product, Version: o.Version, URL: o.URL}
+			Service: o.Service, Product: o.Product, Version: o.Version, CPE: o.CPE, URL: o.URL}
 		if o.HTTP != nil {
 			k.Title = o.HTTP.Title
 		}
@@ -70,17 +71,17 @@ func TestParseLab(t *testing.T) {
 	want := []key{
 		{Kind: scanner.ObsHost, IP: "172.31.250.20", Up: false},
 		{Kind: scanner.ObsHost, IP: "172.31.250.10", Up: true},
-		{Kind: scanner.ObsService, IP: "172.31.250.10", Port: 80, Proto: "tcp", Service: "http", Product: "nginx"},
+		{Kind: scanner.ObsService, IP: "172.31.250.10", Port: 80, Proto: "tcp", Service: "http", Product: "nginx", CPE: "igor_sysoev:nginx"},
 		{Kind: scanner.ObsHTTP, IP: "172.31.250.10", Port: 80, Proto: "tcp", Service: "http", URL: "http://172.31.250.10:80", Title: title},
-		{Kind: scanner.ObsService, IP: "172.31.250.10", Port: 443, Proto: "tcp", Service: "https", Product: "nginx"},
+		{Kind: scanner.ObsService, IP: "172.31.250.10", Port: 443, Proto: "tcp", Service: "https", Product: "nginx", CPE: "igor_sysoev:nginx"},
 		{Kind: scanner.ObsHTTP, IP: "172.31.250.10", Port: 443, Proto: "tcp", Service: "https", URL: "https://172.31.250.10:443", Title: title},
 		{Kind: scanner.ObsHost, IP: "172.31.250.11", Up: true},
-		{Kind: scanner.ObsService, IP: "172.31.250.11", Port: 22, Proto: "tcp", Service: "ssh", Product: "OpenSSH", Version: "10.0"},
+		{Kind: scanner.ObsService, IP: "172.31.250.11", Port: 22, Proto: "tcp", Service: "ssh", Product: "OpenSSH", Version: "10.0", CPE: "openbsd:openssh:10.0"},
 		{Kind: scanner.ObsHost, IP: "172.31.250.12", Up: true},
-		{Kind: scanner.ObsService, IP: "172.31.250.12", Port: 22, Proto: "tcp", Service: "ssh", Product: "OpenSSH", Version: "10.0"},
-		{Kind: scanner.ObsService, IP: "172.31.250.12", Port: 80, Proto: "tcp", Service: "http", Product: "nginx"},
+		{Kind: scanner.ObsService, IP: "172.31.250.12", Port: 22, Proto: "tcp", Service: "ssh", Product: "OpenSSH", Version: "10.0", CPE: "openbsd:openssh:10.0"},
+		{Kind: scanner.ObsService, IP: "172.31.250.12", Port: 80, Proto: "tcp", Service: "http", Product: "nginx", CPE: "igor_sysoev:nginx"},
 		{Kind: scanner.ObsHTTP, IP: "172.31.250.12", Port: 80, Proto: "tcp", Service: "http", URL: "http://172.31.250.12:80", Title: title},
-		{Kind: scanner.ObsService, IP: "172.31.250.12", Port: 443, Proto: "tcp", Service: "https", Product: "nginx"},
+		{Kind: scanner.ObsService, IP: "172.31.250.12", Port: 443, Proto: "tcp", Service: "https", Product: "nginx", CPE: "igor_sysoev:nginx"},
 		{Kind: scanner.ObsHTTP, IP: "172.31.250.12", Port: 443, Proto: "tcp", Service: "https", URL: "https://172.31.250.12:443", Title: title},
 	}
 	if got := keys(res.Observations); !reflect.DeepEqual(got, want) {
@@ -246,5 +247,110 @@ func TestParseHostnamesAndServiceNames(t *testing.T) {
 	}
 	if web.HTTP.Headers["Set-Cookie"] != "a=1, b=2" {
 		t.Errorf("headers = %v", web.HTTP.Headers)
+	}
+}
+
+func TestNormalizeCPE(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{"app with version", "cpe:/a:openbsd:openssh:7.4", "openbsd:openssh:7.4"},
+		{"app without version", "cpe:/a:igor_sysoev:nginx", "igor_sysoev:nginx"},
+		{"os without version", "cpe:/o:linux:linux_kernel", "linux:linux_kernel"},
+		{"os with version", "cpe:/o:linux:linux_kernel:5.15", "linux:linux_kernel:5.15"},
+		{"hardware with version", "cpe:/h:cisco:ios:15.2", "cisco:ios:15.2"},
+		{"uppercase and spaces", "  CPE:/A:Apache:HTTP_Server:2.4.49  ", "apache:http_server:2.4.49"},
+		{"extra trailing parts", "cpe:/a:openbsd:openssh:7.4:p1:pro", "openbsd:openssh:7.4"},
+		{"empty version before update", "cpe:/a:vendor:product::sp1", "vendor:product"},
+		{"wildcard version", "cpe:/a:vendor:product:*", "vendor:product"},
+		{"cpe 2.3 with version", "cpe:2.3:a:openbsd:openssh:7.4:*:*:*:*:*:*:*", "openbsd:openssh:7.4"},
+		{"cpe 2.3 without version", "cpe:2.3:a:igor_sysoev:nginx:-:*:*:*:*:*:*:*", "igor_sysoev:nginx"},
+		{"empty", "", ""},
+		{"not a cpe", "openbsd:openssh:7.4", ""},
+		{"unknown part", "cpe:/x:vendor:product:1.0", ""},
+		{"missing product", "cpe:/a:vendor", ""},
+		{"empty product", "cpe:/a:vendor:", ""},
+		{"wildcard vendor", "cpe:/a:*:product:1.0", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := normalizeCPE(tt.in); got != tt.want {
+				t.Errorf("normalizeCPE(%q) = %q, want %q", tt.in, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestSelectCPE(t *testing.T) {
+	tests := []struct {
+		name string
+		in   []string
+		want string
+	}{
+		{"empty", nil, ""},
+		{"single app", []string{"cpe:/a:openbsd:openssh:7.4"}, "openbsd:openssh:7.4"},
+		{"app over os regardless of order", []string{"cpe:/o:linux:linux_kernel:5.15", "cpe:/a:openbsd:openssh:8.9p1"}, "openbsd:openssh:8.9p1"},
+		{"unversioned app over versioned os", []string{"cpe:/o:linux:linux_kernel:5.15", "cpe:/a:igor_sysoev:nginx"}, "igor_sysoev:nginx"},
+		{"versioned app over unversioned app", []string{"cpe:/a:apache:http_server", "cpe:/a:apache:http_server:2.4.49"}, "apache:http_server:2.4.49"},
+		{"first tie-breaker among equal rank", []string{"cpe:/a:openbsd:openssh:8.9p1", "cpe:/a:openssl:openssl:3.0"}, "openbsd:openssh:8.9p1"},
+		{"os fallback prefers versioned", []string{"cpe:/o:linux:linux_kernel", "cpe:/o:linux:linux_kernel:5.15"}, "linux:linux_kernel:5.15"},
+		{"hardware fallback", []string{"cpe:/h:cisco:ios"}, "cisco:ios"},
+		{"skips invalid entries", []string{"not-a-cpe", "cpe:/a:vendor:product:1.0"}, "vendor:product:1.0"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := selectCPE(tt.in); got != tt.want {
+				t.Errorf("selectCPE(%v) = %q, want %q", tt.in, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestParseMultipleCPEs(t *testing.T) {
+	doc := `<?xml version="1.0"?><nmaprun start="1700000000">
+<host starttime="1700000001" endtime="1700000002"><status state="up"/>
+<address addr="10.0.0.8" addrtype="ipv4"/><hostnames/>
+<ports>
+<port protocol="tcp" portid="22"><state state="open"/>
+  <service name="ssh" product="OpenSSH" version="8.9p1">
+    <cpe>cpe:/o:linux:linux_kernel</cpe>
+    <cpe>cpe:/a:openbsd:openssh:8.9p1</cpe>
+  </service>
+</port>
+<port protocol="tcp" portid="80"><state state="open"/>
+  <service name="http" product="Apache httpd" version="2.4.49">
+    <cpe>cpe:/a:apache:http_server</cpe>
+    <cpe>cpe:/a:apache:http_server:2.4.49</cpe>
+  </service>
+</port>
+<port protocol="tcp" portid="445"><state state="open"/>
+  <service name="microsoft-ds">
+    <cpe>cpe:/o:microsoft:windows_server_2019</cpe>
+  </service>
+</port>
+<port protocol="tcp" portid="9000"><state state="open"/>
+  <service name="cslistener"/>
+</port>
+</ports></host></nmaprun>`
+	res, err := Parse([]byte(doc))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[uint16]string{}
+	for _, o := range res.Observations {
+		if o.Kind == scanner.ObsService {
+			got[o.Port] = o.CPE
+		}
+	}
+	want := map[uint16]string{
+		22:   "openbsd:openssh:8.9p1",
+		80:   "apache:http_server:2.4.49",
+		445:  "microsoft:windows_server_2019",
+		9000: "",
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("service CPEs = %v, want %v", got, want)
 	}
 }
