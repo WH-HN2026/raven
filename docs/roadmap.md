@@ -163,7 +163,7 @@ M0 is sequential and blocking. Do it in **one** worktree, as fast as possible, t
 - [ ] **V8 Aggressive stages on the vuln lab.** Admin-made aggressive profile limited to WordPress 4.7.5 and DVWA; nuclei-active/nikto/wpscan/ZAP results documented. (needs V2, AG2–AG5) — *superseded by LB3*
 
 **Track LB — Lab scenarios** (supersedes Track V)
-- [ ] **LB0 Guardrails + docs for the two lab scenarios.**
+- [x] **LB0 Guardrails + docs for the two lab scenarios.**
 - [ ] **LB1 Revert vuln_lab + two scenarios via make.** Revert V0/V1/V2/V4/V5 infra, `lab/organizers/` verbatim + `SHA256SUMS`, `make lab-up/lab-down/lab-change/lab-verify LAB=… STACK=…`, Dojo default port 18080, seeded "Organizers' lab" profile, real scan of each organizers' stack. (needs LB0 for docs only)
 - [ ] **LB2 Acceptance on the organizers' scenarios.** Their README steps exactly (quickstart up → change → up: 8787 gone/back in Changes; modern-proxy with `ENABLE_LATENCY=true LATENCY_MS=500`: slow host; vulnerable stack: WordPress 4.7, vsftpd, DVWA, Adminer fingerprints + CVEs; modern stack), expected-vs-actual table in `docs/acceptance.md`. (needs LB1)
 - [ ] **LB3 Aggressive on the organizers' vulnerable stack.** Admin-made aggressive profile limited to 172.17.0.1 ports 8088 (WordPress 4.7) and 8090 (DVWA); nuclei_active/nikto/wpscan/ZAP results documented. Open issue: ZAP is on internal-only networks and may not reach 172.17.0.1. (needs LB1, AG2–AG5)
