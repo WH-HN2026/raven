@@ -99,7 +99,7 @@ func run() error {
 		Handler: httpapi.NewRouter(httpapi.Deps{
 			Pool: pool, Queries: q, Auth: authSvc, CookieSecure: cfg.CookieSecure,
 			DojoPublicURL: cfg.DojoPublicURL,
-			Pipeline: pipe,
+			Pipeline:      pipe,
 		}),
 		ReadHeaderTimeout: 10 * time.Second,
 	}

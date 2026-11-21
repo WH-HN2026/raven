@@ -22,7 +22,7 @@ type Deps struct {
 	Queries       *gen.Queries
 	Auth          *auth.Service
 	CookieSecure  bool
-	DojoPublicURL string // browser base URL of Dojo, for finding links
+	DojoPublicURL string            // browser base URL of Dojo, for finding links
 	Pipeline      *pipeline.Service // nil = runs API answers 503
 }
 
