@@ -136,3 +136,34 @@ func TestStageRegistryAndHelpers(t *testing.T) {
 		t.Fatal("AggressiveStages should be aggressive")
 	}
 }
+
+func TestWithStageAvailable(t *testing.T) {
+	// Production default: nikto is unavailable.
+	if _, err := Validate([]string{StageNmap, StageHTTPX, StageNikto}); err == nil || !strings.Contains(err.Error(), "not available") {
+		t.Fatalf("expected nikto unavailable by default, got err=%v", err)
+	}
+
+	t.Run("enabled inside subtest", func(t *testing.T) {
+		WithStageAvailable(t, StageNikto)
+		got, err := Validate([]string{StageNikto, StageHTTPX, StageNmap})
+		if err != nil {
+			t.Fatalf("Validate with nikto available: %v", err)
+		}
+		if !slices.Equal(got, []string{StageNmap, StageHTTPX, StageNikto}) {
+			t.Fatalf("got %v, want [nmap httpx nikto]", got)
+		}
+		// Dependency checks still apply.
+		if _, err := Validate([]string{StageNmap, StageNikto}); err == nil || !strings.Contains(err.Error(), "requires httpx") {
+			t.Fatalf("expected missing dependency error, got %v", err)
+		}
+		// Other aggressive stages remain unavailable.
+		if _, err := Validate([]string{StageNmap, StageHTTPX, StageZAP}); err == nil || !strings.Contains(err.Error(), "not available") {
+			t.Fatalf("expected zap still unavailable, got %v", err)
+		}
+	})
+
+	// Cleanup restored production availability.
+	if _, err := Validate([]string{StageNmap, StageHTTPX, StageNikto}); err == nil || !strings.Contains(err.Error(), "not available") {
+		t.Fatalf("expected nikto restored to unavailable after cleanup, got err=%v", err)
+	}
+}

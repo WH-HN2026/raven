@@ -232,7 +232,8 @@ paths:
       operationId: createScopeEntry
       description: |
         Global entries (profile_id null: the global include list and the global blacklist) need
-        scope:global on top of scope:write. Kind is auto-detected. Scope CIDRs have no size cap.
+        scope:global on top of scope:write. Scope entries of an aggressive profile need
+        scan:aggressive. Kind is auto-detected. Scope CIDRs have no size cap.
         A run applies: the include entries (global + profile; if there are none, the targets themselves
         are the include set), then all exclude entries last; exclusions always win. Domain entries match
         their resolved IPs and any host name equal to or under the domain. 409 = duplicate entry.
@@ -255,7 +256,7 @@ paths:
     delete:
       tags: [scope]
       operationId: deleteScopeEntry
-      description: Global entries need scope:global.
+      description: Global entries need scope:global; entries of an aggressive profile need scan:aggressive.
       parameters: [{ $ref: "#/components/parameters/CSRF" }]
       responses:
         "204": { description: Deleted. }
@@ -285,7 +286,8 @@ paths:
       description: |
         Start a run for a profile (runs:control). Builds the scan list (targets + scope), splits it into
         fixed-size batches and enqueues one job per batch. An empty scan list gives a run that is `done`
-        immediately, with `stats.reason`. 409 if the profile already has a pending or running run;
+        immediately, with `stats.reason`. Starting an aggressive profile requires `confirm_aggressive: true`
+        (otherwise 400 `confirmation_required`). 409 if the profile already has a pending or running run;
         400 for an unknown or disabled profile.
       parameters: [{ $ref: "#/components/parameters/CSRF" }]
       requestBody:
@@ -297,6 +299,7 @@ paths:
               required: [profile_id]
               properties:
                 profile_id: { type: integer, format: int64 }
+                confirm_aggressive: { type: boolean, description: "Required (true) when starting an aggressive profile; ignored for non-aggressive profiles." }
       responses:
         "201":
           description: Created run.
@@ -1149,6 +1152,7 @@ components:
         - settings:admin
         - scope:global
         - audit:read
+        - scan:aggressive
     LoginRequest:
       type: object
       required: [username, password]
@@ -1291,7 +1295,7 @@ components:
       enum: [pending, running, suspended, done, failed, stopped]
     Run:
       type: object
-      required: [id, profile_id, status, created_at, hosts_total, hosts_up, batches_total, batches_done, batches_failed, stats]
+      required: [id, profile_id, status, created_at, hosts_total, hosts_up, batches_total, batches_done, batches_failed, aggressive, stats]
       properties:
         id: { type: integer, format: int64 }
         profile_id: { type: integer, format: int64 }
@@ -1309,6 +1313,10 @@ components:
           type: array
           items: { $ref: "#/components/schemas/StageName" }
           description: Workflow stages executed by this run (in registry order).
+        aggressive:
+          type: boolean
+          readOnly: true
+          description: True when stages includes any aggressive stage.
         stats:
           type: object
           additionalProperties: true
@@ -1774,9 +1782,13 @@ components:
       allOf:
         - $ref: "#/components/schemas/ProfileInput"
         - type: object
-          required: [id, nmap_max_rate, enabled, stages]
+          required: [id, nmap_max_rate, enabled, stages, aggressive]
           properties:
             id: { type: integer, format: int64 }
+            aggressive:
+              type: boolean
+              readOnly: true
+              description: True when stages includes any aggressive stage.
             created_at: { type: string, format: date-time }
     ProfileList:
       type: object
@@ -1808,6 +1820,10 @@ components:
             timestamp for the end of an overnight window. Dojo uses the absolute timestamp.
         timezone: { type: string, default: Europe/Warsaw }
         enabled: { type: boolean }
+        confirm_aggressive:
+          type: boolean
+          writeOnly: true
+          description: Required (true) when creating or updating a schedule for an aggressive profile (also requires scan:aggressive).
     Schedule:
       allOf:
         - $ref: "#/components/schemas/ScheduleInput"

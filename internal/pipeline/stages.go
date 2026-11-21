@@ -3,6 +3,7 @@ package pipeline
 import (
 	"fmt"
 	"slices"
+	"sync"
 )
 
 // Stage names (architecture §3.11).
@@ -42,6 +43,8 @@ var stageRegistry = []StageDef{
 	{Name: StageZAP, Needs: []string{StageHTTPX}, Aggressive: true, Available: false},
 }
 
+var stageMu sync.RWMutex
+
 var stageByName = func() map[string]StageDef {
 	m := make(map[string]StageDef, len(stageRegistry))
 	for _, s := range stageRegistry {
@@ -50,8 +53,62 @@ var stageByName = func() map[string]StageDef {
 	return m
 }()
 
+// testingTB is the subset of testing.TB needed by WithStageAvailable so this
+// package does not pull testing's flags into production binaries.
+type testingTB interface {
+	Helper()
+	Cleanup(func())
+	Fatalf(format string, args ...any)
+}
+
+// WithStageAvailable marks the named stages as Available for the duration of a
+// test and restores their prior availability in t.Cleanup.
+// Test helper only; production stage availability is defined in stageRegistry.
+func WithStageAvailable(t testingTB, names ...string) {
+	t.Helper()
+	stageMu.Lock()
+	prior := make(map[string]bool, len(names))
+	for _, name := range names {
+		def, ok := stageByName[name]
+		if !ok {
+			stageMu.Unlock()
+			t.Fatalf("pipeline.WithStageAvailable: unknown stage %q", name)
+			return
+		}
+		if _, saved := prior[name]; !saved {
+			prior[name] = def.Available
+		}
+		def.Available = true
+		stageByName[name] = def
+		for i := range stageRegistry {
+			if stageRegistry[i].Name == name {
+				stageRegistry[i].Available = true
+				break
+			}
+		}
+	}
+	stageMu.Unlock()
+	t.Cleanup(func() {
+		stageMu.Lock()
+		defer stageMu.Unlock()
+		for name, prev := range prior {
+			def := stageByName[name]
+			def.Available = prev
+			stageByName[name] = def
+			for i := range stageRegistry {
+				if stageRegistry[i].Name == name {
+					stageRegistry[i].Available = prev
+					break
+				}
+			}
+		}
+	})
+}
+
 // Stages returns a copy of the ordered stage registry.
 func Stages() []StageDef {
+	stageMu.RLock()
+	defer stageMu.RUnlock()
 	out := make([]StageDef, len(stageRegistry))
 	for i, s := range stageRegistry {
 		s.Needs = slices.Clone(s.Needs)
@@ -86,6 +143,8 @@ func Presets() StagePresets {
 //
 // On success it returns the stages normalised to registry order.
 func Validate(stages []string) ([]string, error) {
+	stageMu.RLock()
+	defer stageMu.RUnlock()
 	seen := make(map[string]bool, len(stages))
 	for _, name := range stages {
 		def, ok := stageByName[name]
@@ -148,6 +207,8 @@ func SharedStages(a, b []string) []string {
 
 // IsAggressive reports whether any stage in stages is marked Aggressive.
 func IsAggressive(stages []string) bool {
+	stageMu.RLock()
+	defer stageMu.RUnlock()
 	for _, name := range stages {
 		if def, ok := stageByName[name]; ok && def.Aggressive {
 			return true

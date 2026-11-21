@@ -12,6 +12,7 @@ import (
 	"github.com/WH-HN2026/raven/internal/auth"
 	"github.com/WH-HN2026/raven/internal/db/gen"
 	"github.com/WH-HN2026/raven/internal/httpx"
+	"github.com/WH-HN2026/raven/internal/pipeline"
 	"github.com/WH-HN2026/raven/internal/targets"
 )
 
@@ -23,7 +24,9 @@ func (a *api) mountTargets(r chi.Router) {
 	r.With(auth.Require(auth.PermTargetsWrite)).Delete("/targets/{id}", a.deleteTarget)
 }
 
-func (a *api) targetStore() *targets.Store { return &targets.Store{Pool: a.Pool} }
+func (a *api) targetStore() *targets.Store {
+	return &targets.Store{Pool: a.Pool, IsAggressive: pipeline.IsAggressive}
+}
 
 type list[T any] struct {
 	Items []T   `json:"items"`

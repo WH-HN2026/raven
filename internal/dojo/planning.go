@@ -6,13 +6,16 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/WH-HN2026/raven/internal/audit"
 	"github.com/WH-HN2026/raven/internal/db/gen"
+	"github.com/WH-HN2026/raven/internal/pipeline"
 )
 
 // ProfileTagPrefix is the Dojo engagement tag prefix selecting the RAVEN scan
@@ -38,13 +41,14 @@ type PlanningPoller struct {
 
 // PlanningStats summarizes one poll pass.
 type PlanningStats struct {
-	Found         int
-	Upserted      int
-	Skipped       int
-	Disabled      int64
-	StatusUpdated int
-	StatusFailed  int
-	Duration      time.Duration
+	Found             int
+	Upserted          int
+	Skipped           int
+	SkippedAggressive int
+	Disabled          int64
+	StatusUpdated     int
+	StatusFailed      int
+	Duration          time.Duration
 }
 
 // Run polls once now and then every interval until ctx is done. Errors are
@@ -115,11 +119,24 @@ func (p *PlanningPoller) PollOnce(ctx context.Context) (PlanningStats, error) {
 		idx := newProfileIndex(profs)
 		activeIDs := make([]int64, 0, len(engs))
 		for _, e := range engs {
-			params, reason := mapPlannedEngagement(e, idx, tz, loc)
+			params, reason, aggProf := mapPlannedEngagement(e, idx, tz, loc)
 			if reason != "" {
 				st.Skipped++
 				slog.Warn("dojo planning: skipping engagement",
 					"engagement_id", e.ID, "engagement", e.Name, "reason", reason)
+				if aggProf != nil {
+					st.SkippedAggressive++
+					if err := audit.Log(ctx, q, nil, "dojo.planning.skip_aggressive", "engagement", strconv.FormatInt(e.ID, 10), map[string]any{
+						"aggressive":    true,
+						"engagement_id": e.ID,
+						"engagement":    strings.TrimSpace(e.Name),
+						"profile_id":    aggProf.id,
+						"profile":       aggProf.name,
+						"reason":        "aggressive_profile_not_allowed",
+					}); err != nil {
+						return fmt.Errorf("audit aggressive engagement skip %d: %w", e.ID, err)
+					}
+				}
 				continue
 			}
 			if _, err := q.UpsertDojoSchedule(ctx, params); err != nil {
@@ -229,34 +246,41 @@ func parseProfileTag(tags []string) (string, bool) {
 	return "", false
 }
 
+type profileRef struct {
+	id         int64
+	name       string
+	aggressive bool
+}
+
 // profileIndex resolves profile names from Dojo tags (exact match preferred,
 // falling back to case-insensitive match because Dojo lowercases all tags).
 type profileIndex struct {
-	exact map[string]int64
-	lower map[string]int64
+	exact map[string]profileRef
+	lower map[string]profileRef
 }
 
 func newProfileIndex(rows []gen.ListAllProfileNamesRow) profileIndex {
 	idx := profileIndex{
-		exact: make(map[string]int64, len(rows)),
-		lower: make(map[string]int64, len(rows)),
+		exact: make(map[string]profileRef, len(rows)),
+		lower: make(map[string]profileRef, len(rows)),
 	}
 	for _, r := range rows {
-		idx.exact[r.Name] = r.ID
+		ref := profileRef{id: r.ID, name: r.Name, aggressive: pipeline.IsAggressive(r.Stages)}
+		idx.exact[r.Name] = ref
 		k := strings.ToLower(r.Name)
 		if _, exists := idx.lower[k]; !exists {
-			idx.lower[k] = r.ID
+			idx.lower[k] = ref
 		}
 	}
 	return idx
 }
 
-func (p profileIndex) resolve(name string) (int64, bool) {
-	if id, ok := p.exact[name]; ok {
-		return id, true
+func (p profileIndex) resolve(name string) (profileRef, bool) {
+	if ref, ok := p.exact[name]; ok {
+		return ref, true
 	}
-	id, ok := p.lower[strings.ToLower(name)]
-	return id, ok
+	ref, ok := p.lower[strings.ToLower(name)]
+	return ref, ok
 }
 
 // parseEngagementWindow converts Dojo's target_start / target_end fields into
@@ -301,28 +325,31 @@ func parseEngagementTime(raw string, endOfDay bool, loc *time.Location) (*time.T
 	return nil, fmt.Errorf("invalid date %q", raw)
 }
 
-func mapPlannedEngagement(e Engagement, profiles profileIndex, tz string, loc *time.Location) (gen.UpsertDojoScheduleParams, string) {
+func mapPlannedEngagement(e Engagement, profiles profileIndex, tz string, loc *time.Location) (gen.UpsertDojoScheduleParams, string, *profileRef) {
 	profName, ok := parseProfileTag(e.Tags)
 	if !ok {
-		return gen.UpsertDojoScheduleParams{}, "missing raven-profile:<name> tag"
+		return gen.UpsertDojoScheduleParams{}, "missing raven-profile:<name> tag", nil
 	}
-	profID, ok := profiles.resolve(profName)
+	prof, ok := profiles.resolve(profName)
 	if !ok {
-		return gen.UpsertDojoScheduleParams{}, fmt.Sprintf("unknown profile %q", profName)
+		return gen.UpsertDojoScheduleParams{}, fmt.Sprintf("unknown profile %q", profName), nil
+	}
+	if prof.aggressive {
+		return gen.UpsertDojoScheduleParams{}, fmt.Sprintf("profile %q is aggressive; Dojo engagements cannot schedule aggressive profiles", prof.name), &prof
 	}
 	start, end, err := parseEngagementWindow(e.TargetStart, e.TargetEnd, loc)
 	if err != nil {
-		return gen.UpsertDojoScheduleParams{}, err.Error()
+		return gen.UpsertDojoScheduleParams{}, err.Error(), nil
 	}
 	engID := e.ID
 	return gen.UpsertDojoScheduleParams{
 		Name:             strings.TrimSpace(e.Name),
-		ProfileID:        profID,
+		ProfileID:        prof.id,
 		DojoEngagementID: &engID,
 		WindowStart:      start,
 		WindowEnd:        end,
 		Timezone:         tz,
-	}, ""
+	}, "", nil
 }
 
 func resolveTimezone(name string) (string, *time.Location) {

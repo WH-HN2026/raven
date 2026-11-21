@@ -6,8 +6,10 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"testing"
 	"time"
@@ -200,5 +202,59 @@ func TestIntegrationPlanning(t *testing.T) {
 	must(t, err)
 	if st.StatusUpdated != 0 {
 		t.Fatalf("pass 7 (idempotent done): StatusUpdated = %d, want 0", st.StatusUpdated)
+	}
+}
+
+// TestPlanningSkipsAggressiveProfile verifies that D5 never creates a schedule
+// for an aggressive profile and records an audit_log entry with aggressive:true.
+func TestPlanningSkipsAggressiveProfile(t *testing.T) {
+	pool := dbtest.Fresh(t)
+	ctx := context.Background()
+
+	var aggProfID int64
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO profiles (name, ports, stages) VALUES ('agg-lab', '80,443', ARRAY['nmap','httpx','nikto']) RETURNING id`,
+	).Scan(&aggProfID); err != nil {
+		t.Fatal(err)
+	}
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/v2/engagements/", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"count":2,"results":[
+			{"id":501,"name":"Safe planned","product":9,"status":"Not Started","target_start":"2026-12-01","target_end":"2026-12-02","tags":["raven-profile:default"]},
+			{"id":502,"name":"Aggressive planned","product":9,"status":"Not Started","target_start":"2026-12-01","target_end":"2026-12-02","tags":["raven-profile:agg-lab"]}
+		]}`))
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	poller := &PlanningPoller{Client: testClient(srv.URL, Options{}), Pool: pool, PlanningAssetID: 9}
+
+	st, err := poller.PollOnce(ctx)
+	must(t, err)
+	if st.Found != 2 || st.Upserted != 1 || st.Skipped != 1 || st.SkippedAggressive != 1 {
+		t.Fatalf("stats = %+v, want found=2 upserted=1 skipped=1 skippedAggressive=1", st)
+	}
+
+	q := gen.New(pool)
+	safeID, aggID := int64(501), int64(502)
+	if _, err := q.GetScheduleByDojoEngagement(ctx, &safeID); err != nil {
+		t.Fatalf("safe engagement schedule missing: %v", err)
+	}
+	if _, err := q.GetScheduleByDojoEngagement(ctx, &aggID); !errors.Is(err, pgx.ErrNoRows) {
+		t.Fatalf("aggressive engagement should not create a schedule, got err=%v", err)
+	}
+
+	var diffRaw []byte
+	if err := pool.QueryRow(ctx,
+		`SELECT diff FROM audit_log WHERE action = 'dojo.planning.skip_aggressive' AND object_id = '502'`,
+	).Scan(&diffRaw); err != nil {
+		t.Fatalf("expected audit_log row for skipped aggressive engagement: %v", err)
+	}
+	var diff map[string]any
+	if err := json.Unmarshal(diffRaw, &diff); err != nil {
+		t.Fatalf("decode audit diff %s: %v", diffRaw, err)
+	}
+	if v, ok := diff["aggressive"].(bool); !ok || !v {
+		t.Fatalf("audit diff = %s, want aggressive:true", diffRaw)
 	}
 }

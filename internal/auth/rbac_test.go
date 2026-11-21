@@ -22,6 +22,7 @@ func TestRolePermissions(t *testing.T) {
 		PermSettingsAdmin:   {RoleAdmin},
 		PermGlobalScope:     {RoleAdmin},
 		PermAuditRead:       {RoleAdmin},
+		PermScanAggressive:  {RoleAdmin},
 	}
 	if len(want) != len(all) {
 		t.Fatalf("admin has %d permissions, table covers %d: update the test", len(all), len(want))

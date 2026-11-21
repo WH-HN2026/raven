@@ -10,17 +10,24 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/WH-HN2026/raven/internal/auth"
 	"github.com/WH-HN2026/raven/internal/db/gen"
 )
 
+type scheduleAudit struct {
+	gen.Schedule
+	Aggressive bool `json:"aggressive,omitempty"`
+}
+
 type ScheduleInput struct {
-	Name        *string    `json:"name"`
-	ProfileID   int64      `json:"profile_id"`
-	Cron        *string    `json:"cron"`
-	WindowStart *time.Time `json:"window_start"`
-	WindowEnd   *time.Time `json:"window_end"`
-	Timezone    *string    `json:"timezone"`
-	Enabled     *bool      `json:"enabled"`
+	Name              *string    `json:"name"`
+	ProfileID         int64      `json:"profile_id"`
+	Cron              *string    `json:"cron"`
+	WindowStart       *time.Time `json:"window_start"`
+	WindowEnd         *time.Time `json:"window_end"`
+	Timezone          *string    `json:"timezone"`
+	Enabled           *bool      `json:"enabled"`
+	ConfirmAggressive bool       `json:"confirm_aggressive"`
 }
 
 func (in ScheduleInput) apply(s gen.Schedule) (gen.Schedule, error) {
@@ -49,12 +56,28 @@ func (in ScheduleInput) apply(s gen.Schedule) (gen.Schedule, error) {
 	return s, nil
 }
 
-func (s ConfigStore) CreateSchedule(ctx context.Context, userID int64, in ScheduleInput) (gen.Schedule, error) {
+func (s ConfigStore) CreateSchedule(ctx context.Context, u *auth.User, in ScheduleInput) (gen.Schedule, error) {
 	schedule, err := in.apply(gen.Schedule{Source: "ui", Timezone: "Europe/Warsaw", Enabled: true})
 	if err != nil {
 		return gen.Schedule{}, err
 	}
 	err = s.write(ctx, func(q *gen.Queries) error {
+		prof, err := q.GetProfile(ctx, schedule.ProfileID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("%w: profile does not exist", ErrInvalid)
+		}
+		if err != nil {
+			return err
+		}
+		aggressive := s.isAggressive(prof.Stages)
+		if aggressive {
+			if !canAggressive(u) {
+				return fmt.Errorf("%w: scheduling an aggressive profile needs %s", ErrForbidden, auth.PermScanAggressive)
+			}
+			if !in.ConfirmAggressive {
+				return fmt.Errorf("%w: scheduling an aggressive profile requires confirm_aggressive: true", ErrConfirmRequired)
+			}
+		}
 		schedule, err = q.CreateSchedule(ctx, gen.CreateScheduleParams{
 			Name: schedule.Name, ProfileID: schedule.ProfileID, Cron: schedule.Cron, WindowStart: schedule.WindowStart,
 			WindowEnd: schedule.WindowEnd, Timezone: schedule.Timezone, Enabled: schedule.Enabled,
@@ -62,12 +85,12 @@ func (s ConfigStore) CreateSchedule(ctx context.Context, userID int64, in Schedu
 		if err := scheduleWriteError(err); err != nil {
 			return err
 		}
-		return logConfigChange(ctx, q, userID, "schedules.create", "schedule", schedule.ID, schedule)
+		return logConfigChange(ctx, q, u, "schedules.create", "schedule", schedule.ID, scheduleAudit{Schedule: schedule, Aggressive: aggressive})
 	})
 	return schedule, err
 }
 
-func (s ConfigStore) UpdateSchedule(ctx context.Context, userID, id int64, in ScheduleInput) (gen.Schedule, error) {
+func (s ConfigStore) UpdateSchedule(ctx context.Context, u *auth.User, id int64, in ScheduleInput) (gen.Schedule, error) {
 	var updated gen.Schedule
 	err := s.write(ctx, func(q *gen.Queries) error {
 		prior, err := lockUISchedule(ctx, q, id)
@@ -77,6 +100,28 @@ func (s ConfigStore) UpdateSchedule(ctx context.Context, userID, id int64, in Sc
 		schedule, err := in.apply(prior)
 		if err != nil {
 			return err
+		}
+		targetProf, err := q.GetProfile(ctx, schedule.ProfileID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("%w: profile does not exist", ErrInvalid)
+		}
+		if err != nil {
+			return err
+		}
+		targetAgg := s.isAggressive(targetProf.Stages)
+		priorAgg := targetAgg
+		if prior.ProfileID != schedule.ProfileID {
+			priorProf, err := q.GetProfile(ctx, prior.ProfileID)
+			if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+				return err
+			}
+			priorAgg = err == nil && s.isAggressive(priorProf.Stages)
+		}
+		if (priorAgg || targetAgg) && !canAggressive(u) {
+			return fmt.Errorf("%w: scheduling an aggressive profile needs %s", ErrForbidden, auth.PermScanAggressive)
+		}
+		if targetAgg && !in.ConfirmAggressive {
+			return fmt.Errorf("%w: scheduling an aggressive profile requires confirm_aggressive: true", ErrConfirmRequired)
 		}
 		if prior.ProfileID != schedule.ProfileID {
 			if err := requireIdleSchedule(ctx, q, id); err != nil {
@@ -90,15 +135,24 @@ func (s ConfigStore) UpdateSchedule(ctx context.Context, userID, id int64, in Sc
 		if err := scheduleWriteError(err); err != nil {
 			return err
 		}
-		return logConfigChange(ctx, q, userID, "schedules.update", "schedule", id, updated)
+		return logConfigChange(ctx, q, u, "schedules.update", "schedule", id, scheduleAudit{Schedule: updated, Aggressive: priorAgg || targetAgg})
 	})
 	return updated, err
 }
 
-func (s ConfigStore) DeleteSchedule(ctx context.Context, userID, id int64) error {
+func (s ConfigStore) DeleteSchedule(ctx context.Context, u *auth.User, id int64) error {
 	return s.write(ctx, func(q *gen.Queries) error {
-		if _, err := lockUISchedule(ctx, q, id); err != nil {
+		prior, err := lockUISchedule(ctx, q, id)
+		if err != nil {
 			return err
+		}
+		priorProf, err := q.GetProfile(ctx, prior.ProfileID)
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return err
+		}
+		aggressive := err == nil && s.isAggressive(priorProf.Stages)
+		if aggressive && !canAggressive(u) {
+			return fmt.Errorf("%w: aggressive schedules need %s", ErrForbidden, auth.PermScanAggressive)
 		}
 		if err := requireIdleSchedule(ctx, q, id); err != nil {
 			return err
@@ -106,7 +160,11 @@ func (s ConfigStore) DeleteSchedule(ctx context.Context, userID, id int64) error
 		if err := q.DeleteUISchedule(ctx, id); err != nil {
 			return err
 		}
-		return logConfigChange(ctx, q, userID, "schedules.delete", "schedule", id, nil)
+		var diff any
+		if aggressive {
+			diff = map[string]any{"aggressive": true, "profile_id": prior.ProfileID}
+		}
+		return logConfigChange(ctx, q, u, "schedules.delete", "schedule", id, diff)
 	})
 }
 
