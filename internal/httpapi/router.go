@@ -26,6 +26,7 @@ type Deps struct {
 	DojoPublicURL string            // browser base URL of Dojo, for finding links
 	Pipeline      *pipeline.Service // nil = runs API answers 503
 	Dojo          *dojo.Lazy        // write-through client; unset = finding edits answer 503
+	DojoPush      *dojo.PushService // optional: provides Pusher for .nessus imports
 }
 
 type api struct{ Deps }

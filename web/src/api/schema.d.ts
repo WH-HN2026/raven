@@ -648,7 +648,14 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description stub. Import scan results (our JSON/CSV format) through the ingest + push path. */
+        /**
+         * @description Import scan results (permission `import`), multipart max 25 MiB.
+         *     Supported `kind` values: `results-json`, `results-csv` (ASI's documented formats, see `docs/exchange.md`),
+         *     `nmap-xml`, `nuclei-jsonl`, and `nessus` (`.nessus` files split per IP and pushed to DefectDojo with the
+         *     "Tenable Scan" parser). When `kind` is omitted it is detected from the filename or content.
+         *     `profile` accepts a profile ID or name (defaults to `default`). Imported hosts are filtered through
+         *     the profile's scope and the global blacklist (exclusions always win) before ingest and Dojo push.
+         */
         post: operations["importResults"];
         delete?: never;
         options?: never;
@@ -663,11 +670,19 @@ export interface paths {
             };
             header?: never;
             path: {
-                kind: "hosts" | "services" | "findings" | "changes";
+                kind: "hosts" | "services" | "findings" | "changes" | "targets";
             };
             cookie?: never;
         };
-        /** @description stub. Accepts the same filters as the matching list endpoint. */
+        /**
+         * @description Export filtered data as JSON or CSV (permission `export`).
+         *     Honours the same query filters as the matching list APIs:
+         *     - `hosts`: `state`, `port`, `tech`, `tag`, `q`
+         *     - `services`: `port`, `proto`, `state`, `ip`, `product`, `q`
+         *     - `findings`: `severity`, `active`, `ip`, `q`, `scanner` (reads the Dojo mirror, never Dojo)
+         *     - `changes`: `from`, `to`, `limit`
+         *     - `targets`: all targets in the format accepted by `POST /api/targets/upload`
+         */
         get: operations["exportData"];
         put?: never;
         post?: never;
@@ -2539,11 +2554,18 @@ export interface operations {
                 "multipart/form-data": {
                     /** Format: binary */
                     file: string;
+                    /**
+                     * @description Format of the uploaded file (auto-detected if omitted).
+                     * @enum {string}
+                     */
+                    kind?: "results-json" | "results-csv" | "nmap-xml" | "nuclei-jsonl" | "nessus";
+                    /** @description Profile ID or name (defaults to "default"). */
+                    profile?: string;
                 };
             };
         };
         responses: {
-            /** @description Accepted; a run was created for the import. */
+            /** @description Accepted; a run (stats.source = "import") was created and ingested. */
             202: {
                 headers: {
                     [name: string]: unknown;
@@ -2562,7 +2584,7 @@ export interface operations {
             };
             header?: never;
             path: {
-                kind: "hosts" | "services" | "findings" | "changes";
+                kind: "hosts" | "services" | "findings" | "changes" | "targets";
             };
             cookie?: never;
         };
