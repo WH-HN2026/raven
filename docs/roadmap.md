@@ -1,0 +1,132 @@
+# ASI — Roadmap
+
+Each task is sized for **one worktree / one agent session**. Pick any task whose dependencies are `done`. The architecture is in [`architecture.md`](architecture.md); the workflow rules are in [`../AGENTS.md`](../AGENTS.md).
+
+**Status:** `[ ]` todo · `[x]` done (flipped in the task's PR before merging). In progress = an open PR titled `<ID>: …` exists.
+**Claiming a task:** open a draft PR titled `<ID>: …` (see AGENTS.md). `gh pr list` is the live view of who is working on what; this file is updated as PRs merge.
+
+## Milestones
+
+| Milestone | Goal | Demo-able result |
+|---|---|---|
+| **M0 Foundation** | skeleton, infra, contracts | `make dev` serves an AGH-themed login page; `make check` is green |
+| **M1 Walking skeleton** | thin end-to-end path | manual target → nmap → hosts in our DB → Assets/findings in Dojo → list in UI |
+| **M2 Scored features** | everything the jury tests | two runs against the lab show new/gone/changed, fingerprints, signatures, roles, import/export |
+| **M3 Polish + extras** | the "nice to have" list | heatmap, interestingness, CVE matching, demo script, docs, slides |
+| **M4 MCP** | last feature | an MCP client can query hosts/findings/changes and start scans, with RBAC |
+
+M0 is sequential and blocking. Do it in **one** worktree, as fast as possible, then split. From M1 on, the tracks below run in parallel. Within a track, the order shown is the dependency order unless noted.
+
+---
+
+## M0 — Foundation (sequential, blocks everything)
+
+- [ ] **F0 Repo skeleton & tooling.**
+  - `go.mod`, `cmd/asi`, `internal/config`.
+  - Makefile targets `dev`, `check`, `gen`, `build`, `infra-up`, `infra-down`, `db-new name=…`.
+  - `.gitignore`, `.env.example`.
+  - `.github/workflows/check.yml`: runs `make check` (Go + Node, no Docker) on PRs and on `main`; the job is named `check` (branch protection requires it). Keep it under ~5 min with Go/npm caching.
+  - `web/` Vite + React + TS + Tailwind + React Router + TanStack Query.
+  - The Go server serves the embedded SPA, and `/api/healthz` works.
+- [ ] **F1 Docker Compose deployment** (architecture §10).
+  - Root `compose.yml` = `asi` + `asi-db` + `include: deploy/dojo.compose.yml` (DefectDojo 3.5.202, pinned).
+  - `deploy/Dockerfile`, multi-stage: web build → Go build → runtime with nmap + nuclei + pinned templates.
+  - `.env.example` + `scripts/gen-env.sh`.
+  - `asi` gets its Dojo token itself from the admin credentials.
+  - `make infra-up` starts everything except `asi`.
+  - Done when `docker compose up -d --build` on a clean clone gives a working app on :8000 and Dojo on :8080, with no manual steps.
+- [ ] **F2 DB baseline.**
+  - goose (timestamp names, embedded) + sqlc config; pgx pool with `asi.enc_key` set in `AfterConnect`.
+  - Baseline migration: `pgcrypto`, `asi_enc`/`asi_dec`, and **all core tables** from architecture §5, so later tasks rarely touch the same migration.
+  - River migrations run on startup.
+- [ ] **F3 Contracts.**
+  - `api/openapi.yaml` with the common schemas (error, pagination, Host, Service, Run, Finding …) and the stubbed paths for every area; TS generation wired up in `make gen`.
+  - `internal/scanner` interface + types.
+  - `internal/dojo` client interface.
+  - `internal/auth/rbac.go` with roles and the permission map.
+  - `internal/httpapi/router.go` with one `mount<Area>(r)` call per area.
+  - `web/src/routes.tsx` concatenating page modules.
+- [ ] **F4 Auth & app shell.**
+  - Login/logout, sessions, bootstrap admin from env, `auth.Require` middleware, CSRF header.
+  - SPA shell: AGH theme tokens (`web/src/theme.css`), logo, sidebar nav filtered by role, login page.
+  - Worktree helper `scripts/wt-env.sh` (see AGENTS.md "Parallel worktrees").
+
+## M1 — Walking skeleton (parallel tracks; each needs M0)
+
+**Track S — Scanning**
+- [ ] **S1 Targets & scope.** Parse manual, CSV and JSON targets (ip / cidr / domain); expand CIDRs; resolve domains (keep the domain→IP map); include/exclude filtering with the global blacklist last; unit tests with large CIDRs (/16).
+- [ ] **S2 nmap scanner.** Command builder (safe flag allowlist, ports, `--max-rate`), XML → observations parser, `PerIP` filtering, fixture-based tests in `testdata/`.
+- [ ] **S3 Pipeline v1.** (needs S1, S2) Run → batches (fixed size for now) → River jobs → nmap → ingest into `hosts`/`services`/`run_observations`/`artifacts`; run/batch status and durations.
+
+**Track D — DefectDojo**
+- [ ] **D1 Dojo client.** API v2: organization/asset/engagement/test get-or-create, `import-scan`/`reimport-scan` (multipart), findings list/patch, notes, tags; retries + concurrency limit; integration test against the compose Dojo (`-tags integration`).
+- [ ] **D2 Push.** (needs D1, S3) After each batch, for each responding IP: ensure the Asset/Engagement/Test chain and reimport nmap results; "New device found" INFO finding via Generic Findings Import with a stable `unique_id_from_tool`.
+- [ ] **D3 Sync (pull).** (needs D1) Periodic job → `dojo_assets`/`dojo_findings` mirror tables; API `GET /api/findings` reading the mirror.
+
+**Track W — Web UI**
+- [ ] **W1 Targets & Scope pages.** (needs S1 API) Manual form, CSV/JSON upload with a preview of parsed entries + errors, black/whitelist editor.
+- [ ] **W2 Runs page.** (needs S3 API) Start a run for a profile, live progress (polling), batches with durations, stop button.
+- [ ] **W3 Hosts list + detail.** (needs S3 API) Filterable list (state, port, tech, tag), detail with services and HTTP observations.
+
+## M2 — Scored features
+
+**Track S — Scanning**
+- [ ] **S4 nuclei scanner.** Command builder with the template policy (allowed tags, exclusions, `-no-interactsh`, rate limit), URL building from services + hostnames, JSONL parser → `http_observations` (title, status, headers, cookies, TLS cert, redirects, technologies, favicon hash); wire into the pipeline after nmap.
+- [ ] **S5 Adaptive batching + rate limits.** Batch size from measured throughput, per-profile `--max-rate` / nuclei `-rl`, global concurrency cap.
+- [ ] **S6 Unstable hosts & lifecycle.** End-of-run re-probe of hosts that were up last run and are down now; `miss_count` and the `active → unstable → inactive` state machine; profile `miss_threshold`.
+
+**Track D — DefectDojo**
+- [ ] **D4 Push nuclei + lifecycle findings.** (needs S4, S6) Reimport nuclei per IP; push "Host offline" once the threshold is hit; tags (`tech:*`, `panel:*`, `env:*`, `host:*`) on Assets.
+- [ ] **D5 Planned engagements poller.** `ASI Planning` asset, poll `Not Started` engagements tagged `asi-profile:<name>` → `schedules(source='dojo')`, update engagement status on run start/finish.
+- [ ] **D6 Write-through edits.** Finding edits in our API → PATCH Dojo → update the mirror; host user-fields → Asset description/tags.
+
+**Track P — Platform**
+- [ ] **P1 Scheduler & time windows.** Schedules (frequency + window + timezone) from both sources; start runs in-window; `ctx` deadline at window end → kill, set the batch back to pending, mark the run `suspended`; resume in the next window.
+- [ ] **P2 RBAC hardening + users admin API.** The four roles enforced on every route (table-driven test that walks all routes × roles); user CRUD; audit log on every mutation.
+- [ ] **P3 Import/export.** Our JSON/CSV formats for targets and **scan results** (results go through the same ingest + push path as scanner output; use the sample format from the organizers once we have it); export of hosts/services/findings/changes to JSON/CSV with the current filters.
+- [ ] **P4 Encryption audit.** Every sensitive field uses `_enc` + helpers; a test proves the ciphertext in the DB is not plaintext; docs section.
+
+**Track C — Changes & fingerprinting**
+- [ ] **C1 Run diff.** `internal/changes`: compare two runs → new / gone / changed hosts and services (a changed product/version/title/tech counts as changed); API `GET /api/changes?from=&to=`.
+- [ ] **C2 Signature validator + built-ins.** Safe-subset validator (architecture §9), API to CRUD + validate signatures, built-in templates in `signatures/`: staging/test env markers, admin panels, interesting headers/cookies, IoT banners, favicon hashes, version in footer. Add the organizers' sample signatures when we get them.
+
+**Track W — Web UI**
+- [ ] **W4 Dashboard.** Key findings by severity, new/gone/changed since the last run, new devices (shadow IT), unstable hosts, top technologies, last runs with durations.
+- [ ] **W5 Findings page.** Mirror list with filters, inline triage (status, severity, notes) via D6; link out to Dojo.
+- [ ] **W6 Changes page.** Pick two runs → diff table; per-host timeline.
+- [ ] **W7 Profiles & Schedules pages.** Profile editor (ports, rates, nuclei tags, miss threshold), schedule editor; Dojo-sourced schedules shown read-only with a badge.
+- [ ] **W8 Signatures page.** YAML editor, validate button with errors, enable/disable, test against one URL in the lab.
+- [ ] **W9 Users page + role-aware UI.** User admin; every action button hidden/disabled per role.
+- [ ] **W10 Host edit.** Edit user-owned fields + overrides; show "edited by user" markers; verify edits survive the next run.
+
+**Track L — Lab**
+- [ ] **L1 Local test lab.** `compose.lab.yml` on an isolated docker network: WordPress, Joomla or Drupal, nginx with `/admin`, an app with `X-Environment: staging`, Tomcat, a fake IoT banner (e.g. a small Go service), a TLS service with a self-signed/expired cert, and **one flapping container** (toggled by a script) for unstable-host testing. Until the organizers' lab arrives, **all dev scans target only this network.**
+
+## M3 — Polish & extras
+
+- [ ] **X1 Time-of-day presence.** Heatmap of host/service presence by hour from `run_observations`; mark hosts as "time-dependent".
+- [ ] **X2 Interestingness score.** Weighted score per host (admin panel, staging, outdated version, new device, CVE match, interesting cookie/header, unusual port); sort the dashboard by it.
+- [ ] **X3 Offline CVE matching.** Local CPE/version match against an NVD/OSV snapshot bundled in the image; push as findings with `vuln_id_from_tool`.
+- [ ] **X4 Grouping & tags.** Group similar services (same tech + version / same favicon hash / same title); tag management UI.
+- [ ] **X5 Export observations to Dojo.** Select observations in the UI → push as INFO findings, with evidence attached.
+- [ ] **X6 Demo script + docs.** `scripts/demo.sh` (two runs with a lab change in between), README quickstart, technical docs, ≤10 slides.
+
+## M4 — MCP (last)
+
+- [ ] **MCP1 MCP server.** `internal/mcp` using the official Go MCP SDK, streamable HTTP at `/mcp`, auth by API token (P2), the same RBAC. Read tools: `search_hosts`, `get_host`, `list_findings`, `get_changes`, `list_runs`. Editor tools: `start_scan`, `add_targets`. Admin UI to issue tokens.
+
+---
+
+## Dependency picture
+
+```
+M0: F0 → F1 → F2 → F3 → F4
+        │
+M1:     ├─ S1 ─┬─ S3 ─┬─ D2          W1 (S1)  W2/W3 (S3)
+        │  S2 ─┘      │
+        └─ D1 ────────┴─ D3
+M2:  S4, S5, S6 (S3) · D4 (S4,S6) · D5 (D1) · D6 (D3) · P1..P4 · C1 (S3) · C2 · W4..W10 · L1 (anytime)
+M3:  after the relevant M2 parts     M4: after P2
+```
+
+L1 (lab) has no dependencies and is a good first task for whoever is free while M0 is being built.
