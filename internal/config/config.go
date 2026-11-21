@@ -15,6 +15,7 @@ type Config struct {
 	EncryptionKey string // ASI_ENCRYPTION_KEY (pgcrypto key, see internal/db)
 
 	DojoURL          string // ASI_DOJO_URL; empty disables the Dojo bootstrap
+	DojoPublicURL    string // ASI_DOJO_PUBLIC_URL: Dojo as the browser reaches it (links); default ASI_DOJO_URL
 	DojoToken        string // ASI_DOJO_TOKEN; empty = obtain with DD_ADMIN_USER/DD_ADMIN_PASSWORD
 	DojoAdminUser    string // DD_ADMIN_USER
 	DojoAdminPass    string // DD_ADMIN_PASSWORD
@@ -40,6 +41,7 @@ func Load() (*Config, error) {
 		AdminUsername:    env("ASI_ADMIN_USERNAME", "admin"),
 		AdminPassword:    os.Getenv("ASI_ADMIN_PASSWORD"),
 	}
+	c.DojoPublicURL = env("ASI_DOJO_PUBLIC_URL", c.DojoURL)
 	var err error
 	if c.CookieSecure, err = strconv.ParseBool(env("ASI_COOKIE_SECURE", "false")); err != nil {
 		return nil, fmt.Errorf("ASI_COOKIE_SECURE: %w", err)

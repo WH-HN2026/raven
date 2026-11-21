@@ -342,7 +342,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description stub. Reads the Dojo mirror (dojo_findings). */
+        /** @description Reads only the Dojo mirror (dojo_findings, synced every 5 min from findings tagged "asi"); never calls Dojo. Sorted by severity (Critical first), then date (newest first). */
         get: operations["listFindings"];
         put?: never;
         post?: never;
@@ -923,6 +923,7 @@ export interface components {
             scanner?: string;
             /** Format: date */
             date?: string | null;
+            /** @description Link to the finding in the Dojo UI (ASI_DOJO_PUBLIC_URL); empty if Dojo is not configured. */
             dojo_url?: string;
         };
         FindingPatch: {
@@ -1630,9 +1631,15 @@ export interface operations {
     listFindings: {
         parameters: {
             query?: {
-                severity?: components["schemas"]["Severity"];
+                /** @description Any of these; repeat the parameter or separate with commas. Case-insensitive. */
+                severity?: components["schemas"]["Severity"][];
                 active?: boolean;
+                /** @description An IP address or a CIDR. */
                 ip?: string;
+                /** @description Case-insensitive substring of the title. */
+                q?: string;
+                /** @description nmap, nuclei, asi (our INFO findings), … */
+                scanner?: string;
                 limit?: components["parameters"]["Limit"];
                 offset?: components["parameters"]["Offset"];
             };

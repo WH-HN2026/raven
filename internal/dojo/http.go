@@ -342,6 +342,13 @@ func (c *HTTPClient) ListFindings(ctx context.Context, q FindingQuery) (*Page[Fi
 	if q.Active != nil {
 		v.Set("active", strconv.FormatBool(*q.Active))
 	}
+	if q.OrganizationID != 0 {
+		v.Set("prod_type", itoa(q.OrganizationID))
+	}
+	if q.Related {
+		v.Set("related_fields", "true")
+	}
+	v.Set("o", "id") // stable order for paging
 	var page Page[Finding]
 	if err := c.do(ctx, http.MethodGet, "/api/v2/findings/", v, nil, &page); err != nil {
 		return nil, fmt.Errorf("dojo list findings: %w", err)
@@ -373,6 +380,10 @@ func (c *HTTPClient) ListAssets(ctx context.Context, q AssetQuery) (*Page[Asset]
 	if len(q.Tags) > 0 {
 		v.Set("tags", strings.Join(q.Tags, ","))
 	}
+	if q.OrganizationID != 0 {
+		v.Set("organization", itoa(q.OrganizationID))
+	}
+	v.Set("o", "id") // stable order for paging
 	var page Page[Asset]
 	if err := c.do(ctx, http.MethodGet, "/api/v2/assets/", v, nil, &page); err != nil {
 		return nil, fmt.Errorf("dojo list assets: %w", err)
