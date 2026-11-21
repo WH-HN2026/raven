@@ -110,7 +110,7 @@ export function ChangesPage() {
   return (
     <>
       <PageHeader title="Changes" crumbs={[{ label: 'Changes' }]}>
-        <ExportButton kind="changes" onDark />
+        <ExportButton kind="changes" onDark disabled={!d} />
       </PageHeader>
       <FilterBar onSubmit={(e) => e.preventDefault()}>
         <Field label="Profile" className="flex-[0_1_280px]">

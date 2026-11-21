@@ -28,17 +28,33 @@ export function exportHref(kind: ExportKind, format: ExportFormat, params?: URLS
  * "Export CSV" + "Export JSON" download links for `kind`, carrying the current
  * page's URL filters. Hidden without the export permission.
  */
-export function ExportButton({ kind, onDark = false }: { kind: ExportKind; onDark?: boolean }) {
+export function ExportButton({
+  kind,
+  onDark = false,
+  disabled = false,
+}: {
+  kind: ExportKind
+  onDark?: boolean
+  /** Nothing to export (e.g. no diff yet): render inert. */
+  disabled?: boolean
+}) {
   const can = useCan('export')
   const [params] = useSearchParams()
   if (!can) return null
+  const cls = buttonClass('secondary', 'md', onDark)
   return (
     <>
-      {(['csv', 'json'] as const).map((f) => (
-        <a key={f} href={exportHref(kind, f, params)} download className={buttonClass('secondary', 'md', onDark)}>
-          Export {f.toUpperCase()}
-        </a>
-      ))}
+      {(['csv', 'json'] as const).map((f) =>
+        disabled ? (
+          <a key={f} role="link" aria-disabled="true" className={cls + ' pointer-events-none opacity-50'}>
+            Export {f.toUpperCase()}
+          </a>
+        ) : (
+          <a key={f} href={exportHref(kind, f, params)} download className={cls}>
+            Export {f.toUpperCase()}
+          </a>
+        ),
+      )}
     </>
   )
 }

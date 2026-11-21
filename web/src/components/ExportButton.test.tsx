@@ -30,4 +30,11 @@ describe('ExportButton', () => {
     )
     expect(screen.getByRole('link', { name: 'Export JSON' })).toHaveAttribute('download')
   })
+
+  it('renders inert links when disabled', () => {
+    renderAs('viewer', <ExportButton kind="changes" disabled />, { path: '/changes' })
+    const link = screen.getByRole('link', { name: 'Export CSV' })
+    expect(link).toHaveAttribute('aria-disabled', 'true')
+    expect(link).not.toHaveAttribute('href')
+  })
 })
