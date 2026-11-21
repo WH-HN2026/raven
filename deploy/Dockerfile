@@ -28,6 +28,7 @@ ARG TARGETARCH=amd64
 ARG HTTPX_VERSION=1.12.0
 ARG NUCLEI_VERSION=3.11.1
 ARG NUCLEI_TEMPLATES_VERSION=v10.5.2
+ARG NUCLEI_TEMPLATES_SHA256=016b7abbf931d4d1a851a5a568e44510dc61691dc8a5202e3b24e701515ec574
 RUN apk add --no-cache curl unzip
 WORKDIR /tmp/n
 RUN curl -fsSLO "https://github.com/projectdiscovery/httpx/releases/download/v${HTTPX_VERSION}/httpx_${HTTPX_VERSION}_linux_${TARGETARCH}.zip" \
@@ -41,8 +42,10 @@ RUN curl -fsSLO "https://github.com/projectdiscovery/nuclei/releases/download/v$
  && unzip -o "nuclei_${NUCLEI_VERSION}_linux_${TARGETARCH}.zip" nuclei \
  && install -m 0755 nuclei /usr/local/bin/nuclei
 RUN mkdir -p /opt/nuclei-templates \
- && curl -fsSL "https://github.com/projectdiscovery/nuclei-templates/archive/refs/tags/${NUCLEI_TEMPLATES_VERSION}.tar.gz" \
-    | tar -xz -C /opt/nuclei-templates --strip-components=1
+ && curl -fsSL "https://github.com/projectdiscovery/nuclei-templates/archive/refs/tags/${NUCLEI_TEMPLATES_VERSION}.tar.gz" -o nuclei-templates.tar.gz \
+ && echo "${NUCLEI_TEMPLATES_SHA256}  nuclei-templates.tar.gz" | sha256sum -c - \
+ && tar -xzf nuclei-templates.tar.gz -C /opt/nuclei-templates --strip-components=1 \
+ && rm -f nuclei-templates.tar.gz
 
 # ── 3b. wpscan (pinned gem + build-time metadata DB, offline at runtime) ──
 FROM alpine:3.24.4 AS wpscan
