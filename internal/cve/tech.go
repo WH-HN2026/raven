@@ -69,6 +69,13 @@ var techSynonyms = map[string]string{
 	"routeros": "mikrotik:routeros", "mikrotikrouteros": "mikrotik:routeros", "sonicwall": "sonicwall:sonicos",
 	"panos": "paloaltonetworks:pan-os", "paloalto": "paloaltonetworks:pan-os",
 	"synologydsm": "synology:diskstation_manager", "qnap": "qnap:qts", "qnapqts": "qnap:qts",
+	// built-in signatures (signatures/raven-*.yaml): template id and name
+	"raventraefikapi": "traefik:traefik", "traefikdashboardapi": "traefik:traefik",
+	"ravengiteaversion": "gitea:gitea", "giteaversioninfooter": "gitea:gitea",
+	"ravenadminerlogin": "adminer:adminer", "adminerlogin": "adminer:adminer",
+	"ravenphpmyadminlogin": "phpmyadmin:phpmyadmin", "phpmyadminlogin": "phpmyadmin:phpmyadmin",
+	"ravenrabbitmqmanagement": "vmware:rabbitmq", "rabbitmqmanagementpanel": "vmware:rabbitmq",
+	"rabbitmqmanagement": "vmware:rabbitmq",
 }
 
 // normName lowercases and keeps only letters and digits.

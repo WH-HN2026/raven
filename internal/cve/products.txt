@@ -40,6 +40,7 @@ WordPress = wordpress:wordpress
 Joomla = joomla:joomla\! | joomla:joomla
 Drupal = drupal:drupal
 phpMyAdmin = phpmyadmin:phpmyadmin
+Adminer = adminer:adminer
 Jenkins = jenkins:jenkins
 Grafana = grafana:grafana
 GitLab = gitlab:gitlab
@@ -77,7 +78,7 @@ RealVNC = realvnc:vnc_server | realvnc:vnc
 OpenVPN = openvpn:openvpn
 
 # FTP / mail / DNS / file
-vsftpd = beasts:vsftpd
+vsftpd = beasts:vsftpd | vsftpd:vsftpd
 ProFTPD = proftpd:proftpd
 Pure-FTPd = pureftpd:pure-ftpd
 FileZilla Server = filezilla-project:filezilla_server
