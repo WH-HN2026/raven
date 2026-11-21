@@ -154,7 +154,7 @@ function HostForm({ h, onDone }: { h: HostDetail; onDone: (sync: DojoSync | null
         >
           {criticalities.map((c) => (
             <option key={c} value={c}>
-              {c ? c[0].toUpperCase() + c.slice(1) : '—'}
+              {c ? c.charAt(0).toUpperCase() + c.slice(1) : '—'}
             </option>
           ))}
         </select>

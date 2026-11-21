@@ -153,7 +153,7 @@ describe('service overrides', () => {
     const resets = screen.getAllByRole('button', { name: 'Reset to scan value' })
     // name (now differs) and product (overridden) can be reset
     expect(resets).toHaveLength(2)
-    fireEvent.click(resets[1])
+    fireEvent.click(resets[1]!)
     expect(screen.getByLabelText('80/tcp product')).toHaveValue('nginx')
     fireEvent.click(screen.getByRole('button', { name: 'Save' }))
     await waitFor(() => expect(screen.queryByLabelText('80/tcp name')).toBeNull())
