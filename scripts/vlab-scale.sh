@@ -35,7 +35,9 @@ case "${1:-}" in
   up)
     n=${2:-$(cur VLAB_SCALE_HOSTS)}
     n=${n:-256}
-    [[ $n =~ ^[0-9]+$ ]] && ((n >= 1 && n <= 4096)) || die "N must be 1..4096"
+    if [[ ! $n =~ ^[0-9]+$ ]] || ((n < 1 || n > 4096)); then
+      die "N must be 1..4096"
+    fi
     seed=${VLAB_SCALE_SEED:-$(cur VLAB_SCALE_SEED)}
     seed=${seed:-1}
     epoch=0

@@ -65,8 +65,8 @@ func serve(c Config, dev string) error {
 	}
 	srv := &http.Server{
 		Handler:           http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { handle(svcs, w, r) }),
-		ReadHeaderTimeout: 5 * time.Second,
-		IdleTimeout:       5 * time.Second,
+		ReadHeaderTimeout: 30 * time.Second,
+		IdleTimeout:       120 * time.Second,
 		ErrorLog:          log.New(discard{}, "", 0),
 	}
 	for k, s := range svcs {
