@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE nmaprun>
+<?xml-stylesheet href="file:///usr/bin/../share/nmap/nmap.xsl" type="text/xsl"?>
+<!-- Nmap 7.99 scan initiated Sat Nov 21 13:04:32 2026 as: nmap -sS -sV -PE -PP -PS21,22,23,25,80,443,445,3389,8080 -PA80,443 -p 22,80,443,8080 -&#45;script http-title,http-headers,ssl-cert,banner -&#45;max-rate 100 -T3 -&#45;max-retries 2 -&#45;host-timeout 15m -&#45;script-timeout 30s -n -v -&#45;reason -oX - 172.31.250.10 172.31.250.11 172.31.250.12 172.31.250.20 -->
+<nmaprun scanner="nmap" args="nmap -sS -sV -PE -PP -PS21,22,23,25,80,443,445,3389,8080 -PA80,443 -p 22,80,443,8080 -&#45;script http-title,http-headers,ssl-cert,banner -&#45;max-rate 100 -T3 -&#45;max-retries 2 -&#45;host-timeout 15m -&#45;script-timeout 30s -n -v -&#45;reason -oX - 172.31.250.10 172.31.250.11 172.31.250.12 172.31.250.20" start="1795266272" startstr="Sat Nov 21 13:04:32 2026" version="7.99" xmloutputversion="1.05">
+<scaninfo type="syn" protocol="tcp" numservices="4" services="22,80,443,8080"/>
+<verbose level="1"/>
+<debugging level="0"/>
+<taskbegin task="NSE" time="1795266272"/>
+<taskend task="NSE" time="1795266272"/>
+<taskbegin task="NSE" time="1795266272"/>
+<taskend task="NSE" time="1795266272"/>
+<taskbegin task="ARP Ping Scan" time="1795266272"/>
+<hosthint><status state="up" reason="arp-response" reason_ttl="0"/>
+<address addr="172.31.250.11" addrtype="ipv4"/>
+<address addr="32:17:AA:CE:C2:DF" addrtype="mac"/>
+<hostnames>
+</hostnames>
+</hosthint>
+<hosthint><status state="up" reason="arp-response" reason_ttl="0"/>
+<address addr="172.31.250.12" addrtype="ipv4"/>
+<address addr="DA:78:BD:AB:8E:64" addrtype="mac"/>
+<hostnames>
+</hostnames>
+</hosthint>
+<hosthint><status state="up" reason="arp-response" reason_ttl="0"/>
+<address addr="172.31.250.10" addrtype="ipv4"/>
+<address addr="8E:AE:DF:10:25:86" addrtype="mac"/>
+<hostnames>
+</hostnames>
+</hosthint>
+<taskend task="ARP Ping Scan" time="1795266274" extrainfo="4 total hosts"/>
+<host><status state="down" reason="no-response" reason_ttl="0"/>
+<address addr="172.31.250.20" addrtype="ipv4"/>
+</host>
+<taskbegin task="SYN Stealth Scan" time="1795266274"/>
+<taskend task="SYN Stealth Scan" time="1795266274" extrainfo="12 total ports"/>
+<taskbegin task="Service scan" time="1795266274"/>
+<taskend task="Service scan" time="1795266286" extrainfo="6 services on 3 hosts"/>
+<taskbegin task="NSE" time="1795266286"/>
+<taskend task="NSE" time="1795266306"/>
+<taskbegin task="NSE" time="1795266306"/>
+<taskend task="NSE" time="1795266306"/>
+<host starttime="1795266274" endtime="1795266306"><status state="up" reason="arp-response" reason_ttl="0"/>
+<address addr="172.31.250.10" addrtype="ipv4"/>
+<address addr="8E:AE:DF:10:25:86" addrtype="mac"/>
+<hostnames>
+</hostnames>
+<ports><port protocol="tcp" portid="22"><state state="closed" reason="reset" reason_ttl="64"/><service name="ssh" method="table" conf="3"/></port>
+<port protocol="tcp" portid="80"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="http" product="nginx" method="probed" conf="10"><cpe>cpe:/a:igor_sysoev:nginx</cpe></service><script id="http-title" output="ASI S2 Test Page"><elem key="title">ASI S2 Test Page</elem>
+</script><script id="http-headers" output="&#xa;  Server: nginx&#xa;  Date: Sat, 21 Nov 2026 13:04:46 GMT&#xa;  Content-Type: text/html&#xa;  Content-Length: 76&#xa;  Last-Modified: Sat, 21 Nov 2026 13:00:14 GMT&#xa;  Connection: close&#xa;  ETag: &quot;6b0195de-4c&quot;&#xa;  Accept-Ranges: bytes&#xa;  &#xa;  (Request type: HEAD)&#xa;"/></port>
+<port protocol="tcp" portid="443"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="http" product="nginx" tunnel="ssl" method="probed" conf="10"><cpe>cpe:/a:igor_sysoev:nginx</cpe></service><script id="ssl-cert" output="Subject: commonName=tls.asi-s2.test/organizationName=ASI S2 Test&#xa;Issuer: commonName=tls.asi-s2.test/organizationName=ASI S2 Test&#xa;Public Key type: rsa&#xa;Public Key bits: 2048&#xa;Signature Algorithm: sha256WithRSAEncryption&#xa;Not valid before: 2026-11-21T13:00:14&#xa;Not valid after:  2027-11-21T13:00:14&#xa;MD5:     2889 3788 25dc 4ed0 695a 2ce9 4731 4e2b&#xa;SHA-1:   fb60 67b9 5006 5644 df9e 088e dd4e c87c 80fe 678d&#xa;SHA-256: 5f54 7709 a300 e7f7 cd03 10a1 bbc4 e9b2 0952 a1f9 c1d1 a5bc 17a6 0a27 422a 7cd8&#xa;-&#45;&#45;&#45;&#45;BEGIN CERTIFICATE-&#45;&#45;&#45;&#45;&#xa;MIIDQTCCAimgAwIBAgIUOlEDRv5gzphHv1KTdsBdT+ZJShQwDQYJKoZIhvcNAQEL&#xa;BQAwMDEYMBYGA1UEAwwPdGxzLmFzaS1zMi50ZXN0MRQwEgYDVQQKDAtBU0kgUzIg&#xa;VGVzdDAeFw0yNjExMjExMzAwMTRaFw0yNzExMjExMzAwMTRaMDAxGDAWBgNVBAMM&#xa;D3Rscy5hc2ktczIudGVzdDEUMBIGA1UECgwLQVNJIFMyIFRlc3QwggEiMA0GCSqG&#xa;SIb3DQEBAQUAA4IBDwAwggEKAoIBAQDLu/Ec9aMBQ4FrdzDKiAo6VTva9wRmY5pV&#xa;psVVr0YXZIYBrsfYt0KcyLGsKrQYN0Pn1jJaWDEn3EDlNLuT6BR0AS9FveljDjKz&#xa;2FBIzbXKPLcdFJnDKXEvuV37TqwKhgGl/ule03u5EQjQe+mv+7s0+XJwEcSankW5&#xa;RUCzOrt1IYWyaOTlpDyMFt47ZUo34EzHqu6Cf9y3c+0G4T5vgoj2xpNMlnqJPZ1k&#xa;+3On/CEHZioZDrRQNjerLvg9enPuO2pL9vw6ZdS/44V+zGX18LZ9FIvD0xLB8gaW&#xa;iKWbqkP8zpnyFeE6QjtZVs5BHg5hpDTPvZ6QKw1/h7XOB0EMbFMFAgMBAAGjUzBR&#xa;MB0GA1UdDgQWBBTPtemQwHJt42RzWOaP2XQs1IceADAfBgNVHSMEGDAWgBTPtemQ&#xa;wHJt42RzWOaP2XQs1IceADAPBgNVHRMBAf8EBTADAQH/MA0GCSqGSIb3DQEBCwUA&#xa;A4IBAQCF97X3QeA3mwK/dwD4CRV5sN+rYk9Ih75ZRaRorq+AVe9OBbjFQPzNt+hY&#xa;2yufy3bp/5MPX2a2jP/pNw2o3pmCYjlTUMAms7RU4qsptAR/UPTc8CkPsofuiL8k&#xa;UckWfZ1Wm4yHrJtpoeXE8/88u5aFXtq7892sdRPU2JGLHq8HMQloRrBhzH+Oq5YV&#xa;O6+ENLuqso19Ps4JBiqROY3g3c0k96QRs73KcA7Kqxe1WRsRsVRpf/Hi54bmwtvE&#xa;VlTyUx8Vcoi+Oi+8H4kMbmjP0mHMfap4V5xE0AU798fxOAPFbn/uxFpOMCxV5FrK&#xa;/4EcX5e7QbA4XlgCujAsnqeNDC6V&#xa;-&#45;&#45;&#45;&#45;END CERTIFICATE-&#45;&#45;&#45;&#45;&#xa;"><table key="subject">
+<elem key="commonName">tls.asi-s2.test</elem>
+<elem key="organizationName">ASI S2 Test</elem>
+</table>
+<table key="issuer">
+<elem key="commonName">tls.asi-s2.test</elem>
+<elem key="organizationName">ASI S2 Test</elem>
+</table>
+<table key="pubkey">
+<elem key="type">rsa</elem>
+<elem key="bits">2048</elem>
+<elem key="modulus">CBBBF11CF5A30143816B7730CA880A3A553BDAF70466639A55A6C555AF4617648601AEC7D8B7429CC8B1AC2AB4183743E7D6325A583127DC40E534BB93E81474012F45BDE9630E32B3D85048CDB5CA3CB71D1499C329712FB95DFB4EAC0A8601A5FEE95ED37BB91108D07BE9AFFBBB34F9727011C49A9E45B94540B33ABB752185B268E4E5A43C8C16DE3B654A37E04CC7AAEE827FDCB773ED06E13E6F8288F6C6934C967A893D9D64FB73A7FC2107662A190EB4503637AB2EF83D7A73EE3B6A4BF6FC3A65D4BFE3857ECC65F5F0B67D148BC3D312C1F2069688A59BAA43FCCE99F215E13A423B5956CE411E0E61A434CFBD9E902B0D7F87B5CE07410C6C5305</elem>
+<elem key="exponent">65537</elem>
+</table>
+<table key="extensions">
+<table>
+<elem key="name">X509v3 Subject Key Identifier</elem>
+<elem key="value">CF:B5:E9:90:C0:72:6D:E3:64:73:58:E6:8F:D9:74:2C:D4:87:1E:00</elem>
+</table>
+<table>
+<elem key="name">X509v3 Authority Key Identifier</elem>
+<elem key="value">CF:B5:E9:90:C0:72:6D:E3:64:73:58:E6:8F:D9:74:2C:D4:87:1E:00</elem>
+</table>
+<table>
+<elem key="name">X509v3 Basic Constraints</elem>
+<elem key="value">CA:TRUE</elem>
+<elem key="critical">true</elem>
+</table>
+</table>
+<elem key="sig_algo">sha256WithRSAEncryption</elem>
+<table key="validity">
+<elem key="notBefore">2026-11-21T13:00:14</elem>
+<elem key="notAfter">2027-11-21T13:00:14</elem>
+</table>
+<elem key="md5">2889378825dc4ed0695a2ce947314e2b</elem>
+<elem key="sha1">fb6067b950065644df9e088edd4ec87c80fe678d</elem>
+<elem key="sha256">5f547709a300e7f7cd0310a1bbc4e9b20952a1f9c1d1a5bc17a60a27422a7cd8</elem>
+<elem key="pem">-&#45;&#45;&#45;&#45;BEGIN CERTIFICATE-&#45;&#45;&#45;&#45;&#xa;MIIDQTCCAimgAwIBAgIUOlEDRv5gzphHv1KTdsBdT+ZJShQwDQYJKoZIhvcNAQEL&#xa;BQAwMDEYMBYGA1UEAwwPdGxzLmFzaS1zMi50ZXN0MRQwEgYDVQQKDAtBU0kgUzIg&#xa;VGVzdDAeFw0yNjExMjExMzAwMTRaFw0yNzExMjExMzAwMTRaMDAxGDAWBgNVBAMM&#xa;D3Rscy5hc2ktczIudGVzdDEUMBIGA1UECgwLQVNJIFMyIFRlc3QwggEiMA0GCSqG&#xa;SIb3DQEBAQUAA4IBDwAwggEKAoIBAQDLu/Ec9aMBQ4FrdzDKiAo6VTva9wRmY5pV&#xa;psVVr0YXZIYBrsfYt0KcyLGsKrQYN0Pn1jJaWDEn3EDlNLuT6BR0AS9FveljDjKz&#xa;2FBIzbXKPLcdFJnDKXEvuV37TqwKhgGl/ule03u5EQjQe+mv+7s0+XJwEcSankW5&#xa;RUCzOrt1IYWyaOTlpDyMFt47ZUo34EzHqu6Cf9y3c+0G4T5vgoj2xpNMlnqJPZ1k&#xa;+3On/CEHZioZDrRQNjerLvg9enPuO2pL9vw6ZdS/44V+zGX18LZ9FIvD0xLB8gaW&#xa;iKWbqkP8zpnyFeE6QjtZVs5BHg5hpDTPvZ6QKw1/h7XOB0EMbFMFAgMBAAGjUzBR&#xa;MB0GA1UdDgQWBBTPtemQwHJt42RzWOaP2XQs1IceADAfBgNVHSMEGDAWgBTPtemQ&#xa;wHJt42RzWOaP2XQs1IceADAPBgNVHRMBAf8EBTADAQH/MA0GCSqGSIb3DQEBCwUA&#xa;A4IBAQCF97X3QeA3mwK/dwD4CRV5sN+rYk9Ih75ZRaRorq+AVe9OBbjFQPzNt+hY&#xa;2yufy3bp/5MPX2a2jP/pNw2o3pmCYjlTUMAms7RU4qsptAR/UPTc8CkPsofuiL8k&#xa;UckWfZ1Wm4yHrJtpoeXE8/88u5aFXtq7892sdRPU2JGLHq8HMQloRrBhzH+Oq5YV&#xa;O6+ENLuqso19Ps4JBiqROY3g3c0k96QRs73KcA7Kqxe1WRsRsVRpf/Hi54bmwtvE&#xa;VlTyUx8Vcoi+Oi+8H4kMbmjP0mHMfap4V5xE0AU798fxOAPFbn/uxFpOMCxV5FrK&#xa;/4EcX5e7QbA4XlgCujAsnqeNDC6V&#xa;-&#45;&#45;&#45;&#45;END CERTIFICATE-&#45;&#45;&#45;&#45;&#xa;</elem>
+</script><script id="http-headers" output="&#xa;  Server: nginx&#xa;  Date: Sat, 21 Nov 2026 13:04:46 GMT&#xa;  Content-Type: text/html&#xa;  Content-Length: 76&#xa;  Last-Modified: Sat, 21 Nov 2026 13:00:14 GMT&#xa;  Connection: close&#xa;  ETag: &quot;6b0195de-4c&quot;&#xa;  Accept-Ranges: bytes&#xa;  &#xa;  (Request type: HEAD)&#xa;"/><script id="http-title" output="ASI S2 Test Page"><elem key="title">ASI S2 Test Page</elem>
+</script></port>
+<port protocol="tcp" portid="8080"><state state="closed" reason="reset" reason_ttl="64"/><service name="http-proxy" method="table" conf="3"/></port>
+</ports>
+<times srtt="13" rttvar="1588" to="100000"/>
+</host>
+<host starttime="1795266274" endtime="1795266306"><status state="up" reason="arp-response" reason_ttl="0"/>
+<address addr="172.31.250.11" addrtype="ipv4"/>
+<address addr="32:17:AA:CE:C2:DF" addrtype="mac"/>
+<hostnames>
+</hostnames>
+<ports><port protocol="tcp" portid="22"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="ssh" product="OpenSSH" version="10.0" extrainfo="protocol 2.0" method="probed" conf="10"><cpe>cpe:/a:openbsd:openssh:10.0</cpe></service><script id="banner" output="SSH-2.0-OpenSSH_10.0"/></port>
+<port protocol="tcp" portid="80"><state state="closed" reason="reset" reason_ttl="64"/><service name="http" method="table" conf="3"/></port>
+<port protocol="tcp" portid="443"><state state="closed" reason="reset" reason_ttl="64"/><service name="https" method="table" conf="3"/></port>
+<port protocol="tcp" portid="8080"><state state="closed" reason="reset" reason_ttl="64"/><service name="http-proxy" method="table" conf="3"/></port>
+</ports>
+<times srtt="26" rttvar="1593" to="100000"/>
+</host>
+<host starttime="1795266274" endtime="1795266306"><status state="up" reason="arp-response" reason_ttl="0"/>
+<address addr="172.31.250.12" addrtype="ipv4"/>
+<address addr="DA:78:BD:AB:8E:64" addrtype="mac"/>
+<hostnames>
+</hostnames>
+<ports><port protocol="tcp" portid="22"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="ssh" product="OpenSSH" version="10.0" extrainfo="protocol 2.0" method="probed" conf="10"><cpe>cpe:/a:openbsd:openssh:10.0</cpe></service><script id="banner" output="SSH-2.0-OpenSSH_10.0"/></port>
+<port protocol="tcp" portid="80"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="http" product="nginx" method="probed" conf="10"><cpe>cpe:/a:igor_sysoev:nginx</cpe></service><script id="http-title" output="ASI S2 Test Page"><elem key="title">ASI S2 Test Page</elem>
+</script><script id="http-headers" output="&#xa;  Server: nginx&#xa;  Date: Sat, 21 Nov 2026 13:04:46 GMT&#xa;  Content-Type: text/html&#xa;  Content-Length: 76&#xa;  Last-Modified: Sat, 21 Nov 2026 13:00:14 GMT&#xa;  Connection: close&#xa;  ETag: &quot;6b0195de-4c&quot;&#xa;  Accept-Ranges: bytes&#xa;  &#xa;  (Request type: HEAD)&#xa;"/></port>
+<port protocol="tcp" portid="443"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="http" product="nginx" tunnel="ssl" method="probed" conf="10"><cpe>cpe:/a:igor_sysoev:nginx</cpe></service><script id="http-headers" output="&#xa;  Server: nginx&#xa;  Date: Sat, 21 Nov 2026 13:04:46 GMT&#xa;  Content-Type: text/html&#xa;  Content-Length: 76&#xa;  Last-Modified: Sat, 21 Nov 2026 13:00:14 GMT&#xa;  Connection: close&#xa;  ETag: &quot;6b0195de-4c&quot;&#xa;  Accept-Ranges: bytes&#xa;  &#xa;  (Request type: HEAD)&#xa;"/><script id="ssl-cert" output="Subject: commonName=tls.asi-s2.test/organizationName=ASI S2 Test&#xa;Issuer: commonName=tls.asi-s2.test/organizationName=ASI S2 Test&#xa;Public Key type: rsa&#xa;Public Key bits: 2048&#xa;Signature Algorithm: sha256WithRSAEncryption&#xa;Not valid before: 2026-11-21T13:00:14&#xa;Not valid after:  2027-11-21T13:00:14&#xa;MD5:     2889 3788 25dc 4ed0 695a 2ce9 4731 4e2b&#xa;SHA-1:   fb60 67b9 5006 5644 df9e 088e dd4e c87c 80fe 678d&#xa;SHA-256: 5f54 7709 a300 e7f7 cd03 10a1 bbc4 e9b2 0952 a1f9 c1d1 a5bc 17a6 0a27 422a 7cd8&#xa;-&#45;&#45;&#45;&#45;BEGIN CERTIFICATE-&#45;&#45;&#45;&#45;&#xa;MIIDQTCCAimgAwIBAgIUOlEDRv5gzphHv1KTdsBdT+ZJShQwDQYJKoZIhvcNAQEL&#xa;BQAwMDEYMBYGA1UEAwwPdGxzLmFzaS1zMi50ZXN0MRQwEgYDVQQKDAtBU0kgUzIg&#xa;VGVzdDAeFw0yNjExMjExMzAwMTRaFw0yNzExMjExMzAwMTRaMDAxGDAWBgNVBAMM&#xa;D3Rscy5hc2ktczIudGVzdDEUMBIGA1UECgwLQVNJIFMyIFRlc3QwggEiMA0GCSqG&#xa;SIb3DQEBAQUAA4IBDwAwggEKAoIBAQDLu/Ec9aMBQ4FrdzDKiAo6VTva9wRmY5pV&#xa;psVVr0YXZIYBrsfYt0KcyLGsKrQYN0Pn1jJaWDEn3EDlNLuT6BR0AS9FveljDjKz&#xa;2FBIzbXKPLcdFJnDKXEvuV37TqwKhgGl/ule03u5EQjQe+mv+7s0+XJwEcSankW5&#xa;RUCzOrt1IYWyaOTlpDyMFt47ZUo34EzHqu6Cf9y3c+0G4T5vgoj2xpNMlnqJPZ1k&#xa;+3On/CEHZioZDrRQNjerLvg9enPuO2pL9vw6ZdS/44V+zGX18LZ9FIvD0xLB8gaW&#xa;iKWbqkP8zpnyFeE6QjtZVs5BHg5hpDTPvZ6QKw1/h7XOB0EMbFMFAgMBAAGjUzBR&#xa;MB0GA1UdDgQWBBTPtemQwHJt42RzWOaP2XQs1IceADAfBgNVHSMEGDAWgBTPtemQ&#xa;wHJt42RzWOaP2XQs1IceADAPBgNVHRMBAf8EBTADAQH/MA0GCSqGSIb3DQEBCwUA&#xa;A4IBAQCF97X3QeA3mwK/dwD4CRV5sN+rYk9Ih75ZRaRorq+AVe9OBbjFQPzNt+hY&#xa;2yufy3bp/5MPX2a2jP/pNw2o3pmCYjlTUMAms7RU4qsptAR/UPTc8CkPsofuiL8k&#xa;UckWfZ1Wm4yHrJtpoeXE8/88u5aFXtq7892sdRPU2JGLHq8HMQloRrBhzH+Oq5YV&#xa;O6+ENLuqso19Ps4JBiqROY3g3c0k96QRs73KcA7Kqxe1WRsRsVRpf/Hi54bmwtvE&#xa;VlTyUx8Vcoi+Oi+8H4kMbmjP0mHMfap4V5xE0AU798fxOAPFbn/uxFpOMCxV5FrK&#xa;/4EcX5e7QbA4XlgCujAsnqeNDC6V&#xa;-&#45;&#45;&#45;&#45;END CERTIFICATE-&#45;&#45;&#45;&#45;&#xa;"><table key="subject">
+<elem key="commonName">tls.asi-s2.test</elem>
+<elem key="organizationName">ASI S2 Test</elem>
+</table>
+<table key="issuer">
+<elem key="commonName">tls.asi-s2.test</elem>
+<elem key="organizationName">ASI S2 Test</elem>
+</table>
+<table key="pubkey">
+<elem key="type">rsa</elem>
+<elem key="bits">2048</elem>
+<elem key="modulus">CBBBF11CF5A30143816B7730CA880A3A553BDAF70466639A55A6C555AF4617648601AEC7D8B7429CC8B1AC2AB4183743E7D6325A583127DC40E534BB93E81474012F45BDE9630E32B3D85048CDB5CA3CB71D1499C329712FB95DFB4EAC0A8601A5FEE95ED37BB91108D07BE9AFFBBB34F9727011C49A9E45B94540B33ABB752185B268E4E5A43C8C16DE3B654A37E04CC7AAEE827FDCB773ED06E13E6F8288F6C6934C967A893D9D64FB73A7FC2107662A190EB4503637AB2EF83D7A73EE3B6A4BF6FC3A65D4BFE3857ECC65F5F0B67D148BC3D312C1F2069688A59BAA43FCCE99F215E13A423B5956CE411E0E61A434CFBD9E902B0D7F87B5CE07410C6C5305</elem>
+<elem key="exponent">65537</elem>
+</table>
+<table key="extensions">
+<table>
+<elem key="name">X509v3 Subject Key Identifier</elem>
+<elem key="value">CF:B5:E9:90:C0:72:6D:E3:64:73:58:E6:8F:D9:74:2C:D4:87:1E:00</elem>
+</table>
+<table>
+<elem key="name">X509v3 Authority Key Identifier</elem>
+<elem key="value">CF:B5:E9:90:C0:72:6D:E3:64:73:58:E6:8F:D9:74:2C:D4:87:1E:00</elem>
+</table>
+<table>
+<elem key="name">X509v3 Basic Constraints</elem>
+<elem key="value">CA:TRUE</elem>
+<elem key="critical">true</elem>
+</table>
+</table>
+<elem key="sig_algo">sha256WithRSAEncryption</elem>
+<table key="validity">
+<elem key="notBefore">2026-11-21T13:00:14</elem>
+<elem key="notAfter">2027-11-21T13:00:14</elem>
+</table>
+<elem key="md5">2889378825dc4ed0695a2ce947314e2b</elem>
+<elem key="sha1">fb6067b950065644df9e088edd4ec87c80fe678d</elem>
+<elem key="sha256">5f547709a300e7f7cd0310a1bbc4e9b20952a1f9c1d1a5bc17a60a27422a7cd8</elem>
+<elem key="pem">-&#45;&#45;&#45;&#45;BEGIN CERTIFICATE-&#45;&#45;&#45;&#45;&#xa;MIIDQTCCAimgAwIBAgIUOlEDRv5gzphHv1KTdsBdT+ZJShQwDQYJKoZIhvcNAQEL&#xa;BQAwMDEYMBYGA1UEAwwPdGxzLmFzaS1zMi50ZXN0MRQwEgYDVQQKDAtBU0kgUzIg&#xa;VGVzdDAeFw0yNjExMjExMzAwMTRaFw0yNzExMjExMzAwMTRaMDAxGDAWBgNVBAMM&#xa;D3Rscy5hc2ktczIudGVzdDEUMBIGA1UECgwLQVNJIFMyIFRlc3QwggEiMA0GCSqG&#xa;SIb3DQEBAQUAA4IBDwAwggEKAoIBAQDLu/Ec9aMBQ4FrdzDKiAo6VTva9wRmY5pV&#xa;psVVr0YXZIYBrsfYt0KcyLGsKrQYN0Pn1jJaWDEn3EDlNLuT6BR0AS9FveljDjKz&#xa;2FBIzbXKPLcdFJnDKXEvuV37TqwKhgGl/ule03u5EQjQe+mv+7s0+XJwEcSankW5&#xa;RUCzOrt1IYWyaOTlpDyMFt47ZUo34EzHqu6Cf9y3c+0G4T5vgoj2xpNMlnqJPZ1k&#xa;+3On/CEHZioZDrRQNjerLvg9enPuO2pL9vw6ZdS/44V+zGX18LZ9FIvD0xLB8gaW&#xa;iKWbqkP8zpnyFeE6QjtZVs5BHg5hpDTPvZ6QKw1/h7XOB0EMbFMFAgMBAAGjUzBR&#xa;MB0GA1UdDgQWBBTPtemQwHJt42RzWOaP2XQs1IceADAfBgNVHSMEGDAWgBTPtemQ&#xa;wHJt42RzWOaP2XQs1IceADAPBgNVHRMBAf8EBTADAQH/MA0GCSqGSIb3DQEBCwUA&#xa;A4IBAQCF97X3QeA3mwK/dwD4CRV5sN+rYk9Ih75ZRaRorq+AVe9OBbjFQPzNt+hY&#xa;2yufy3bp/5MPX2a2jP/pNw2o3pmCYjlTUMAms7RU4qsptAR/UPTc8CkPsofuiL8k&#xa;UckWfZ1Wm4yHrJtpoeXE8/88u5aFXtq7892sdRPU2JGLHq8HMQloRrBhzH+Oq5YV&#xa;O6+ENLuqso19Ps4JBiqROY3g3c0k96QRs73KcA7Kqxe1WRsRsVRpf/Hi54bmwtvE&#xa;VlTyUx8Vcoi+Oi+8H4kMbmjP0mHMfap4V5xE0AU798fxOAPFbn/uxFpOMCxV5FrK&#xa;/4EcX5e7QbA4XlgCujAsnqeNDC6V&#xa;-&#45;&#45;&#45;&#45;END CERTIFICATE-&#45;&#45;&#45;&#45;&#xa;</elem>
+</script><script id="http-title" output="ASI S2 Test Page"><elem key="title">ASI S2 Test Page</elem>
+</script></port>
+<port protocol="tcp" portid="8080"><state state="closed" reason="reset" reason_ttl="64"/><service name="http-proxy" method="table" conf="3"/></port>
+</ports>
+<times srtt="13" rttvar="1589" to="100000"/>
+</host>
+<taskbegin task="NSE" time="1795266306"/>
+<taskend task="NSE" time="1795266306"/>
+<taskbegin task="NSE" time="1795266306"/>
+<taskend task="NSE" time="1795266306"/>
+<runstats><finished time="1795266306" timestr="Sat Nov 21 13:05:06 2026" summary="Nmap done at Sat Nov 21 13:05:06 2026; 4 IP addresses (3 hosts up) scanned in 33.58 seconds" elapsed="33.58" exit="success"/><hosts up="3" down="1" total="4"/>
+</runstats>
+</nmaprun>
