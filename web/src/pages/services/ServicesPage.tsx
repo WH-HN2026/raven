@@ -1,9 +1,10 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { useState, type FormEvent } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { api } from '../../api/client'
 import { ExportButton } from '../../components/ExportButton'
 import { PageHeader } from '../../components/PageHeader'
+import { SortTh, useTableSort } from '../../components/SortTh'
+import { listParams, useInstantFilters, validPortFilter } from '../../components/instantFilters'
 import {
   Badge,
   Button,
@@ -17,7 +18,6 @@ import {
   SeverityLabel,
   Table,
   Td,
-  Th,
   THeadRow,
   ToggleGroup,
   Tr,
@@ -40,7 +40,6 @@ import {
   techApiQuery,
   technologiesKey,
   type ServiceFilters,
-  type ServiceSort,
 } from './ui'
 
 export function ServicesPage() {
@@ -49,8 +48,14 @@ export function ServicesPage() {
   const offset = offsetFromParams(params, 'offset')
   const techOffset = offsetFromParams(params, 'tech_offset')
 
-  const sQuery = apiQuery(filters, offset)
-  const tQuery = techApiQuery(filters, techOffset)
+  const sort = useTableSort(['ip', 'port', 'state', 'name', 'product', 'version', 'technologies', 'cves', 'first_seen', 'last_seen'], {
+    initial: 'ip', offset: 'offset', legacyOrder: true,
+  })
+  const techSort = useTableSort(['technology', 'version', 'hosts', 'services', 'cves'], {
+    initial: 'hosts', direction: 'desc', prefix: 'tech_', offset: 'tech_offset',
+  })
+  const sQuery = { ...apiQuery(filters, offset), ...sort.query }
+  const tQuery = { ...techApiQuery(filters, techOffset), ...techSort.query }
 
   const svcs = useQuery({
     queryKey: [...servicesKey, sQuery],
@@ -63,16 +68,13 @@ export function ServicesPage() {
     placeholderData: keepPreviousData,
   })
 
-  const apply = (f: ServiceFilters, off = 0, tOff = 0) => setParams(paramsFromFilters(f, off, tOff))
-
-  const toggleSort = (col: ServiceSort) => {
-    const order = filters.sort === col && filters.order === 'asc' ? 'desc' : 'asc'
-    apply({ ...filters, sort: col, order }, 0, techOffset)
-  }
-
-  const filterByTech = (technology: string, version = '') => {
-    apply({ ...filters, technology, version }, 0, techOffset)
-  }
+  const apply = (f: ServiceFilters, off = 0, tOff = 0, replace = false) =>
+    setParams((current) => listParams(current, paramsFromFilters(f, off, tOff)), { replace })
+  const filterForm = useInstantFilters(filters, (f, replace) => apply(f, 0, 0, replace), (f) => paramsFromFilters(f).toString(), (next, applied) => ({
+    ...next,
+    port: validPortFilter(next.port) ? next.port : applied.port,
+  }))
+  const filterByTech = (technology: string, version = '') => filterForm.update({ ...filterForm.draft, technology, version })
 
   const svcTotal = svcs.data?.total ?? 0
   const svcItems = svcs.data?.items ?? []
@@ -101,7 +103,7 @@ export function ServicesPage() {
         <ExportButton kind="services" onDark />
       </PageHeader>
 
-      <FilterForm key={params.toString()} initial={filters} onApply={(f) => apply(f, 0, 0)} />
+      <FilterForm {...filterForm} />
 
       <Section className="flex flex-col gap-5 pt-10 pb-12">
         <SectionHeading aside={<span className="text-muted">{techTotal} detected</span>}>Technologies</SectionHeading>
@@ -109,11 +111,11 @@ export function ServicesPage() {
         <Table label="Technologies" minWidth={720}>
           <thead>
             <THeadRow>
-              <Th>Technology</Th>
-              <Th>Version</Th>
-              <Th className="text-right">Hosts</Th>
-              <Th className="text-right">Services</Th>
-              <Th>CVE matches</Th>
+              <SortTh sort={techSort} col="technology">Technology</SortTh>
+              <SortTh sort={techSort} col="version">Version</SortTh>
+              <SortTh sort={techSort} col="hosts" className="text-right">Hosts</SortTh>
+              <SortTh sort={techSort} col="services" className="text-right">Services</SortTh>
+              <SortTh sort={techSort} col="cves">CVE matches</SortTh>
             </THeadRow>
           </thead>
           <tbody>
@@ -170,27 +172,15 @@ export function ServicesPage() {
         <Table label="Services" minWidth={1080}>
           <thead>
             <THeadRow>
-              <SortTh col="ip" cur={filters.sort} order={filters.order} onSort={toggleSort}>
-                Host
-              </SortTh>
-              <SortTh col="port" cur={filters.sort} order={filters.order} onSort={toggleSort}>
-                Port
-              </SortTh>
-              <SortTh col="state" cur={filters.sort} order={filters.order} onSort={toggleSort}>
-                State
-              </SortTh>
-              <Th>Service</Th>
-              <SortTh col="product" cur={filters.sort} order={filters.order} onSort={toggleSort}>
-                Product
-              </SortTh>
-              <SortTh col="version" cur={filters.sort} order={filters.order} onSort={toggleSort}>
-                Version
-              </SortTh>
-              <Th>Technologies</Th>
-              <Th>CVEs</Th>
-              <SortTh col="last_seen" cur={filters.sort} order={filters.order} onSort={toggleSort}>
-                Last seen
-              </SortTh>
+              <SortTh sort={sort} col="ip">Host</SortTh>
+              <SortTh sort={sort} col="port">Port</SortTh>
+              <SortTh sort={sort} col="state">State</SortTh>
+              <SortTh sort={sort} col="name">Service</SortTh>
+              <SortTh sort={sort} col="product">Product</SortTh>
+              <SortTh sort={sort} col="version">Version</SortTh>
+              <SortTh sort={sort} col="technologies">Technologies</SortTh>
+              <SortTh sort={sort} col="cves">CVEs</SortTh>
+              <SortTh sort={sort} col="last_seen">Last seen</SortTh>
             </THeadRow>
           </thead>
           <tbody>
@@ -275,52 +265,23 @@ export function ServicesPage() {
   )
 }
 
-function SortTh({
-  col,
-  cur,
-  order,
-  onSort,
-  children,
-}: {
-  col: ServiceSort
-  cur: ServiceSort
-  order: 'asc' | 'desc'
-  onSort: (c: ServiceSort) => void
-  children: string
-}) {
-  const active = cur === col
-  const arrow = active ? (order === 'asc' ? ' ↑' : ' ↓') : ''
-  return (
-    <Th aria-sort={active ? (order === 'asc' ? 'ascending' : 'descending') : 'none'}>
-      <button
-        type="button"
-        onClick={() => onSort(col)}
-        className="border-0 bg-transparent p-0 text-xs font-medium tracking-[0.06em] text-muted uppercase hover:text-ink"
-      >
-        {children}
-        {arrow}
-      </button>
-    </Th>
-  )
-}
-
 const stateOptions = [
   { value: '', label: 'Any' },
   ...serviceStates.map((s) => ({ value: s as string, label: s.charAt(0).toUpperCase() + s.slice(1) })),
 ]
 
-function FilterForm({ initial, onApply }: { initial: ServiceFilters; onApply: (f: ServiceFilters) => void }) {
-  const [f, setF] = useState(initial)
-  const set = (k: 'port' | 'proto' | 'product' | 'technology' | 'version' | 'q') => (e: { target: { value: string } }) =>
-    setF({ ...f, [k]: e.target.value })
-  const submit = (e: FormEvent) => {
-    e.preventDefault()
-    onApply(f)
-  }
-  const portTrim = f.port.trim()
-  const portInvalid = portTrim !== '' && (!/^\d{1,5}$/.test(portTrim) || Number(portTrim) > 65535)
+function FilterForm({
+  draft: f,
+  update,
+}: {
+  draft: ServiceFilters
+  update: (f: ServiceFilters, debounce?: boolean) => void
+}) {
+  const set = (k: 'port' | 'proto' | 'product' | 'technology' | 'version' | 'q', debounce = true) => (e: { target: { value: string } }) =>
+    update({ ...f, [k]: e.target.value }, debounce)
+  const portInvalid = !validPortFilter(f.port)
   return (
-    <FilterBar onSubmit={submit}>
+    <FilterBar>
       <Field label="Search" className="flex-[2_1_220px]">
         <input className={inputClass} value={f.q} onChange={set('q')} placeholder="IP, host, product, tech" />
       </Field>
@@ -335,7 +296,7 @@ function FilterForm({ initial, onApply }: { initial: ServiceFilters; onApply: (f
         />
       </Field>
       <Field label="Protocol" className="flex-[1_1_110px]">
-        <select className={inputClass} value={f.proto} onChange={set('proto')}>
+        <select className={inputClass} value={f.proto} onChange={set('proto', false)}>
           <option value="">Any</option>
           {serviceProtos.map((p) => (
             <option key={p} value={p}>
@@ -359,19 +320,10 @@ function FilterForm({ initial, onApply }: { initial: ServiceFilters; onApply: (f
           label="State"
           options={stateOptions}
           value={f.state}
-          onChange={(state) => {
-            const next = { ...f, state }
-            setF(next)
-            onApply(next)
-          }}
+          onChange={(state) => update({ ...f, state })}
         />
       </div>
-      <div className="flex">
-        <Button type="submit" variant="primary" disabled={portInvalid}>
-          Apply
-        </Button>
-        <Button onClick={() => onApply(emptyFilters)}>Reset</Button>
-      </div>
+      <Button onClick={() => update(emptyFilters)}>Reset</Button>
       {portInvalid && <span className="w-full text-[13px] font-medium text-red">Port must be a number 0–65535.</span>}
     </FilterBar>
   )

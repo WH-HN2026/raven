@@ -1,3 +1,4 @@
+import { SortTh, sortRows, useTableSort } from '../../components/SortTh'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useParams } from 'react-router'
@@ -15,7 +16,6 @@ import {
   SectionHeading,
   Table,
   Td,
-  Th,
   THeadRow,
   Tr,
 } from '../../components/ui'
@@ -133,7 +133,12 @@ export function RunDetailPage() {
     enabled: !!run,
     refetchInterval: pollWhile(active),
   })
+  const sort = useTableSort(['seq', 'status', 'host_count', 'hosts_up', 'attempts', 'duration_ms', 'error'], { initial: 'seq' })
   const batches = batchesQ.data?.items ?? []
+  const rows = sortRows(batches, sort, {
+    seq: (b) => b.seq, status: (b) => b.status, host_count: (b) => b.host_count, hosts_up: (b) => b.hosts_up,
+    attempts: (b) => b.attempts, duration_ms: (b) => b.duration_ms, error: (b) => b.error,
+  })
   const profileName = profiles.data?.items.find((p) => p.id === run?.profile_id)?.name
 
   const title = `Run #${Number.isFinite(id) ? id : '?'}`
@@ -185,17 +190,17 @@ export function RunDetailPage() {
             <Table minWidth={760}>
               <thead>
                 <THeadRow>
-                  <Th>Seq</Th>
-                  <Th>Status</Th>
-                  <Th>IPs</Th>
-                  <Th>Hosts up</Th>
-                  <Th>Attempts</Th>
-                  <Th>Duration</Th>
-                  <Th>Error</Th>
+                  <SortTh sort={sort} col="seq">Seq</SortTh>
+                  <SortTh sort={sort} col="status">Status</SortTh>
+                  <SortTh sort={sort} col="host_count">IPs</SortTh>
+                  <SortTh sort={sort} col="hosts_up">Hosts up</SortTh>
+                  <SortTh sort={sort} col="attempts">Attempts</SortTh>
+                  <SortTh sort={sort} col="duration_ms">Duration</SortTh>
+                  <SortTh sort={sort} col="error">Error</SortTh>
                 </THeadRow>
               </thead>
               <tbody>
-                {batches.map((b) => (
+                {rows.map((b) => (
                   <Tr key={b.id}>
                     <Td className="tabular-nums">{b.seq}</Td>
                     <Td>

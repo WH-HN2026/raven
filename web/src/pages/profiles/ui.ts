@@ -2,6 +2,7 @@
 // mirroring the backend (nmap.CheckPorts, scheduler.ParseCron) and timezone maths.
 import { useQuery } from '@tanstack/react-query'
 import { api, type Schemas } from '../../api/client'
+import type { paths } from '../../api/schema'
 
 export type Profile = Schemas['Profile']
 export type Schedule = Schemas['Schedule']
@@ -9,9 +10,14 @@ export type Schedule = Schemas['Schedule']
 // Same key as the Runs page uses, so its profile picker refreshes too.
 export const profilesKey = ['profiles'] as const
 export const schedulesKey = ['schedules'] as const
+type ProfileOrder = Pick<NonNullable<paths['/profiles']['get']['parameters']['query']>, 'sort' | 'dir'>
+
 /** Profiles fit on one page (a handful per deployment). */
-export function useProfiles() {
-  return useQuery({ queryKey: profilesKey, queryFn: () => api.get('/profiles', { query: { limit: 1000 } }) })
+export function useProfiles(order?: ProfileOrder) {
+  return useQuery({
+    queryKey: order?.sort ? [...profilesKey, order] : profilesKey,
+    queryFn: () => api.get('/profiles', { query: { limit: 1000, ...order } }),
+  })
 }
 
 export const profileScopeKey = (id: number) => ['scope', 'profile', id] as const

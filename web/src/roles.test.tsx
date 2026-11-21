@@ -21,7 +21,9 @@ describe('viewer sees no mutation controls', () => {
       renderAs('viewer', <Guard route={route} />, { path: route.path })
       await screen.findAllByRole('heading', { level: 1 })
       await new Promise((r) => setTimeout(r, 0))
-      const names = screen.queryAllByRole('button').map((b) => b.textContent?.trim() ?? '')
+      const names = screen.queryAllByRole('button')
+        .filter((b) => !b.closest('th[aria-sort]'))
+        .map((b) => b.textContent?.trim() ?? '')
       expect(names.filter((n) => MUTATION.test(n))).toEqual([])
       expect(screen.queryByRole('form')).toBeNull()
     },

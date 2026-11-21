@@ -1,3 +1,4 @@
+import { SortTh, sortRows, useTableSort } from '../../components/SortTh'
 import { useQuery } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router'
@@ -18,7 +19,6 @@ import {
   type Severity as SeverityKey,
   Table,
   Td,
-  Th,
   THeadRow,
   Tr,
 } from '../../components/ui'
@@ -158,6 +158,7 @@ const kindBadge: Record<ChangeKind, { tone: 'new' | 'changed' | 'gone'; label: s
 }
 
 function ChangesSection({ d }: { d: Dashboard }) {
+  const sort = useTableSort(['change', 'ip', 'service', 'summary'], { prefix: 'changes_' })
   const c = d.changes
   if (!c) {
     return (
@@ -168,7 +169,12 @@ function ChangesSection({ d }: { d: Dashboard }) {
     )
   }
   const n = changeCounts(c.summary)
-  const rows = diffRows(c)
+  const rows = sortRows(diffRows(c), sort, {
+    change: (r) => r.kind,
+    ip: (r) => r.ip,
+    service: (r) => r.type === 'service' ? `${r.service.port}/${r.service.proto}` : 'host',
+    summary: changeText,
+  })
   return (
     <Section className="flex flex-col gap-5">
       <SectionHeading
@@ -188,10 +194,10 @@ function ChangesSection({ d }: { d: Dashboard }) {
       <Table minWidth={760} label="Changes">
         <thead>
           <THeadRow>
-            <Th>Change</Th>
-            <Th>Host</Th>
-            <Th>Service</Th>
-            <Th>What changed</Th>
+            <SortTh sort={sort} col="change">Change</SortTh>
+            <SortTh sort={sort} col="ip">Host</SortTh>
+            <SortTh sort={sort} col="service">Service</SortTh>
+            <SortTh sort={sort} col="summary">What changed</SortTh>
           </THeadRow>
         </thead>
         <tbody>
@@ -326,6 +332,17 @@ function TechnologiesColumn({ d }: { d: Dashboard }) {
 }
 
 function CVESection({ d }: { d: Dashboard }) {
+  const sort = useTableSort(['severity', 'service', 'product', 'cves', 'cvss', 'kev'], {
+    prefix: 'cves_', initial: 'severity', direction: 'desc',
+  })
+  const rows = sortRows(d.cve_matches, sort, {
+    severity: (m) => ['Info', 'Low', 'Medium', 'High', 'Critical'].indexOf(m.severity),
+    service: (m) => `${m.ip}:${m.port}/${m.proto}`,
+    product: (m) => `${m.product} ${m.version}`,
+    cves: (m) => m.cves,
+    cvss: (m) => m.max_cvss,
+    kev: (m) => m.kev,
+  })
   return (
     <div className="flex flex-col gap-4">
       <SectionHeading aside={d.cve_total > 0 ? <span className="text-muted">{formatCount(d.cve_total)} services</span> : undefined}>
@@ -334,16 +351,16 @@ function CVESection({ d }: { d: Dashboard }) {
       <Table minWidth={560} label="CVE matches">
         <thead>
           <THeadRow>
-            <Th>Severity</Th>
-            <Th>Service</Th>
-            <Th>Product</Th>
-            <Th className="text-right">CVEs</Th>
-            <Th className="text-right">Max CVSS</Th>
-            <Th className="text-right">KEV</Th>
+            <SortTh sort={sort} col="severity">Severity</SortTh>
+            <SortTh sort={sort} col="service">Service</SortTh>
+            <SortTh sort={sort} col="product">Product</SortTh>
+            <SortTh sort={sort} col="cves" className="text-right">CVEs</SortTh>
+            <SortTh sort={sort} col="cvss" className="text-right">Max CVSS</SortTh>
+            <SortTh sort={sort} col="kev" className="text-right">KEV</SortTh>
           </THeadRow>
         </thead>
         <tbody>
-          {d.cve_matches.map((m) => (
+          {rows.map((m) => (
             <Tr key={`${m.ip}-${m.port}-${m.proto}-${m.product}`}>
               <Td>
                 <SeverityLabel severity={m.severity.toLowerCase() as SeverityKey} />
@@ -401,6 +418,17 @@ function IntermittentSection({ d }: { d: Dashboard }) {
 }
 
 function RunsSection({ runs }: { runs: DashboardRun[] }) {
+  const sort = useTableSort(['id', 'profile', 'status', 'started_at', 'duration', 'hosts_up'], {
+    prefix: 'runs_', initial: 'id', direction: 'desc',
+  })
+  const rows = sortRows(runs, sort, {
+    id: (r) => r.id,
+    profile: (r) => r.profile,
+    status: (r) => r.status,
+    started_at: (r) => r.started_at ? Date.parse(r.started_at) : null,
+    duration: (r) => r.duration_ms,
+    hosts_up: (r) => r.hosts_up,
+  })
   return (
     <div className="flex flex-col gap-4">
       <SectionHeading
@@ -415,16 +443,16 @@ function RunsSection({ runs }: { runs: DashboardRun[] }) {
       <Table minWidth={720} label="Recent runs">
         <thead>
           <THeadRow>
-            <Th>Run</Th>
-            <Th>Profile</Th>
-            <Th>Status</Th>
-            <Th>Started</Th>
-            <Th>Duration</Th>
-            <Th className="text-right">Hosts up</Th>
+            <SortTh sort={sort} col="id">Run</SortTh>
+            <SortTh sort={sort} col="profile">Profile</SortTh>
+            <SortTh sort={sort} col="status">Status</SortTh>
+            <SortTh sort={sort} col="started_at">Started</SortTh>
+            <SortTh sort={sort} col="duration">Duration</SortTh>
+            <SortTh sort={sort} col="hosts_up" className="text-right">Hosts up</SortTh>
           </THeadRow>
         </thead>
         <tbody>
-          {runs.map((r) => (
+          {rows.map((r) => (
             <Tr key={r.id}>
               <Td className="text-xl font-light">
                 <Link to={`/runs/${r.id}`}>#{r.id}</Link>

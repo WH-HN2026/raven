@@ -1,9 +1,11 @@
 import { keepPreviousData, useQueries, useQuery } from '@tanstack/react-query'
-import { Fragment, useState, useSyncExternalStore, type FormEvent } from 'react'
+import { Fragment, useSyncExternalStore } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { api } from '../../api/client'
 import { ExportButton } from '../../components/ExportButton'
 import { PageHeader } from '../../components/PageHeader'
+import { SortTh, useTableSort } from '../../components/SortTh'
+import { listParams, useInstantFilters, validIPFilter } from '../../components/instantFilters'
 import {
   Badge,
   Button,
@@ -17,7 +19,6 @@ import {
   SeverityLabel,
   Table,
   Td,
-  Th,
   THeadRow,
   Tr,
   inputClass,
@@ -72,7 +73,12 @@ export function FindingsPage() {
   const filters = filtersFromParams(params)
   const offset = offsetFromParams(params)
   const selected = selectedFromParams(params)
-  const query = apiQuery(filters, offset)
+  const sort = useTableSort(['severity', 'title', 'ip', 'scanner', 'status', 'date'], {
+    initial: 'severity',
+    direction: 'desc',
+    offset: 'offset',
+  })
+  const query = { ...apiQuery(filters, offset), ...sort.query }
   const q = useQuery({
     queryKey: [...findingsKey, 'list', query],
     queryFn: () => api.get('/findings', { query }),
@@ -89,18 +95,25 @@ export function FindingsPage() {
       }
     }),
   })
-  const apply = (f: FindingFilters, off = 0) => setParams(paramsFromFilters(f, off))
-  const toggleSeverity = (s: Severity) =>
-    apply({
-      ...filters,
-      severity: filters.severity.includes(s) ? filters.severity.filter((x) => x !== s) : [...filters.severity, s],
+  const apply = (f: FindingFilters, off = 0, replace = false) =>
+    setParams((current) => listParams(current, paramsFromFilters(f, off)), { replace })
+  const filterForm = useInstantFilters(filters, (f, replace) => apply(f, 0, replace), (f) => paramsFromFilters(f).toString(), (next, applied) => ({
+    ...next,
+    ip: validIPFilter(next.ip) ? next.ip : applied.ip,
+  }))
+  const toggleSeverity = (s: Severity) => {
+    const draft = filterForm.draft
+    filterForm.update({
+      ...draft,
+      severity: draft.severity.includes(s) ? draft.severity.filter((x) => x !== s) : [...draft.severity, s],
     })
+  }
 
   const total = q.data?.total ?? 0
   const items = q.data?.items ?? []
   const current = items.find((f) => f.id === selected)
   const filtered = JSON.stringify(filters) !== JSON.stringify(emptyFilters)
-  const selectHref = (id: number) => '?' + paramsFromFilters(filters, offset, id).toString()
+  const selectHref = (id: number) => '?' + listParams(params, paramsFromFilters(filters, offset, id)).toString()
   const detailId = current ? `finding-detail-${current.id}` : undefined
   const detail = (
     <aside
@@ -148,20 +161,19 @@ export function FindingsPage() {
           })}
         </div>
       </Section>
-      {/* key: re-initialise the inputs when the URL filters change (back/forward, reset). */}
-      <FilterForm key={paramsFromFilters(filters).toString()} initial={filters} onApply={apply} />
+      <FilterForm {...filterForm} />
       <div className="mx-auto flex max-w-[1440px] items-start gap-10 px-10 pt-8 pb-16">
         <section aria-label="Findings" className="flex min-w-0 flex-[999_1_640px] flex-col gap-3.5 [container-type:inline-size]">
           {q.error && <ErrorText>Cannot load findings: {q.error.message}</ErrorText>}
           <Table minWidth={900}>
             <thead>
               <THeadRow>
-                <Th>Severity ↓</Th>
-                <Th>Finding</Th>
-                <Th>Host</Th>
-                <Th>Source</Th>
-                <Th>Status</Th>
-                <Th>Date</Th>
+                <SortTh sort={sort} col="severity">Severity</SortTh>
+                <SortTh sort={sort} col="title">Finding</SortTh>
+                <SortTh sort={sort} col="ip">Host</SortTh>
+                <SortTh sort={sort} col="scanner">Source</SortTh>
+                <SortTh sort={sort} col="status">Status</SortTh>
+                <SortTh sort={sort} col="date">Date</SortTh>
               </THeadRow>
             </thead>
             <tbody>
@@ -222,18 +234,19 @@ export function FindingsPage() {
   )
 }
 
-function FilterForm({ initial, onApply }: { initial: FindingFilters; onApply: (f: FindingFilters) => void }) {
-  const [f, setF] = useState(initial)
-  const set = (k: 'q' | 'ip' | 'asset' | 'scanner') => (e: { target: { value: string } }) =>
-    setF({ ...f, [k]: e.target.value })
-  const submit = (e: FormEvent) => {
-    e.preventDefault()
-    onApply(f)
-  }
-  const ipInvalid = f.ip.trim() !== '' && !/^[0-9a-fA-F:.]+(\/\d{1,3})?$/.test(f.ip.trim())
+function FilterForm({
+  draft: f,
+  update,
+}: {
+  draft: FindingFilters
+  update: (f: FindingFilters, debounce?: boolean) => void
+}) {
+  const set = (k: 'q' | 'ip' | 'asset' | 'scanner', debounce = true) => (e: { target: { value: string } }) =>
+    update({ ...f, [k]: e.target.value }, debounce)
+  const ipInvalid = !validIPFilter(f.ip)
   const scannerOptions = f.scanner && !scanners.includes(f.scanner) ? [...scanners, f.scanner] : scanners
   return (
-    <FilterBar onSubmit={submit}>
+    <FilterBar>
       <Field label="Title" className="flex-[3_1_220px]">
         <input type="search" className={inputClass} value={f.q} onChange={set('q')} placeholder="admin panel" />
       </Field>
@@ -253,7 +266,7 @@ function FilterForm({ initial, onApply }: { initial: FindingFilters; onApply: (f
         <select
           className={inputClass}
           value={statusFilterOf(f)}
-          onChange={(e) => setF(withStatusFilter(f, e.target.value as StatusFilterValue))}
+          onChange={(e) => update(withStatusFilter(f, e.target.value as StatusFilterValue))}
         >
           {statusFilterOptions.map((o) => (
             <option key={o.value} value={o.value}>
@@ -263,7 +276,7 @@ function FilterForm({ initial, onApply }: { initial: FindingFilters; onApply: (f
         </select>
       </Field>
       <Field label="Source" className="flex-[1_1_140px]">
-        <select className={inputClass} value={f.scanner} onChange={set('scanner')}>
+        <select className={inputClass} value={f.scanner} onChange={set('scanner', false)}>
           <option value="">Any</option>
           {scannerOptions.map((s) => (
             <option key={s} value={s}>
@@ -272,12 +285,7 @@ function FilterForm({ initial, onApply }: { initial: FindingFilters; onApply: (f
           ))}
         </select>
       </Field>
-      <div className="flex">
-        <Button type="submit" variant="primary" disabled={ipInvalid}>
-          Apply
-        </Button>
-        <Button onClick={() => onApply(emptyFilters)}>Reset</Button>
-      </div>
+      <Button onClick={() => update(emptyFilters)}>Reset</Button>
       {ipInvalid && <span className="w-full text-[13px] font-medium text-red">IP must be an address or CIDR.</span>}
     </FilterBar>
   )

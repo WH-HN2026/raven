@@ -84,8 +84,6 @@ describe('services filter helpers', () => {
       technology: 'WordPress',
       version: '6.4',
       state: 'open',
-      sort: 'port' as const,
-      order: 'desc' as const,
     }
     const p = paramsFromFilters(f, 50, 20)
     expect(filtersFromParams(p)).toEqual(f)
@@ -96,8 +94,6 @@ describe('services filter helpers', () => {
       technology: 'WordPress',
       version: '6.4',
       state: 'open',
-      sort: 'port',
-      order: 'desc',
       limit: 50,
       offset: 50,
     })
@@ -128,11 +124,20 @@ describe('ServicesPage', () => {
       expect(spy.mock.calls.some(([u]) => String(u).includes('/api/services?') && String(u).includes('technology=WordPress') && String(u).includes('version=6.4'))).toBe(true),
     )
 
-    // Sort by Port
-    fireEvent.click(within(svcTable).getByRole('button', { name: /Port/ }))
+    const port = within(svcTable).getByRole('button', { name: 'Port' })
+    fireEvent.click(port)
     await waitFor(() =>
-      expect(spy.mock.calls.some(([u]) => String(u).includes('/api/services?') && String(u).includes('sort=port'))).toBe(true),
+      expect(spy.mock.calls.some(([u]) => String(u).includes('/api/services?') && String(u).includes('sort=port&dir=asc'))).toBe(true),
     )
+    fireEvent.click(port)
+    await waitFor(() =>
+      expect(spy.mock.calls.some(([u]) => String(u).includes('/api/services?') && String(u).includes('sort=port&dir=desc'))).toBe(true),
+    )
+    fireEvent.click(within(techTable).getByRole('button', { name: 'Version' }))
+    await waitFor(() =>
+      expect(spy.mock.calls.some(([u]) => String(u).includes('/api/technologies?') && String(u).includes('sort=version&dir=asc'))).toBe(true),
+    )
+    expect(port.closest('th')).toHaveAttribute('aria-sort', 'descending')
   })
 
   it.each(ROLES)('renders export links and no errors for %s', async (role) => {

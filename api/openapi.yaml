@@ -361,7 +361,7 @@ paths:
         - { name: q, in: query, schema: { type: string }, description: "IP or CIDR (containment); otherwise IP text prefix or hostname substring" }
         - { $ref: "#/components/parameters/Limit" }
         - { $ref: "#/components/parameters/Offset" }
-        - { name: sort, in: query, schema: { type: string, enum: [ip, hostnames, state, open_ports, technologies, tags, first_seen, last_seen, misses], default: ip } }
+        - { name: sort, in: query, schema: { type: string, enum: [ip, hostnames, state, open_ports, active_finding_count, technologies, tags, first_seen, last_seen, misses], default: ip } }
         - { name: dir, in: query, schema: { type: string, enum: [asc, desc] } }
       responses:
         "200":

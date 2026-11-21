@@ -1,5 +1,6 @@
+import { SortTh, useTableSort, useListOffset } from '../../components/SortTh'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useEffect } from 'react'
 import { api } from '../../api/client'
 import { useCan } from '../../auth/hooks'
 import {
@@ -22,10 +23,11 @@ const PAGE = 50
 export function TargetsTable() {
   const qc = useQueryClient()
   const canWrite = useCan('targets:write')
-  const [offset, setOffset] = useState(0)
+  const [offset, setOffset] = useListOffset()
+  const sort = useTableSort(['value', 'kind', 'source', 'tags', 'note', 'created_at'], { offset: 'offset' })
   const q = useQuery({
-    queryKey: [...targetsKey, offset],
-    queryFn: () => api.get('/targets', { query: { limit: PAGE, offset } }),
+    queryKey: [...targetsKey, offset, sort.query],
+    queryFn: () => api.get('/targets', { query: { limit: PAGE, offset, ...sort.query } }),
     placeholderData: keepPreviousData,
   })
   const del = useMutation({
@@ -36,7 +38,11 @@ export function TargetsTable() {
   const total = q.data?.total ?? 0
   const items = q.data?.items ?? []
   // Step back a page if the last row of the last page was deleted.
-  if (q.data && items.length === 0 && offset > 0 && !q.isFetching) setOffset(Math.max(0, offset - PAGE))
+  useEffect(() => {
+    if (q.isSuccess && !q.isFetching && offset >= total && offset > 0) {
+      setOffset(Math.floor(Math.max(0, total - 1) / PAGE) * PAGE)
+    }
+  }, [q.isSuccess, q.isFetching, offset, total, setOffset])
 
   return (
     <section className="flex flex-col gap-4">
@@ -47,12 +53,12 @@ export function TargetsTable() {
         <Table minWidth={860}>
           <thead>
             <THeadRow>
-              <Th>Target</Th>
-              <Th>Type</Th>
-              <Th>Source</Th>
-              <Th>Tags</Th>
-              <Th>Note</Th>
-              <Th>Created</Th>
+              <SortTh sort={sort} col="value">Target</SortTh>
+              <SortTh sort={sort} col="kind">Type</SortTh>
+              <SortTh sort={sort} col="source">Source</SortTh>
+              <SortTh sort={sort} col="tags">Tags</SortTh>
+              <SortTh sort={sort} col="note">Note</SortTh>
+              <SortTh sort={sort} col="created_at">Created</SortTh>
               {canWrite && <Th className="text-right">Actions</Th>}
             </THeadRow>
           </thead>

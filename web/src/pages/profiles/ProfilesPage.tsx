@@ -1,12 +1,14 @@
+import { SortTh, useTableSort } from '../../components/SortTh'
 import { Link } from 'react-router'
 import { useCan } from '../../auth/hooks'
 import { PageHeader } from '../../components/PageHeader'
-import { Badge, Chip, EmptyRow, ErrorText, Section, SectionHeading, Table, Td, Th, THeadRow, Tr, buttonClass } from '../../components/ui'
+import { Badge, Chip, EmptyRow, ErrorText, Section, SectionHeading, Table, Td, THeadRow, Tr, buttonClass } from '../../components/ui'
 import { Schedules } from './Schedules'
 import { batchMinutes, useProfiles } from './ui'
 
 function ProfilesTable() {
-  const q = useProfiles()
+  const sort = useTableSort(['name', 'ports', 'nmap_rate', 'nuclei_rate', 'nuclei_tags', 'miss_threshold', 'batch', 'enabled'], { initial: 'name' })
+  const q = useProfiles(sort.query)
   const items = q.data?.items ?? []
   return (
     <Section className="flex flex-col gap-4">
@@ -15,14 +17,14 @@ function ProfilesTable() {
       <Table minWidth={880} label="Profiles">
         <thead>
           <THeadRow>
-            <Th>Name</Th>
-            <Th>Ports</Th>
-            <Th className="text-right">nmap rate</Th>
-            <Th className="text-right">nuclei rate</Th>
-            <Th>Nuclei tags</Th>
-            <Th className="text-right">Miss threshold</Th>
-            <Th className="text-right">Batch duration</Th>
-            <Th>Enabled</Th>
+            <SortTh sort={sort} col="name">Name</SortTh>
+            <SortTh sort={sort} col="ports">Ports</SortTh>
+            <SortTh sort={sort} col="nmap_rate" className="text-right">nmap rate</SortTh>
+            <SortTh sort={sort} col="nuclei_rate" className="text-right">nuclei rate</SortTh>
+            <SortTh sort={sort} col="nuclei_tags">Nuclei tags</SortTh>
+            <SortTh sort={sort} col="miss_threshold" className="text-right">Miss threshold</SortTh>
+            <SortTh sort={sort} col="batch" className="text-right">Batch duration</SortTh>
+            <SortTh sort={sort} col="enabled">Enabled</SortTh>
           </THeadRow>
         </thead>
         <tbody>

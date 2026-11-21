@@ -154,7 +154,7 @@ export function FilterBar({ children, onSubmit }: { children: ReactNode; onSubmi
     <section aria-label="Filters" className="bg-band">
       <form
         role="search"
-        onSubmit={onSubmit}
+        onSubmit={onSubmit ?? ((e) => e.preventDefault())}
         className="mx-auto flex max-w-[1440px] flex-wrap items-end gap-4 px-10 py-7"
       >
         {children}

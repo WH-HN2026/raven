@@ -11,12 +11,9 @@ export type ServiceItem = Schemas['ServiceItem']
 export type TechnologySummary = Schemas['TechnologySummary']
 export type ServiceState = 'open' | 'gone'
 export type ServiceProto = 'tcp' | 'udp'
-export type ServiceSort = 'ip' | 'port' | 'product' | 'version' | 'state' | 'first_seen' | 'last_seen'
-export type SortOrder = 'asc' | 'desc'
 
 export const serviceStates: ServiceState[] = ['open', 'gone']
 export const serviceProtos: ServiceProto[] = ['tcp', 'udp']
-export const serviceSorts: ServiceSort[] = ['ip', 'port', 'product', 'version', 'state', 'first_seen', 'last_seen']
 
 export interface ServiceFilters {
   port: string
@@ -26,8 +23,6 @@ export interface ServiceFilters {
   version: string
   state: string
   q: string
-  sort: ServiceSort
-  order: SortOrder
 }
 
 export const emptyFilters: ServiceFilters = {
@@ -38,14 +33,9 @@ export const emptyFilters: ServiceFilters = {
   version: '',
   state: '',
   q: '',
-  sort: 'ip',
-  order: 'asc',
 }
 
 export function filtersFromParams(p: URLSearchParams): ServiceFilters {
-  const sortRaw = p.get('sort') ?? 'ip'
-  const sort = (serviceSorts as string[]).includes(sortRaw) ? (sortRaw as ServiceSort) : 'ip'
-  const order: SortOrder = p.get('order') === 'desc' ? 'desc' : 'asc'
   const stateRaw = p.get('state') ?? ''
   const state = (serviceStates as string[]).includes(stateRaw) ? stateRaw : ''
   const protoRaw = p.get('proto') ?? p.get('protocol') ?? ''
@@ -58,8 +48,6 @@ export function filtersFromParams(p: URLSearchParams): ServiceFilters {
     version: p.get('version') ?? '',
     state,
     q: p.get('q') ?? '',
-    sort,
-    order,
   }
 }
 
@@ -69,8 +57,6 @@ export function paramsFromFilters(f: ServiceFilters, offset = 0, techOffset = 0)
     const v = f[k].trim()
     if (v) p.set(k, v)
   }
-  if (f.sort !== 'ip') p.set('sort', f.sort)
-  if (f.order !== 'asc') p.set('order', f.order)
   if (offset > 0) p.set('offset', String(offset))
   if (techOffset > 0) p.set('tech_offset', String(techOffset))
   return p
@@ -91,8 +77,6 @@ export function apiQuery(f: ServiceFilters, offset: number) {
     version: f.version.trim() || undefined,
     state: (serviceStates as string[]).includes(f.state) ? (f.state as ServiceState) : undefined,
     q: f.q.trim() || undefined,
-    sort: f.sort,
-    order: f.order,
     limit: PAGE,
     offset,
   }

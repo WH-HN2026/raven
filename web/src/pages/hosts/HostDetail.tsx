@@ -1,3 +1,4 @@
+import { SortTh, sortRows, useTableSort } from '../../components/SortTh'
 import { useQuery } from '@tanstack/react-query'
 import { useState, type ReactNode } from 'react'
 import { Link, useLocation, useParams } from 'react-router'
@@ -115,25 +116,31 @@ function ServicesTable({ ip, services }: { ip: string; services: Service[] }) {
   const canEdit = useCan('hosts:edit')
   const [editing, setEditing] = useState<number | null>(null)
   const cols = canEdit ? 9 : 8
+  const sort = useTableSort(['port', 'state', 'name', 'product', 'version', 'banner', 'first_seen', 'last_seen'])
+  const rows = sortRows(services, sort, {
+    port: (s) => `${s.port}/${s.proto}`, state: (s) => s.state, name: (s) => s.name,
+    product: (s) => s.product, version: (s) => s.version, banner: (s) => s.banner,
+    first_seen: (s) => Date.parse(s.first_seen), last_seen: (s) => Date.parse(s.last_seen),
+  })
   return (
     <section className="flex flex-col gap-4">
       <SectionHeading>Services</SectionHeading>
       <Table minWidth={760}>
         <thead>
           <THeadRow>
-            <Th>Port</Th>
-            <Th>State</Th>
-            <Th>Service</Th>
-            <Th>Product</Th>
-            <Th>Version</Th>
-            <Th>Banner</Th>
-            <Th>First seen</Th>
-            <Th>Last seen</Th>
+            <SortTh sort={sort} col="port">Port</SortTh>
+            <SortTh sort={sort} col="state">State</SortTh>
+            <SortTh sort={sort} col="name">Service</SortTh>
+            <SortTh sort={sort} col="product">Product</SortTh>
+            <SortTh sort={sort} col="version">Version</SortTh>
+            <SortTh sort={sort} col="banner">Banner</SortTh>
+            <SortTh sort={sort} col="first_seen">First seen</SortTh>
+            <SortTh sort={sort} col="last_seen">Last seen</SortTh>
             {canEdit && <Th aria-label="Actions" />}
           </THeadRow>
         </thead>
         <tbody>
-          {services.map((s) => (
+          {rows.map((s) => (
             <Tr key={s.id} className={s.state === 'gone' ? 'text-muted' : ''}>
               <Td className="font-mono whitespace-nowrap">
                 {s.port}/{s.proto}

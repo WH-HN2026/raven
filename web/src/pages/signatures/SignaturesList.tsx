@@ -1,3 +1,5 @@
+import { SortTh, useTableSort } from '../../components/SortTh'
+import { useInstantFilters } from '../../components/instantFilters'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link } from 'react-router'
@@ -19,7 +21,6 @@ import {
   SeverityLabel,
   Table,
   Td,
-  Th,
   THeadRow,
   ToggleGroup,
   Tr,
@@ -64,13 +65,14 @@ export function EnabledToggle({ sig }: { sig: Sig }) {
 export function SignaturesList() {
   const canWrite = useCan('signatures:write')
   const [source, setSource] = useState<Source>('all')
-  const [q, setQ] = useState('')
-  const [tag, setTag] = useState('')
-  const trimmedTag = tag.trim()
+  const [filters, setFilters] = useState({ q: '', tag: '' })
+  const { draft, update } = useInstantFilters(filters, setFilters, JSON.stringify, (next) => next)
+  const trimmedTag = filters.tag.trim()
+  const sort = useTableSort(['name', 'severity', 'tags', 'source', 'validation', 'status'])
   const list = useQuery({
-    queryKey: [...signaturesKey, trimmedTag],
+    queryKey: [...signaturesKey, trimmedTag, sort.query],
     queryFn: ({ signal }) =>
-      api.get('/signatures', { query: { limit: 1000, tag: trimmedTag || undefined }, signal }),
+      api.get('/signatures', { query: { limit: 1000, tag: trimmedTag || undefined, ...sort.query }, signal }),
   })
   const items = (list.data?.items ?? [])
     .map((s) => {
@@ -81,7 +83,7 @@ export function SignaturesList() {
     })
     .filter(({ sig }) => source === 'all' || sig.builtin === (source === 'builtin'))
     .filter(({ sig, displayName, tags }) => {
-      const needle = q.trim().toLowerCase()
+      const needle = filters.q.trim().toLowerCase()
       if (!needle) return true
       return [sig.name, displayName, ...tags].some((x) => x.toLowerCase().includes(needle))
     })
@@ -103,10 +105,10 @@ export function SignaturesList() {
       </PageHeader>
       <FilterBar onSubmit={(e) => e.preventDefault()}>
         <Field label="Search" className="w-72">
-          <input className={inputClass} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name, id or tag" />
+          <input className={inputClass} value={draft.q} onChange={(e) => update({ ...draft, q: e.target.value }, true)} placeholder="Name, id or tag" />
         </Field>
         <Field label="Tag" className="w-48">
-          <input className={inputClass} value={tag} onChange={(e) => setTag(e.target.value)} placeholder="panel" />
+          <input className={inputClass} value={draft.tag} onChange={(e) => update({ ...draft, tag: e.target.value }, true)} placeholder="panel" />
         </Field>
         <ToggleGroup<Source>
           label="Source"
@@ -118,11 +120,10 @@ export function SignaturesList() {
             { value: 'custom', label: 'Custom' },
           ]}
         />
-        {(q || tag || source !== 'all') && (
+        {(draft.q || draft.tag || source !== 'all') && (
           <Button
             onClick={() => {
-              setQ('')
-              setTag('')
+              update({ q: '', tag: '' })
               setSource('all')
             }}
           >
@@ -136,12 +137,12 @@ export function SignaturesList() {
         <Table label="Signatures" minWidth={860}>
           <thead>
             <THeadRow>
-              <Th>Signature</Th>
-              <Th>Severity</Th>
-              <Th>Tags</Th>
-              <Th>Source</Th>
-              <Th>Status</Th>
-              <Th>Enabled</Th>
+              <SortTh sort={sort} col="name">Signature</SortTh>
+              <SortTh sort={sort} col="severity">Severity</SortTh>
+              <SortTh sort={sort} col="tags">Tags</SortTh>
+              <SortTh sort={sort} col="source">Source</SortTh>
+              <SortTh sort={sort} col="validation">Status</SortTh>
+              <SortTh sort={sort} col="status">Enabled</SortTh>
             </THeadRow>
           </thead>
           <tbody>
@@ -164,7 +165,7 @@ export function SignaturesList() {
                         <button
                           key={t}
                           type="button"
-                          onClick={() => setTag(active ? '' : t)}
+                          onClick={() => update({ ...draft, tag: active ? '' : t })}
                           className={
                             'px-2 py-px text-[13px] whitespace-nowrap ' +
                             (active

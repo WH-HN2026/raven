@@ -2020,7 +2020,7 @@ export interface operations {
                 q?: string;
                 limit?: components["parameters"]["Limit"];
                 offset?: components["parameters"]["Offset"];
-                sort?: "ip" | "hostnames" | "state" | "open_ports" | "technologies" | "tags" | "first_seen" | "last_seen" | "misses";
+                sort?: "ip" | "hostnames" | "state" | "open_ports" | "active_finding_count" | "technologies" | "tags" | "first_seen" | "last_seen" | "misses";
                 dir?: "asc" | "desc";
             };
             header?: never;

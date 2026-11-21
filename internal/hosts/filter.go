@@ -12,7 +12,7 @@ import (
 )
 
 // States are the valid host states (hosts.state).
-var HostSorts = []string{"ip", "hostnames", "state", "open_ports", "technologies", "tags", "first_seen", "last_seen", "misses"}
+var HostSorts = []string{"ip", "hostnames", "state", "open_ports", "active_finding_count", "technologies", "tags", "first_seen", "last_seen", "misses"}
 
 var States = []string{"active", "unstable", "inactive"}
 
@@ -81,17 +81,19 @@ func parsePrefix(s string) (netip.Prefix, bool) {
 	return netip.Prefix{}, false
 }
 
-// listColumns are the columns of one list item (see scanItem).
 const openPorts = `ARRAY(SELECT DISTINCT s.port FROM services s WHERE s.ip = h.ip AND s.state = 'open' ORDER BY s.port)`
 const technologies = `ARRAY(SELECT DISTINCT t FROM services s JOIN http_observations o ON o.service_id = s.id,
 		unnest(o.technologies) AS t WHERE s.ip = h.ip ORDER BY t)`
 
+const activeFindingCount = `(SELECT count(*) FROM dojo_findings f WHERE f.ip = h.ip AND f.active)`
+
+// listColumns are the columns of one list item (see scanItem).
 const listColumns = `h.ip, h.hostnames, h.state, h.first_seen, h.last_seen, h.miss_count, h.dojo_asset_id,
 	h.owner, h.criticality, h.user_tags, h.overrides, u.username AS edited_by, h.edited_at,
 	(SELECT count(*) FROM services s WHERE s.ip = h.ip AND s.state = 'open') AS open_services,
 	` + openPorts + ` AS open_ports,
 	` + technologies + ` AS technologies,
-	(SELECT count(*) FROM dojo_findings f WHERE f.ip = h.ip AND f.active) AS active_finding_count`
+	` + activeFindingCount + ` AS active_finding_count`
 
 func hostOrderBy(order db.ListOrder) string {
 	if order == (db.ListOrder{}) {
@@ -105,6 +107,8 @@ func hostOrderBy(order db.ListOrder) string {
 		column = "h.state"
 	case "open_ports":
 		column = openPorts
+	case "active_finding_count":
+		column = activeFindingCount
 	case "technologies":
 		column = technologies
 	case "tags":

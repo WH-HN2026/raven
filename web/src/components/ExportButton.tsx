@@ -7,7 +7,7 @@ export type ExportFormat = 'csv' | 'json'
 
 /** Query params GET /api/export/{kind} honours (internal/httpapi/exchange.go), same names as the list pages' URLs. */
 export const exportFilterKeys: Record<ExportKind, string[]> = {
-  hosts: ['state', 'port', 'tech', 'tag', 'q'],
+  hosts: ['state', 'port', 'tech', 'tag', 'q', 'sort', 'dir'],
   services: ['port', 'proto', 'state', 'ip', 'product', 'technology', 'version', 'q'],
   findings: [
     'severity',
@@ -23,6 +23,8 @@ export const exportFilterKeys: Record<ExportKind, string[]> = {
     'ip',
     'q',
     'scanner',
+    'sort',
+    'dir',
   ],
   changes: ['from', 'to', 'limit'],
   targets: [],

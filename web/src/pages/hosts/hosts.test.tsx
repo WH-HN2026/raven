@@ -106,8 +106,11 @@ describe('HostsPage', () => {
     expect(screen.getByLabelText('Tag')).toHaveValue('dmz')
 
     fireEvent.change(screen.getByLabelText('Open port'), { target: { value: '443' } })
-    fireEvent.change(screen.getByLabelText('Technology'), { target: { value: 'WordPress' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Apply' }))
+    const technology = screen.getByLabelText('Technology')
+    technology.focus()
+    fireEvent.change(technology, { target: { value: 'WordP' } })
+    fireEvent.change(technology, { target: { value: 'WordPress' } })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
     await waitFor(() =>
       expect(screen.getByTestId('location')).toHaveTextContent('/hosts?state=active&port=443&tech=WordPress&tag=dmz'),
     )
@@ -116,6 +119,9 @@ describe('HostsPage', () => {
         '/api/hosts?state=active&port=443&tech=WordPress&tag=dmz&limit=50&offset=0',
       ),
     )
+
+    expect(technology).toHaveFocus()
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes('tech=WordP&'))).toBe(false)
 
     // the state toggle applies immediately
     const state = screen.getByRole('group', { name: 'State' })
@@ -146,8 +152,9 @@ describe('HostsPage', () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(async () => json({ items: [], total: 0 }))
     renderAt('/hosts')
     expect(await screen.findByText('No hosts yet.')).toBeInTheDocument()
-    fireEvent.change(screen.getByLabelText('Open port'), { target: { value: 'http' } })
-    expect(screen.getByRole('button', { name: 'Apply' })).toBeDisabled()
+    const input = screen.getByLabelText('Open port')
+    fireEvent.change(input, { target: { value: 'http' } })
+    expect(input).toHaveAttribute('aria-invalid', 'true')
   })
 })
 
@@ -212,7 +219,7 @@ describe('HostDetailPage', () => {
       expect.stringContaining('uprun #6'),
     ])
     // read-only: no edit/delete controls
-    expect(screen.queryByRole('button')).toBeNull()
+    expect(screen.queryByRole('button', { name: /^Edit/ })).toBeNull()
   })
 
   it('renders decrypted HTTP observations', async () => {

@@ -1,3 +1,4 @@
+import { SortTh, sortRows, useTableSort, type TableSort } from '../../components/SortTh'
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
@@ -18,7 +19,6 @@ import {
   SectionHeading,
   Table,
   Td,
-  Th,
   THeadRow,
   ToggleGroup,
   Tr,
@@ -61,6 +61,7 @@ function runQuery(id: number | null) {
 
 export function ChangesPage() {
   const [params, setParams] = useSearchParams()
+  const sort = useTableSort(['change', 'ip', 'service', 'field', 'before', 'after'])
   const requestedFrom = runParam(params, 'from')
   const requestedTo = runParam(params, 'to')
   const fromRun = useQuery(runQuery(requestedFrom))
@@ -81,8 +82,8 @@ export function ChangesPage() {
 
   const diff = useQuery({
     enabled: from === null || to === null || (!fromRun.isPending && !toRun.isPending),
-    queryKey: [...changesKey, 'diff', from, to],
-    queryFn: () => api.get('/changes', { query: { from: from ?? undefined, to: to ?? undefined } }),
+    queryKey: [...changesKey, 'diff', from, to, sort.query],
+    queryFn: () => api.get('/changes', { query: { from: from ?? undefined, to: to ?? undefined, ...sort.query } }),
     placeholderData: keepPreviousData,
     retry: (n, err) => !(err instanceof ApiError && err.status < 500) && n < 2,
   })
@@ -204,17 +205,26 @@ export function ChangesPage() {
           <p className="m-0 text-muted">Loading…</p>
         </Section>
       ) : (
-        <Diff d={d} />
+        <Diff d={d} sort={sort} />
       )}
     </>
   )
 }
 
-function Diff({ d }: { d: RunDiff }) {
+type DiffSort = TableSort<'change' | 'ip' | 'service' | 'field' | 'before' | 'after'>
+
+function Diff({ d, sort }: { d: RunDiff; sort: DiffSort }) {
   const [filter, setFilter] = useState<ChangeFilter>('all')
   const c = counts(d)
   const s = d.summary
-  const rows = diffRows(d).filter((r) => filter === 'all' || r.kind === filter)
+  const rows = sortRows(diffRows(d).filter((r) => filter === 'all' || r.kind === filter), sort, {
+    change: (r) => r.kind,
+    ip: (r) => r.ip,
+    service: (r) => r.type === 'host' ? 'all' : `${r.service.port}/${r.service.proto}`,
+    field: (r) => r.type === 'host' ? 'host' : r.kind === 'changed' ? r.service.fields.join(', ') : 'service',
+    before: (r) => diffValue(r, 'before'),
+    after: (r) => diffValue(r, 'after'),
+  })
   return (
     <>
       <Section label="Summary">
@@ -247,12 +257,12 @@ function Diff({ d }: { d: RunDiff }) {
           <Table minWidth={900} label="Changes">
             <thead>
               <THeadRow>
-                <Th>Change</Th>
-                <Th>Host</Th>
-                <Th>Service</Th>
-                <Th>Field</Th>
-                <Th>Run #{d.from.id}</Th>
-                <Th>Run #{d.to.id}</Th>
+                <SortTh sort={sort} col="change">Change</SortTh>
+                <SortTh sort={sort} col="ip">Host</SortTh>
+                <SortTh sort={sort} col="service">Service</SortTh>
+                <SortTh sort={sort} col="field">Field</SortTh>
+                <SortTh sort={sort} col="before">Run #{d.from.id}</SortTh>
+                <SortTh sort={sort} col="after">Run #{d.to.id}</SortTh>
               </THeadRow>
             </thead>
             <tbody>
@@ -272,6 +282,14 @@ const kindBadge: Record<ChangeKind, { tone: 'new' | 'changed' | 'gone'; label: s
   new: { tone: 'new', label: '+ New' },
   changed: { tone: 'changed', label: '~ Changed' },
   gone: { tone: 'gone', label: '− Gone' },
+}
+
+function diffValue(r: DiffRow, side: 'before' | 'after'): string | null {
+  if (r.type === 'service') {
+    const fp = r.service[side]
+    return fp ? [fp.name, fp.product, fp.version, fp.title, fp.technologies.join(', ')].join('\u0000') : null
+  }
+  return (side === 'after') === (r.kind === 'new') ? `up ${r.host.ports.join(', ')}` : otherRunLabel(r.host.other_run)
 }
 
 function DiffTableRow({ r }: { r: DiffRow }) {

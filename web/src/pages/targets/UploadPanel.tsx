@@ -1,8 +1,9 @@
+import { SortTh, sortRows, useTableSort } from '../../components/SortTh'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRef, useState } from 'react'
 import { upload } from '../../api/client'
 import { LineErrors } from '../../components/LineErrors'
-import { Alert, Button, EmptyRow, Table, Td, Th, THeadRow, Tr } from '../../components/ui'
+import { Alert, Button, EmptyRow, Table, Td, THeadRow, Tr } from '../../components/ui'
 import { targetsKey } from './ui'
 
 const CSV_EXAMPLE = `value,tags,note
@@ -15,6 +16,7 @@ const JSON_EXAMPLE = `[{"value": "10.0.0.0/24", "tags": ["lab"], "note": "main l
 
 /** CSV/JSON upload: pick a file → dry-run preview → import the valid entries. */
 export function UploadPanel() {
+  const sort = useTableSort(['value', 'kind', 'tags', 'note'], { prefix: 'preview_' })
   const qc = useQueryClient()
   const fileRef = useRef<HTMLInputElement>(null)
   const [file, setFile] = useState<File | null>(null)
@@ -38,6 +40,9 @@ export function UploadPanel() {
   }
   const reset = () => pick(null)
   const p = preview.data
+  const rows = sortRows(p?.targets ?? [], sort, {
+    value: (t) => t.value, kind: (t) => t.kind, tags: (t) => t.tags.join(', '), note: (t) => t.note,
+  })
   const err = preview.error ?? importer.error
 
   const clear = () => {
@@ -91,16 +96,16 @@ export function UploadPanel() {
             </div>
             <div className="max-h-64 overflow-y-auto">
               <Table label="Preview">
-                <thead className="sr-only">
+                <thead>
                   <THeadRow>
-                    <Th>Value</Th>
-                    <Th>Type</Th>
-                    <Th>Tags</Th>
-                    <Th>Note</Th>
+                    <SortTh sort={sort} col="value">Value</SortTh>
+                    <SortTh sort={sort} col="kind">Type</SortTh>
+                    <SortTh sort={sort} col="tags">Tags</SortTh>
+                    <SortTh sort={sort} col="note">Note</SortTh>
                   </THeadRow>
                 </thead>
                 <tbody>
-                  {p.targets.map((t) => (
+                  {rows.map((t) => (
                     <Tr key={t.kind + t.value}>
                       <Td className="font-mono">{t.value}</Td>
                       <Td className="text-[13px] text-muted">{t.kind}</Td>

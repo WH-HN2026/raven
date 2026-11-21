@@ -1,3 +1,4 @@
+import { SortTh, sortRows, useTableSort } from '../../components/SortTh'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router'
 import { ApiError, api } from '../../api/client'
@@ -10,7 +11,6 @@ import {
   SectionHeading,
   Table,
   Td,
-  Th,
   THeadRow,
   Tr,
   buttonClass,
@@ -28,6 +28,19 @@ export function HostTimelinePage() {
     retry: (n, err) => !(err instanceof ApiError && err.status < 500) && n < 2,
   })
   const tl = q.data
+  const ports = tl?.ports ?? []
+  const sort = useTableSort(['run', 'time', 'host', ...ports.map((p) => `port_${p}` as const)], {
+    initial: 'run', direction: 'desc',
+  })
+  const rows = sortRows(tl?.runs ?? [], sort, {
+    run: (r) => r.run.id,
+    time: (r) => {
+      const time = r.run.finished_at ?? r.run.started_at
+      return time ? Date.parse(time) : null
+    },
+    host: (r) => r.up,
+    ...Object.fromEntries(ports.map((p) => [`port_${p}`, (r: NonNullable<typeof tl>['runs'][number]) => r.open_ports.includes(p)])),
+  })
   return (
     <>
       <PageHeader title={ip} mono crumbs={[{ label: 'Changes', to: '/changes' }, { label: ip }]} meta="Timeline">
@@ -43,18 +56,18 @@ export function HostTimelinePage() {
           <Table minWidth={560} label="Timeline">
             <thead>
               <THeadRow>
-                <Th>Run</Th>
-                <Th>Time</Th>
-                <Th>Host</Th>
+                <SortTh sort={sort} col="run">Run</SortTh>
+                <SortTh sort={sort} col="time">Time</SortTh>
+                <SortTh sort={sort} col="host">Host</SortTh>
                 {tl.ports.map((p) => (
-                  <Th key={p} className="text-center font-mono">
+                  <SortTh key={p} sort={sort} col={`port_${p}`} className="text-center font-mono">
                     {p}
-                  </Th>
+                  </SortTh>
                 ))}
               </THeadRow>
             </thead>
             <tbody>
-              {tl.runs.map((r) => (
+              {rows.map((r) => (
                 <Tr key={r.run.id}>
                   <Td className="text-xl leading-none font-light">
                     <Link to={`/runs/${r.run.id}`}>#{r.run.id}</Link>
