@@ -36,11 +36,15 @@ import {
   selectedFromParams,
   severities,
   sevKey,
+  statusFilterOf,
+  statusFilterOptions,
   statusLabel,
   statusOf,
   statusTone,
+  withStatusFilter,
   type FindingFilters,
   type Severity,
+  type StatusFilterValue,
 } from './ui'
 
 const sevEdge: Record<Severity, string> = {
@@ -191,15 +195,9 @@ export function FindingsPage() {
   )
 }
 
-const activeOptions = [
-  { value: '', label: 'Any' },
-  { value: 'true', label: 'Active' },
-  { value: 'false', label: 'Inactive' },
-]
-
 function FilterForm({ initial, onApply }: { initial: FindingFilters; onApply: (f: FindingFilters) => void }) {
   const [f, setF] = useState(initial)
-  const set = (k: 'q' | 'ip' | 'active' | 'scanner') => (e: { target: { value: string } }) =>
+  const set = (k: 'q' | 'ip' | 'asset' | 'scanner') => (e: { target: { value: string } }) =>
     setF({ ...f, [k]: e.target.value })
   const submit = (e: FormEvent) => {
     e.preventDefault()
@@ -209,10 +207,10 @@ function FilterForm({ initial, onApply }: { initial: FindingFilters; onApply: (f
   const scannerOptions = f.scanner && !scanners.includes(f.scanner) ? [...scanners, f.scanner] : scanners
   return (
     <FilterBar onSubmit={submit}>
-      <Field label="Title" className="flex-[3_1_260px]">
+      <Field label="Title" className="flex-[3_1_220px]">
         <input type="search" className={inputClass} value={f.q} onChange={set('q')} placeholder="admin panel" />
       </Field>
-      <Field label="IP or CIDR" className="flex-[2_1_200px]">
+      <Field label="IP or CIDR" className="flex-[2_1_180px]">
         <input
           className={inputClass + ' font-mono'}
           value={f.ip}
@@ -221,16 +219,23 @@ function FilterForm({ initial, onApply }: { initial: FindingFilters; onApply: (f
           aria-invalid={ipInvalid}
         />
       </Field>
-      <Field label="Status" className="flex-[1_1_150px]">
-        <select className={inputClass} value={f.active} onChange={set('active')}>
-          {activeOptions.map((o) => (
+      <Field label="Asset" className="flex-[1_1_150px]">
+        <input className={inputClass} value={f.asset} onChange={set('asset')} placeholder="ID or name" />
+      </Field>
+      <Field label="Status" className="flex-[1_1_160px]">
+        <select
+          className={inputClass}
+          value={statusFilterOf(f)}
+          onChange={(e) => setF(withStatusFilter(f, e.target.value as StatusFilterValue))}
+        >
+          {statusFilterOptions.map((o) => (
             <option key={o.value} value={o.value}>
               {o.label}
             </option>
           ))}
         </select>
       </Field>
-      <Field label="Source" className="flex-[1_1_150px]">
+      <Field label="Source" className="flex-[1_1_140px]">
         <select className={inputClass} value={f.scanner} onChange={set('scanner')}>
           <option value="">Any</option>
           {scannerOptions.map((s) => (

@@ -405,11 +405,19 @@ paths:
     get:
       tags: [hosts]
       operationId: listServices
-      description: stub
+      description: Services across all hosts, with overrides applied, latest HTTP technologies, and CVE counts.
       parameters:
-        - { name: port, in: query, schema: { type: integer } }
-        - { name: product, in: query, schema: { type: string } }
+        - { name: port, in: query, schema: { type: integer, minimum: 0, maximum: 65535 } }
+        - { name: proto, in: query, schema: { type: string, enum: [tcp, udp] } }
+        - { name: protocol, in: query, schema: { type: string, enum: [tcp, udp] }, description: "alias for proto" }
+        - { name: product, in: query, schema: { type: string }, description: "case-insensitive substring of effective product" }
+        - { name: technology, in: query, schema: { type: string }, description: "case-insensitive substring of detected technology" }
+        - { name: version, in: query, schema: { type: string }, description: "case-insensitive substring of effective service version or technology version" }
         - { name: state, in: query, schema: { type: string, enum: [open, gone] } }
+        - { name: ip, in: query, schema: { type: string }, description: "IP or CIDR containment" }
+        - { name: q, in: query, schema: { type: string }, description: "search across IP, hostname, name, product, version, CPE, technology" }
+        - { name: sort, in: query, schema: { type: string, enum: [ip, port, product, version, state, first_seen, last_seen], default: ip } }
+        - { name: order, in: query, schema: { type: string, enum: [asc, desc], default: asc } }
         - { $ref: "#/components/parameters/Limit" }
         - { $ref: "#/components/parameters/Offset" }
       responses:
@@ -418,6 +426,25 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ServiceList" }
+        default: { $ref: "#/components/responses/Error" }
+  /technologies:
+    get:
+      tags: [hosts]
+      operationId: listTechnologies
+      description: Aggregated technologies and versions across services with host counts, service counts, and CVE-match counts.
+      parameters:
+        - { name: state, in: query, schema: { type: string, enum: [open, gone, all], default: open } }
+        - { name: q, in: query, schema: { type: string }, description: "case-insensitive substring of technology or version" }
+        - { name: sort, in: query, schema: { type: string, enum: [hosts, services, technology, cves], default: hosts } }
+        - { name: order, in: query, schema: { type: string, enum: [asc, desc] } }
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Offset" }
+      responses:
+        "200":
+          description: Aggregated technologies.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TechnologyList" }
         default: { $ref: "#/components/responses/Error" }
   /services/{id}:
     parameters: [{ $ref: "#/components/parameters/Id" }]
@@ -481,6 +508,14 @@ paths:
           explode: true
           schema: { type: array, items: { $ref: "#/components/schemas/Severity" } }
         - { name: active, in: query, schema: { type: boolean } }
+        - { name: verified, in: query, schema: { type: boolean } }
+        - { name: false_p, in: query, schema: { type: boolean } }
+        - { name: out_of_scope, in: query, schema: { type: boolean } }
+        - { name: risk_accepted, in: query, schema: { type: boolean } }
+        - { name: duplicate, in: query, schema: { type: boolean } }
+        - { name: is_mitigated, in: query, schema: { type: boolean } }
+        - { name: asset_id, in: query, schema: { type: integer, format: int64 }, description: Exact Dojo asset id. }
+        - { name: asset, in: query, schema: { type: string }, description: Asset id, IP/CIDR, or asset name substring. }
         - { name: ip, in: query, description: An IP address or a CIDR., schema: { type: string } }
         - { name: q, in: query, description: Case-insensitive substring of the title., schema: { type: string } }
         - { name: scanner, in: query, description: "nmap, nuclei, raven (our INFO findings), …", schema: { type: string } }
@@ -721,6 +756,7 @@ paths:
       operationId: listSignatures
       description: Signatures, built-ins first.
       parameters:
+        - { name: tag, in: query, schema: { type: string }, description: "Filter by exact tag (case-insensitive)." }
         - { $ref: "#/components/parameters/Limit" }
         - { $ref: "#/components/parameters/Offset" }
       responses:
@@ -893,8 +929,8 @@ paths:
         Export filtered data as JSON or CSV (permission `export`).
         Honours the same query filters as the matching list APIs:
         - `hosts`: `state`, `port`, `tech`, `tag`, `q`
-        - `services`: `port`, `proto`, `state`, `ip`, `product`, `q`
-        - `findings`: `severity`, `active`, `ip`, `q`, `scanner` (reads the Dojo mirror, never Dojo)
+        - `services`: `port`, `proto`, `protocol`, `state`, `ip`, `product`, `technology`, `version`, `q`
+        - `findings`: `severity`, `active`, `verified`, `false_p`, `out_of_scope`, `risk_accepted`, `duplicate`, `is_mitigated`, `asset`, `asset_id`, `ip`, `q`, `scanner` (reads the Dojo mirror, never Dojo)
         - `changes`: `from`, `to`, `limit`
         - `targets`: all targets in the format accepted by `POST /api/targets/upload`
       responses:
@@ -1282,6 +1318,8 @@ components:
         criticality: { type: string, enum: ["", low, medium, high, critical] }
         user_tags: { type: array, items: { type: string } }
         overrides: { type: object, additionalProperties: true }
+        edited_by: { type: [string, "null"], description: "username of who last edited user-owned fields" }
+        edited_at: { type: [string, "null"], format: date-time }
     HostPatch:
       type: object
       description: User-owned fields only.
@@ -1350,11 +1388,38 @@ components:
         first_seen: { type: string, format: date-time }
         last_seen: { type: string, format: date-time }
         overrides: { type: object, additionalProperties: true }
+    ServiceItem:
+      allOf:
+        - $ref: "#/components/schemas/Service"
+        - type: object
+          required: [hostnames, technologies, cve_count, cve_severity]
+          properties:
+            hostnames: { type: array, items: { type: string } }
+            technologies: { type: array, items: { type: string } }
+            cve_count: { type: integer }
+            cve_severity: { type: string, enum: ["", Info, Low, Medium, High, Critical] }
     ServiceList:
       type: object
       required: [items, total]
       properties:
-        items: { type: array, items: { $ref: "#/components/schemas/Service" } }
+        items: { type: array, items: { $ref: "#/components/schemas/ServiceItem" } }
+        total: { type: integer }
+    TechnologySummary:
+      type: object
+      required: [technology, version, host_count, service_count, cve_match_count, cve_count, max_severity]
+      properties:
+        technology: { type: string }
+        version: { type: string }
+        host_count: { type: integer }
+        service_count: { type: integer }
+        cve_match_count: { type: integer, description: "services matching one or more CVEs" }
+        cve_count: { type: integer, description: "distinct matched CVEs" }
+        max_severity: { type: string, enum: ["", Info, Low, Medium, High, Critical] }
+    TechnologyList:
+      type: object
+      required: [items, total]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/TechnologySummary" } }
         total: { type: integer }
     HttpObservation:
       type: object
@@ -1422,7 +1487,9 @@ components:
         active: { type: boolean }
         verified: { type: boolean }
         false_p: { type: boolean }
+        out_of_scope: { type: boolean }
         risk_accepted: { type: boolean }
+        duplicate: { type: boolean }
         is_mitigated: { type: boolean }
         tags: { type: array, items: { type: string } }
         scanner: { type: string }
@@ -1695,11 +1762,13 @@ components:
         enabled: { type: boolean }
     Signature:
       type: object
-      required: [id, name, template_yaml, enabled, valid, validation_error, builtin, created_by, created_at]
+      required: [id, name, template_yaml, severity, tags, enabled, valid, validation_error, builtin, created_by, created_at]
       properties:
         id: { type: integer, format: int64 }
         name: { type: string, description: The template id. }
         template_yaml: { type: string }
+        severity: { type: string, description: "Template info.severity (lowercased, empty if unset)." }
+        tags: { type: array, items: { type: string }, description: "Template info.tags." }
         enabled: { type: boolean }
         valid: { type: boolean }
         validation_error: { type: string }

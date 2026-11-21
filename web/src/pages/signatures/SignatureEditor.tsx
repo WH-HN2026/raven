@@ -65,6 +65,8 @@ export function SignatureEditor({ sig }: { sig: Sig | null }) {
   const [goTo, setGoTo] = useState<GoTo | null>(null)
   const meta = parseMeta(draft)
   const dirty = sig ? draft !== sig.template_yaml : true
+  const displaySeverity = !dirty && sig?.severity ? (sig.severity.toLowerCase() as typeof meta.severity) : meta.severity
+  const displayTags = !dirty && sig?.tags && sig.tags.length > 0 ? sig.tags : meta.tags
 
   const stored: Issue[] = sig && !sig.valid && !dirty ? parseValidationError(sig.validation_error) : []
   const shownIssues = outcome?.kind === 'issues' ? outcome.issues : stored
@@ -135,8 +137,8 @@ export function SignatureEditor({ sig }: { sig: Sig | null }) {
         meta={
           <span className="inline-flex flex-wrap items-center gap-x-4 gap-y-1">
             <span className="font-mono">{meta.id || '—'}</span>
-            {meta.severity && <SeverityLabel severity={meta.severity} />}
-            {meta.tags.length > 0 && <span>{meta.tags.join(', ')}</span>}
+            {displaySeverity && <SeverityLabel severity={displaySeverity} />}
+            {displayTags.length > 0 && <span>{displayTags.join(', ')}</span>}
           </span>
         }
       />

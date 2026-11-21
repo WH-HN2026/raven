@@ -1,6 +1,9 @@
 -- name: ListSignatures :many
 SELECT * FROM signatures ORDER BY builtin DESC, name LIMIT $1 OFFSET $2;
 
+-- name: ListAllSignatures :many
+SELECT * FROM signatures ORDER BY builtin DESC, name;
+
 -- name: CountSignatures :one
 SELECT count(*) FROM signatures;
 

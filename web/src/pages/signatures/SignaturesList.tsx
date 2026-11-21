@@ -7,8 +7,8 @@ import { PageHeader } from '../../components/PageHeader'
 import {
   Alert,
   Badge,
+  Button,
   buttonClass,
-  Chip,
   EmptyRow,
   ErrorText,
   Field,
@@ -23,11 +23,19 @@ import {
   THeadRow,
   ToggleGroup,
   Tr,
+  type Severity,
 } from '../../components/ui'
 import { parseMeta, signaturesKey } from './meta'
 
 type Source = 'all' | 'builtin' | 'custom'
 type Sig = Schemas['Signature']
+
+const severities: Severity[] = ['critical', 'high', 'medium', 'low', 'info']
+
+function apiSeverity(s: string | undefined): Severity | null {
+  const low = (s ?? '').toLowerCase() as Severity
+  return severities.includes(low) ? low : null
+}
 
 export function EnabledToggle({ sig }: { sig: Sig }) {
   const qc = useQueryClient()
@@ -57,17 +65,25 @@ export function SignaturesList() {
   const canWrite = useCan('signatures:write')
   const [source, setSource] = useState<Source>('all')
   const [q, setQ] = useState('')
+  const [tag, setTag] = useState('')
+  const trimmedTag = tag.trim()
   const list = useQuery({
-    queryKey: signaturesKey,
-    queryFn: ({ signal }) => api.get('/signatures', { query: { limit: 1000 }, signal }),
+    queryKey: [...signaturesKey, trimmedTag],
+    queryFn: ({ signal }) =>
+      api.get('/signatures', { query: { limit: 1000, tag: trimmedTag || undefined }, signal }),
   })
   const items = (list.data?.items ?? [])
-    .map((s) => ({ sig: s, meta: parseMeta(s.template_yaml) }))
+    .map((s) => {
+      const parsed = parseMeta(s.template_yaml)
+      const severity = apiSeverity(s.severity) ?? parsed.severity
+      const tags = s.tags && s.tags.length > 0 ? s.tags : parsed.tags
+      return { sig: s, displayName: parsed.name || s.name, severity, tags }
+    })
     .filter(({ sig }) => source === 'all' || sig.builtin === (source === 'builtin'))
-    .filter(({ sig, meta }) => {
+    .filter(({ sig, displayName, tags }) => {
       const needle = q.trim().toLowerCase()
       if (!needle) return true
-      return [sig.name, meta.name, ...meta.tags].some((x) => x.toLowerCase().includes(needle))
+      return [sig.name, displayName, ...tags].some((x) => x.toLowerCase().includes(needle))
     })
   const all = list.data?.items ?? []
   const enabled = all.filter((s) => s.enabled).length
@@ -90,6 +106,9 @@ export function SignaturesList() {
         <Field label="Search" className="w-72">
           <input className={inputClass} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name, id or tag" />
         </Field>
+        <Field label="Tag" className="w-48">
+          <input className={inputClass} value={tag} onChange={(e) => setTag(e.target.value)} placeholder="panel" />
+        </Field>
         <ToggleGroup<Source>
           label="Source"
           value={source}
@@ -100,6 +119,17 @@ export function SignaturesList() {
             { value: 'custom', label: 'Custom' },
           ]}
         />
+        {(q || tag || source !== 'all') && (
+          <Button
+            onClick={() => {
+              setQ('')
+              setTag('')
+              setSource('all')
+            }}
+          >
+            Reset
+          </Button>
+        )}
       </FilterBar>
       <Section className="flex flex-col gap-5">
         <SectionHeading aside={<span className="text-muted">{items.length} shown</span>}>Templates</SectionHeading>
@@ -118,20 +148,35 @@ export function SignaturesList() {
           <tbody>
             {list.isPending && <EmptyRow colSpan={6}>Loading…</EmptyRow>}
             {list.isSuccess && items.length === 0 && <EmptyRow colSpan={6}>No signatures</EmptyRow>}
-            {items.map(({ sig, meta }) => (
+            {items.map(({ sig, displayName, severity, tags }) => (
               <Tr key={sig.id}>
                 <Td>
                   <Link to={`/signatures/${sig.id}`} className="font-medium">
-                    {meta.name || sig.name}
+                    {displayName}
                   </Link>
                   <div className="font-mono text-xs text-muted">{sig.name}</div>
                 </Td>
-                <Td>{meta.severity ? <SeverityLabel severity={meta.severity} /> : <span className="text-muted">—</span>}</Td>
+                <Td>{severity ? <SeverityLabel severity={severity} /> : <span className="text-muted">—</span>}</Td>
                 <Td>
                   <div className="flex flex-wrap gap-1">
-                    {meta.tags.map((t) => (
-                      <Chip key={t}>{t}</Chip>
-                    ))}
+                    {tags.map((t) => {
+                      const active = trimmedTag.toLowerCase() === t.toLowerCase()
+                      return (
+                        <button
+                          key={t}
+                          type="button"
+                          onClick={() => setTag(active ? '' : t)}
+                          className={
+                            'px-2 py-px text-[13px] whitespace-nowrap ' +
+                            (active
+                              ? 'border border-black bg-black text-white'
+                              : 'border border-line-strong bg-white text-ink hover:bg-band')
+                          }
+                        >
+                          {t}
+                        </button>
+                      )
+                    })}
                   </div>
                 </Td>
                 <Td>{sig.builtin ? <Badge tone="done">Built-in</Badge> : <Badge tone="outline">Custom</Badge>}</Td>

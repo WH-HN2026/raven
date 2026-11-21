@@ -14,7 +14,7 @@ import (
 
 const getDojoFinding = `-- name: GetDojoFinding :one
 
-SELECT id, asset_id, ip, title, severity, active, verified, false_p, risk_accepted, is_mitigated,
+SELECT id, asset_id, ip, title, severity, active, verified, false_p, out_of_scope, risk_accepted, duplicate, is_mitigated,
     tags, scanner, COALESCE(to_char(date, 'YYYY-MM-DD'), '')::text AS date
 FROM dojo_findings WHERE id = $1
 `
@@ -28,7 +28,9 @@ type GetDojoFindingRow struct {
 	Active       bool        `json:"active"`
 	Verified     bool        `json:"verified"`
 	FalseP       bool        `json:"false_p"`
+	OutOfScope   bool        `json:"out_of_scope"`
 	RiskAccepted bool        `json:"risk_accepted"`
+	Duplicate    bool        `json:"duplicate"`
 	IsMitigated  bool        `json:"is_mitigated"`
 	Tags         []string    `json:"tags"`
 	Scanner      string      `json:"scanner"`
@@ -51,7 +53,9 @@ func (q *Queries) GetDojoFinding(ctx context.Context, id int64) (GetDojoFindingR
 		&i.Active,
 		&i.Verified,
 		&i.FalseP,
+		&i.OutOfScope,
 		&i.RiskAccepted,
+		&i.Duplicate,
 		&i.IsMitigated,
 		&i.Tags,
 		&i.Scanner,
@@ -146,12 +150,27 @@ func (q *Queries) GetServiceOverridesForUpdate(ctx context.Context, id int64) (G
 	return i, err
 }
 
+const setHostEdited = `-- name: SetHostEdited :exec
+UPDATE hosts SET edited_by = $1, edited_at = now() WHERE ip = $2
+`
+
+type SetHostEditedParams struct {
+	EditedBy *int64     `json:"edited_by"`
+	Ip       netip.Addr `json:"ip"`
+}
+
+func (q *Queries) SetHostEdited(ctx context.Context, arg SetHostEditedParams) error {
+	_, err := q.db.Exec(ctx, setHostEdited, arg.EditedBy, arg.Ip)
+	return err
+}
+
 const updateDojoFindingTriage = `-- name: UpdateDojoFindingTriage :exec
 UPDATE dojo_findings SET
     severity = $1, active = $2, verified = $3, false_p = $4,
-    risk_accepted = $5, is_mitigated = $6, tags = $7,
-    last_status_update = $8, synced_at = now()
-WHERE id = $9
+    out_of_scope = $5, risk_accepted = $6, duplicate = $7,
+    is_mitigated = $8, tags = $9,
+    last_status_update = $10, synced_at = now()
+WHERE id = $11
 `
 
 type UpdateDojoFindingTriageParams struct {
@@ -159,7 +178,9 @@ type UpdateDojoFindingTriageParams struct {
 	Active           bool       `json:"active"`
 	Verified         bool       `json:"verified"`
 	FalseP           bool       `json:"false_p"`
+	OutOfScope       bool       `json:"out_of_scope"`
 	RiskAccepted     bool       `json:"risk_accepted"`
+	Duplicate        bool       `json:"duplicate"`
 	IsMitigated      bool       `json:"is_mitigated"`
 	Tags             []string   `json:"tags"`
 	LastStatusUpdate *time.Time `json:"last_status_update"`
@@ -173,7 +194,9 @@ func (q *Queries) UpdateDojoFindingTriage(ctx context.Context, arg UpdateDojoFin
 		arg.Active,
 		arg.Verified,
 		arg.FalseP,
+		arg.OutOfScope,
 		arg.RiskAccepted,
+		arg.Duplicate,
 		arg.IsMitigated,
 		arg.Tags,
 		arg.LastStatusUpdate,
@@ -185,8 +208,9 @@ func (q *Queries) UpdateDojoFindingTriage(ctx context.Context, arg UpdateDojoFin
 const updateHostUserFields = `-- name: UpdateHostUserFields :exec
 UPDATE hosts SET
     owner = $1, criticality = $2, user_tags = $3,
-    notes_enc = CASE WHEN $4::text = '' THEN NULL ELSE raven_enc($4::text) END
-WHERE ip = $5
+    notes_enc = CASE WHEN $4::text = '' THEN NULL ELSE raven_enc($4::text) END,
+    edited_by = $5, edited_at = now()
+WHERE ip = $6
 `
 
 type UpdateHostUserFieldsParams struct {
@@ -194,6 +218,7 @@ type UpdateHostUserFieldsParams struct {
 	Criticality string     `json:"criticality"`
 	UserTags    []string   `json:"user_tags"`
 	Notes       string     `json:"notes"`
+	EditedBy    *int64     `json:"edited_by"`
 	Ip          netip.Addr `json:"ip"`
 }
 
@@ -204,6 +229,7 @@ func (q *Queries) UpdateHostUserFields(ctx context.Context, arg UpdateHostUserFi
 		arg.Criticality,
 		arg.UserTags,
 		arg.Notes,
+		arg.EditedBy,
 		arg.Ip,
 	)
 	return err

@@ -3,9 +3,12 @@
 -- decrypted here with raven_dec and must never be logged.
 
 -- name: GetHost :one
-SELECT ip, hostnames, state, first_seen, last_seen, miss_count, dojo_asset_id,
-    owner, criticality, COALESCE(raven_dec(notes_enc), '')::text AS notes, user_tags, overrides
-FROM hosts WHERE ip = @ip;
+SELECT h.ip, h.hostnames, h.state, h.first_seen, h.last_seen, h.miss_count, h.dojo_asset_id,
+    h.owner, h.criticality, COALESCE(raven_dec(h.notes_enc), '')::text AS notes, h.user_tags, h.overrides,
+    u.username AS edited_by, h.edited_at
+FROM hosts h
+LEFT JOIN users u ON u.id = h.edited_by
+WHERE h.ip = @ip;
 
 -- name: ListHostServices :many
 -- Open services first, then gone ones; by port.

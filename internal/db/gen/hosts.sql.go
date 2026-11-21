@@ -16,9 +16,12 @@ import (
 
 const getHost = `-- name: GetHost :one
 
-SELECT ip, hostnames, state, first_seen, last_seen, miss_count, dojo_asset_id,
-    owner, criticality, COALESCE(raven_dec(notes_enc), '')::text AS notes, user_tags, overrides
-FROM hosts WHERE ip = $1
+SELECT h.ip, h.hostnames, h.state, h.first_seen, h.last_seen, h.miss_count, h.dojo_asset_id,
+    h.owner, h.criticality, COALESCE(raven_dec(h.notes_enc), '')::text AS notes, h.user_tags, h.overrides,
+    u.username AS edited_by, h.edited_at
+FROM hosts h
+LEFT JOIN users u ON u.id = h.edited_by
+WHERE h.ip = $1
 `
 
 type GetHostRow struct {
@@ -34,6 +37,8 @@ type GetHostRow struct {
 	Notes       string          `json:"notes"`
 	UserTags    []string        `json:"user_tags"`
 	Overrides   json.RawMessage `json:"overrides"`
+	EditedBy    pgtype.Text     `json:"edited_by"`
+	EditedAt    *time.Time      `json:"edited_at"`
 }
 
 // Hosts read path (W3). The filtered list query is built in internal/hosts
@@ -55,6 +60,8 @@ func (q *Queries) GetHost(ctx context.Context, ip netip.Addr) (GetHostRow, error
 		&i.Notes,
 		&i.UserTags,
 		&i.Overrides,
+		&i.EditedBy,
+		&i.EditedAt,
 	)
 	return i, err
 }

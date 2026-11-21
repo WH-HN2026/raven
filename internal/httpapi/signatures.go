@@ -8,7 +8,6 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/WH-HN2026/raven/internal/auth"
-	"github.com/WH-HN2026/raven/internal/db/gen"
 	"github.com/WH-HN2026/raven/internal/httpx"
 	"github.com/WH-HN2026/raven/internal/signatures"
 )
@@ -62,12 +61,13 @@ func (a *api) listSignatures(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	items, total, err := a.signatureStore().List(r.Context(), limit, offset)
+	f := signatures.ListFilter{Tag: r.URL.Query().Get("tag")}
+	items, total, err := a.signatureStore().List(r.Context(), f, limit, offset)
 	if err != nil {
 		signaturesError(w, "list signatures", err)
 		return
 	}
-	httpx.JSON(w, http.StatusOK, list[gen.Signature]{Items: items, Total: total})
+	httpx.JSON(w, http.StatusOK, list[signatures.Signature]{Items: items, Total: total})
 }
 
 func (a *api) getSignature(w http.ResponseWriter, r *http.Request) {

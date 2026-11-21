@@ -149,6 +149,40 @@ func (q *Queries) InsertSignature(ctx context.Context, arg InsertSignatureParams
 	return i, err
 }
 
+const listAllSignatures = `-- name: ListAllSignatures :many
+SELECT id, name, template_yaml, enabled, valid, validation_error, builtin, created_by, created_at FROM signatures ORDER BY builtin DESC, name
+`
+
+func (q *Queries) ListAllSignatures(ctx context.Context) ([]Signature, error) {
+	rows, err := q.db.Query(ctx, listAllSignatures)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Signature{}
+	for rows.Next() {
+		var i Signature
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.TemplateYaml,
+			&i.Enabled,
+			&i.Valid,
+			&i.ValidationError,
+			&i.Builtin,
+			&i.CreatedBy,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listEnabledSignatures = `-- name: ListEnabledSignatures :many
 SELECT id, name, template_yaml, enabled, valid, validation_error, builtin, created_by, created_at FROM signatures WHERE enabled ORDER BY name
 `

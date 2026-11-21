@@ -91,7 +91,7 @@ func TestBuildList(t *testing.T) {
 		t.Fatalf("args = %#v", args)
 	}
 	list, _, args = buildList(Filter{Limit: 10})
-	if !strings.Contains(list, "FROM hosts h ORDER BY h.ip LIMIT $1 OFFSET $2) h ORDER BY h.ip") || len(args) != 2 {
+	if !strings.Contains(list, "FROM hosts h ORDER BY h.ip LIMIT $1 OFFSET $2) h LEFT JOIN users u ON u.id = h.edited_by ORDER BY h.ip") || len(args) != 2 {
 		t.Fatalf("list = %q args %v", list, args)
 	}
 }

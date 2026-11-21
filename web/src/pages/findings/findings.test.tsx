@@ -4,6 +4,7 @@ import { json, renderAs } from '../../test-utils'
 import { FindingsPage } from './FindingsPage'
 import {
   apiQuery,
+  emptyFilters,
   filtersFromParams,
   paramsFromFilters,
   statusFlags,
@@ -38,29 +39,40 @@ const finding: Finding = {
 describe('filter helpers', () => {
   it('round-trips filters through the query string, severities in order, empty values dropped', () => {
     const p = paramsFromFilters(
-      { severity: ['Low', 'Critical'], active: 'true', ip: ' 172.30.0.0/24 ', q: '', scanner: 'nmap' },
+      { ...emptyFilters, severity: ['Low', 'Critical'], active: 'true', asset: ' 42 ', ip: ' 172.30.0.0/24 ', scanner: 'nmap' },
       50,
       7,
     )
-    expect(p.toString()).toBe('severity=Critical%2CLow&active=true&ip=172.30.0.0%2F24&scanner=nmap&offset=50&id=7')
+    expect(p.toString()).toBe('severity=Critical%2CLow&active=true&asset=42&ip=172.30.0.0%2F24&scanner=nmap&offset=50&id=7')
     expect(filtersFromParams(p)).toEqual({
+      ...emptyFilters,
       severity: ['Critical', 'Low'],
       active: 'true',
+      asset: '42',
       ip: '172.30.0.0/24',
-      q: '',
       scanner: 'nmap',
     })
   })
   it('drops unknown severities and active values', () => {
-    expect(filtersFromParams(new URLSearchParams('severity=high,bogus&active=maybe'))).toMatchObject({
+    expect(filtersFromParams(new URLSearchParams('severity=high,bogus&active=maybe&verified=true'))).toMatchObject({
       severity: ['High'],
       active: '',
+      verified: 'true',
     })
   })
   it('builds the API query', () => {
-    expect(apiQuery({ severity: [], active: 'false', ip: '', q: ' tel ', scanner: '' }, 0)).toEqual({
+    expect(
+      apiQuery({ ...emptyFilters, active: 'false', false_p: 'true', out_of_scope: 'false', asset: ' 7 ', q: ' tel ' }, 0),
+    ).toEqual({
       severity: undefined,
       active: false,
+      verified: undefined,
+      false_p: true,
+      out_of_scope: false,
+      risk_accepted: undefined,
+      duplicate: undefined,
+      is_mitigated: undefined,
+      asset: '7',
       ip: undefined,
       q: 'tel',
       scanner: undefined,
@@ -123,6 +135,15 @@ describe('Findings page', () => {
     await waitFor(() =>
       expect(urls(spy)).toContain(
         '/api/findings?severity=Critical%2CHigh&active=true&ip=172.30.0.0%2F24&scanner=nuclei&limit=50&offset=0',
+      ),
+    )
+    // Status filter sends expanded flags (e.g. false_p) and asset
+    fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'false_p' } })
+    fireEvent.change(screen.getByLabelText('Asset'), { target: { value: '42' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Apply' }))
+    await waitFor(() =>
+      expect(urls(spy)).toContain(
+        '/api/findings?severity=Critical%2CHigh&false_p=true&asset=42&ip=172.30.0.0%2F24&scanner=nuclei&limit=50&offset=0',
       ),
     )
   })

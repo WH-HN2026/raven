@@ -27,6 +27,8 @@ const builtin: Schemas['Signature'] = {
   id: 7,
   name: 'raven-admin-path',
   template_yaml: yaml,
+  severity: 'low',
+  tags: ['asi', 'panel', 'admin'],
   enabled: true,
   valid: true,
   validation_error: '',
@@ -101,6 +103,12 @@ describe('list', () => {
     await waitFor(() => expect(fetchMock.mock.calls.some(([u, i]) => u === '/api/signatures/7' && i?.method === 'PUT')).toBe(true))
     const put = fetchMock.mock.calls.find(([u, i]) => u === '/api/signatures/7' && i?.method === 'PUT')!
     expect(JSON.parse(put[1]!.body as string)).toEqual({ enabled: false })
+
+    // Tag filter calls API with tag param
+    fireEvent.change(screen.getByLabelText('Tag'), { target: { value: 'panel' } })
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.some(([u]) => String(u) === '/api/signatures?limit=1000&tag=panel')).toBe(true),
+    )
   })
 })
 

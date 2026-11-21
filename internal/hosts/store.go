@@ -37,6 +37,8 @@ type Host struct {
 	Criticality  string          `json:"criticality"`
 	UserTags     []string        `json:"user_tags"`
 	Overrides    json.RawMessage `json:"overrides"`
+	EditedBy     *string         `json:"edited_by"`
+	EditedAt     *time.Time      `json:"edited_at"`
 }
 
 // Service is a service with the user overrides applied: Name/Product/Version
@@ -119,7 +121,7 @@ func List(ctx context.Context, pool *pgxpool.Pool, f Filter) ([]Host, int64, err
 	items, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (Host, error) {
 		var h Host
 		err := r.Scan(&h.IP, &h.Hostnames, &h.State, &h.FirstSeen, &h.LastSeen, &h.MissCount, &h.DojoAssetID,
-			&h.Owner, &h.Criticality, &h.UserTags, &h.Overrides, &h.OpenServices, &h.OpenPorts, &h.Technologies)
+			&h.Owner, &h.Criticality, &h.UserTags, &h.Overrides, &h.EditedBy, &h.EditedAt, &h.OpenServices, &h.OpenPorts, &h.Technologies)
 		h.Overrides = objectOrEmpty(h.Overrides)
 		return h, err
 	})
@@ -146,11 +148,16 @@ func Get(ctx context.Context, pool *pgxpool.Pool, ip netip.Addr) (*Detail, error
 	if err != nil {
 		return nil, fmt.Errorf("get host %s: %w", ip, err)
 	}
+	var editedBy *string
+	if h.EditedBy.Valid {
+		s := h.EditedBy.String
+		editedBy = &s
+	}
 	d := &Detail{
 		Host: Host{
 			IP: h.Ip, Hostnames: h.Hostnames, State: h.State, FirstSeen: h.FirstSeen, LastSeen: h.LastSeen,
 			MissCount: h.MissCount, DojoAssetID: h.DojoAssetID, Owner: h.Owner, Criticality: h.Criticality,
-			UserTags: h.UserTags, Overrides: objectOrEmpty(h.Overrides),
+			UserTags: h.UserTags, Overrides: objectOrEmpty(h.Overrides), EditedBy: editedBy, EditedAt: h.EditedAt,
 			OpenPorts: []int32{}, Technologies: []string{},
 		},
 		Notes: h.Notes,

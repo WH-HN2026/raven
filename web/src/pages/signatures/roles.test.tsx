@@ -15,6 +15,8 @@ const sig: Schemas['Signature'] = {
   id: 9,
   name: 'my-check',
   template_yaml: 'id: my-check\ninfo:\n  name: My check\n  severity: info\n',
+  severity: 'info',
+  tags: ['custom'],
   enabled: true,
   valid: true,
   validation_error: '',
