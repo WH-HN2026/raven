@@ -249,6 +249,13 @@ func (s *PushService) load(ctx context.Context, a PushArgs) (PushBatch, error) {
 		}
 		appendZAPReports(reports, a.IPs, stages, zapRes)
 	}
+	if pipeline.HasStage(stages, pipeline.StageNikto) {
+		niktoRes, err := s.loadArtifact(ctx, q, a.BatchID, pipeline.StageNikto)
+		if err != nil {
+			return PushBatch{}, err
+		}
+		appendNiktoReports(reports, a.IPs, stages, niktoRes)
+	}
 	hosts, err := q.ListPushHosts(ctx, a.IPs)
 	if err != nil {
 		return PushBatch{}, fmt.Errorf("list hosts: %w", err)

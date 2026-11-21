@@ -23,6 +23,7 @@ import (
 	"github.com/WH-HN2026/raven/internal/pipeline"
 	"github.com/WH-HN2026/raven/internal/scanner"
 	"github.com/WH-HN2026/raven/internal/scanner/httpx"
+	"github.com/WH-HN2026/raven/internal/scanner/nikto"
 	"github.com/WH-HN2026/raven/internal/scanner/nmap"
 	"github.com/WH-HN2026/raven/internal/scanner/nuclei"
 	"github.com/WH-HN2026/raven/internal/scanner/wpscan"
@@ -83,7 +84,7 @@ func run() error {
 	dojoWrite := &dojo.Lazy{} // write-through edits (D6); set once bootstrap is done
 	if cfg.DojoURL != "" {
 		push, err := dojo.NewPushService(pool, map[string]dojo.ParseFunc{
-			"nmap": nmap.Parse, "httpx": httpx.Parse, "nuclei": nuclei.Parse, "wpscan": wpscan.Parse, "zap": zap.Parse,
+			"nmap": nmap.Parse, "httpx": httpx.Parse, "nuclei": nuclei.Parse, "wpscan": wpscan.Parse, "zap": zap.Parse, "nikto": nikto.Parse,
 			pipeline.StageNucleiActive: nuclei.Parse,
 		})
 		if err != nil {
