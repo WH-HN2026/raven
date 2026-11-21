@@ -245,7 +245,6 @@ paths:
     get:
       tags: [runs]
       operationId: listRuns
-      description: stub
       parameters:
         - { name: profile_id, in: query, schema: { type: integer, format: int64 } }
         - { $ref: "#/components/parameters/Limit" }
@@ -260,7 +259,11 @@ paths:
     post:
       tags: [runs]
       operationId: startRun
-      description: stub. Start a run for a profile (runs:control).
+      description: |
+        Start a run for a profile (runs:control). Builds the scan list (targets + scope), splits it into
+        fixed-size batches and enqueues one job per batch. An empty scan list gives a run that is `done`
+        immediately, with `stats.reason`. 409 if the profile already has a pending or running run;
+        400 for an unknown or disabled profile.
       parameters: [{ $ref: "#/components/parameters/CSRF" }]
       requestBody:
         required: true
@@ -283,7 +286,7 @@ paths:
     get:
       tags: [runs]
       operationId: getRun
-      description: stub
+      description: One run with batch progress; poll it while the run is pending/running.
       responses:
         "200":
           description: Run.
@@ -296,7 +299,7 @@ paths:
     get:
       tags: [runs]
       operationId: listRunBatches
-      description: stub
+      description: All batches of the run, in order (not paginated).
       responses:
         "200":
           description: Batches of the run.
@@ -309,7 +312,9 @@ paths:
     post:
       tags: [runs]
       operationId: stopRun
-      description: stub
+      description: |
+        Stop a pending/running run (runs:control): unfinished batches become `stopped`, their scans are
+        cancelled, and the run becomes `stopped`. 409 if the run is not active.
       parameters: [{ $ref: "#/components/parameters/CSRF" }]
       responses:
         "200":
@@ -1038,10 +1043,10 @@ components:
     # ── runs ──
     RunStatus:
       type: string
-      enum: [pending, running, suspended, done, failed]
+      enum: [pending, running, suspended, done, failed, stopped]
     Run:
       type: object
-      required: [id, profile_id, status, hosts_total, hosts_up]
+      required: [id, profile_id, status, created_at, hosts_total, hosts_up, batches_total, batches_done, batches_failed, stats]
       properties:
         id: { type: integer, format: int64 }
         profile_id: { type: integer, format: int64 }
@@ -1053,8 +1058,15 @@ components:
         hosts_total: { type: integer }
         hosts_up: { type: integer }
         batches_total: { type: integer }
-        batches_done: { type: integer }
-        stats: { type: object, additionalProperties: true }
+        batches_done: { type: integer, description: "batches with status done" }
+        batches_failed: { type: integer, description: "batches that failed after all retries" }
+        stats:
+          type: object
+          additionalProperties: true
+          description: |
+            Scan list stats (candidates, not_included, excluded, rejected, warnings, batch_size) from the start;
+            when finished also batches, batches_done/failed/stopped, duration_ms_sum, duration_ms_max,
+            services_open; `reason` for an empty scan list.
     RunList:
       type: object
       required: [items, total]
@@ -1063,13 +1075,15 @@ components:
         total: { type: integer }
     Batch:
       type: object
-      required: [id, run_id, seq, status, host_count]
+      required: [id, run_id, seq, status, host_count, hosts_up, attempts, error]
       properties:
         id: { type: integer, format: int64 }
         run_id: { type: integer, format: int64 }
         seq: { type: integer }
-        host_count: { type: integer }
-        status: { type: string, enum: [pending, running, done, failed] }
+        host_count: { type: integer, description: IPs in the batch }
+        hosts_up: { type: integer, description: IPs that responded }
+        status: { type: string, enum: [pending, running, done, failed, stopped] }
+        error: { type: string, description: "last attempt's error, empty if none" }
         attempts: { type: integer }
         started_at: { type: [string, "null"], format: date-time }
         finished_at: { type: [string, "null"], format: date-time }

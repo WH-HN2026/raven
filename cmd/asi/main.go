@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -18,6 +19,8 @@ import (
 	"github.com/WH-HN2026/zadanie-agh-asi/internal/db/gen"
 	"github.com/WH-HN2026/zadanie-agh-asi/internal/dojo"
 	"github.com/WH-HN2026/zadanie-agh-asi/internal/httpapi"
+	"github.com/WH-HN2026/zadanie-agh-asi/internal/pipeline"
+	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner/nmap"
 )
 
 func main() {
@@ -81,11 +84,22 @@ func run() error {
 		slog.Warn("ASI_DOJO_URL is empty: DefectDojo integration disabled")
 	}
 
+	// Scan pipeline: River workers running nmap per batch (S3).
+	pipe, err := pipeline.New(pool, pipeline.Config{Scanner: nmap.New(nmap.Config{}), Resolver: net.DefaultResolver})
+	if err != nil {
+		return err
+	}
+	if err := pipe.Start(ctx); err != nil {
+		return err
+	}
+	defer shutdownPipeline(pipe)
+
 	srv := &http.Server{
 		Addr: cfg.HTTPAddr,
 		Handler: httpapi.NewRouter(httpapi.Deps{
 			Pool: pool, Queries: q, Auth: authSvc, CookieSecure: cfg.CookieSecure,
 			DojoPublicURL: cfg.DojoPublicURL,
+			Pipeline:      pipe,
 		}),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
@@ -103,6 +117,14 @@ func run() error {
 	shutCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	return srv.Shutdown(shutCtx)
+}
+
+func shutdownPipeline(p *pipeline.Service) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := p.Shutdown(ctx); err != nil {
+		slog.Warn("pipeline shutdown", "err", err)
+	}
 }
 
 func every(ctx context.Context, d time.Duration, f func()) {
