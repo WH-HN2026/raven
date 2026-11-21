@@ -111,7 +111,7 @@ M0 is sequential and blocking. Do it in **one** worktree, as fast as possible, t
 - [ ] **W5 Findings page.** Mirror list with filters, inline triage (status, severity, notes) via D6; link out to Dojo.
 - [x] **W6 Changes page.** Pick two runs → diff table; per-host timeline.
 - [ ] **W7 Profiles & Schedules pages.** Profile editor (ports, rates, nuclei tags, miss threshold), schedule editor; Dojo-sourced schedules shown read-only with a badge.
-- [ ] **W8 Signatures page.** YAML editor, validate button with errors, enable/disable, test against one URL in the lab.
+- [x] **W8 Signatures page.** YAML editor, validate button with errors, enable/disable, test against one URL in the lab.
 - [x] **W9 Users page + role-aware UI.** User admin; every action button hidden/disabled per role.
 - [ ] **W10 Host edit.** Edit user-owned fields + overrides; show "edited by user" markers; verify edits survive the next run.
 - [x] **W11 Restyle to the design.** (best after W2, W3) Bring the shell and existing pages in line with [`docs/design/`](design/README.md):
