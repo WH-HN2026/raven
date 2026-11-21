@@ -316,6 +316,7 @@ func mapPlannedEngagement(e Engagement, profiles profileIndex, tz string, loc *t
 	}
 	engID := e.ID
 	return gen.UpsertDojoScheduleParams{
+		Name:             strings.TrimSpace(e.Name),
 		ProfileID:        profID,
 		DojoEngagementID: &engID,
 		WindowStart:      start,

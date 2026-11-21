@@ -141,6 +141,14 @@ func FindingURL(publicBase string, id int64) string {
 	return strings.TrimRight(publicBase, "/") + "/finding/" + strconv.FormatInt(id, 10)
 }
 
+// EngagementURL is the browser link to an engagement in the Dojo UI.
+func EngagementURL(publicBase string, id int64) string {
+	if publicBase == "" || id <= 0 {
+		return ""
+	}
+	return strings.TrimRight(publicBase, "/") + "/engagement/" + strconv.FormatInt(id, 10)
+}
+
 // ListMirrorFindings reads one page of the mirror (never Dojo) and the total.
 // dojoPublicURL builds each item's dojo_url.
 func ListMirrorFindings(ctx context.Context, pool *pgxpool.Pool, f FindingFilter, dojoPublicURL string) ([]MirrorFinding, int64, error) {

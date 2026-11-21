@@ -29,7 +29,7 @@ func TestProfilesAndSchedulesAPI(t *testing.T) {
 	if err := pool.QueryRow(ctx, "SELECT id FROM users WHERE username = 'admin'").Scan(&adminID); err != nil {
 		t.Fatal(err)
 	}
-	router := NewRouter(Deps{Pool: pool, Queries: q, Auth: svc})
+	router := NewRouter(Deps{Pool: pool, Queries: q, Auth: svc, DojoPublicURL: "http://dojo.local"})
 	request := func(code int, role auth.Role, method, path, body string) []byte {
 		t.Helper()
 		rc := auth.WithUser(ctx, &auth.User{ID: adminID, Role: role})
@@ -84,17 +84,17 @@ func TestProfilesAndSchedulesAPI(t *testing.T) {
 	request(403, viewer, http.MethodPut, path, profileBody)
 	request(403, viewer, http.MethodDelete, path, "")
 
-	scheduleBody := fmt.Sprintf(`{"profile_id":%d,"cron":"0 23 * * *","window_start":"2026-11-21T23:00:00+01:00","window_end":"2026-11-22T01:00:00+01:00"}`, profile.ID)
-	var schedule gen.Schedule
+	scheduleBody := fmt.Sprintf(`{"name":"Nightly sweep","profile_id":%d,"cron":"0 23 * * *","window_start":"2026-11-21T23:00:00+01:00","window_end":"2026-11-22T01:00:00+01:00"}`, profile.ID)
+	var schedule scheduleView
 	parse(request(201, admin, http.MethodPost, "/schedules", scheduleBody), &schedule)
-	if schedule.Source != "ui" || schedule.Timezone != "Europe/Warsaw" || schedule.ProfileID != profile.ID ||
+	if schedule.Name != "Nightly sweep" || schedule.DojoURL != "" || schedule.Source != "ui" || schedule.Timezone != "Europe/Warsaw" || schedule.ProfileID != profile.ID ||
 		!schedule.Enabled || schedule.WindowStart == nil || schedule.WindowEnd == nil || schedule.Cron.String != "0 23 * * *" {
 		t.Fatalf("created schedule = %+v", schedule)
 	}
 	schedulePath := fmt.Sprintf("/schedules/%d", schedule.ID)
-	scheduleUpdate := fmt.Sprintf(`{"profile_id":%d,"cron":"*/15 * * * *","timezone":"UTC","enabled":false}`, profile.ID)
+	scheduleUpdate := fmt.Sprintf(`{"name":"Every 15m","profile_id":%d,"cron":"*/15 * * * *","timezone":"UTC","enabled":false}`, profile.ID)
 	parse(request(200, admin, http.MethodPut, schedulePath, scheduleUpdate), &schedule)
-	if schedule.Enabled || schedule.Timezone != "UTC" || schedule.Cron.String != "*/15 * * * *" || schedule.WindowStart != nil {
+	if schedule.Name != "Every 15m" || schedule.Enabled || schedule.Timezone != "UTC" || schedule.Cron.String != "*/15 * * * *" || schedule.WindowStart != nil {
 		t.Fatalf("updated schedule = %+v", schedule)
 	}
 	for _, extra := range []string{
@@ -112,14 +112,15 @@ func TestProfilesAndSchedulesAPI(t *testing.T) {
 
 	engagementID := int64(123)
 	dojo, err := q.UpsertDojoSchedule(ctx, gen.UpsertDojoScheduleParams{
-		ProfileID: profile.ID, DojoEngagementID: &engagementID, Timezone: "Europe/Warsaw",
+		Name: "Q4 planned audit", ProfileID: profile.ID, DojoEngagementID: &engagementID, Timezone: "Europe/Warsaw",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	var schedules list[gen.Schedule]
+	var schedules list[scheduleView]
 	parse(request(200, viewer, http.MethodGet, "/schedules", ""), &schedules)
-	if schedules.Total != 2 || len(schedules.Items) != 2 || schedules.Items[1].Source != "dojo" {
+	if schedules.Total != 2 || len(schedules.Items) != 2 || schedules.Items[1].Source != "dojo" ||
+		schedules.Items[1].Name != "Q4 planned audit" || schedules.Items[1].DojoURL != "http://dojo.local/engagement/123" {
 		t.Fatalf("schedule page = %+v", schedules)
 	}
 	dojoPath := fmt.Sprintf("/schedules/%d", dojo.ID)

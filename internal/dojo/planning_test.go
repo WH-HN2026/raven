@@ -216,7 +216,7 @@ func TestMapPlannedEngagement(t *testing.T) {
 	if reason != "" {
 		t.Fatalf("unexpected skip reason: %q", reason)
 	}
-	if p.ProfileID != 7 || p.DojoEngagementID == nil || *p.DojoEngagementID != 99 || p.Timezone != "UTC" {
+	if p.Name != "Weekend scan" || p.ProfileID != 7 || p.DojoEngagementID == nil || *p.DojoEngagementID != 99 || p.Timezone != "UTC" {
 		t.Fatalf("params = %+v", p)
 	}
 	if p.WindowStart == nil || p.WindowEnd == nil ||

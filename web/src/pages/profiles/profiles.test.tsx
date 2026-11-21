@@ -96,10 +96,13 @@ describe('ProfilesPage', () => {
     const rows = await screen.findAllByRole('row')
     const ui = rows.find((r) => within(r).queryByText('#7'))!
     const dojo = rows.find((r) => within(r).queryByText('#8'))!
+    expect(within(ui).getByText('Nightly lab')).toBeInTheDocument()
     expect(within(ui).getByText('UI')).toBeInTheDocument()
     expect(within(ui).getByText('every 6 h')).toBeInTheDocument()
     expect(within(ui).getByRole('button', { name: 'Edit schedule 7' })).toBeInTheDocument()
+    expect(within(dojo).getByText('Q4 planned audit')).toBeInTheDocument()
     expect(within(dojo).getByText(/^Dojo .118$/)).toBeInTheDocument()
+    expect(within(dojo).getByRole('link', { name: /open/ })).toHaveAttribute('href', 'http://dojo.local/engagement/118')
     expect(within(dojo).getByText('Read-only')).toBeInTheDocument()
     expect(within(dojo).queryByRole('button')).toBeNull()
   })
@@ -110,6 +113,7 @@ describe('ProfilesPage', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'New schedule' }))
     const form = screen.getByRole('form', { name: 'New schedule' })
     await within(form).findByRole('option', { name: 'lab-quick' })
+    fireEvent.change(within(form).getByLabelText('Name'), { target: { value: 'Overnight sweep' } })
     fireEvent.change(within(form).getByLabelText('Profile'), { target: { value: '3' } })
     fireEvent.change(within(form).getByLabelText('Repeats'), { target: { value: 'daily' } })
     fireEvent.change(within(form).getByLabelText('Time'), { target: { value: '23:15' } })
@@ -121,7 +125,7 @@ describe('ProfilesPage', () => {
     const post = calls.find((c) => c.method === 'POST')!
     expect(post.url).toBe('/api/schedules')
     const body = post.body as Record<string, string>
-    expect(body).toMatchObject({ profile_id: 3, cron: '15 23 * * *', timezone: 'UTC', enabled: true })
+    expect(body).toMatchObject({ name: 'Overnight sweep', profile_id: 3, cron: '15 23 * * *', timezone: 'UTC', enabled: true })
     expect(body.window_start).toMatch(/T22:00:00\.000Z$/)
     expect(body.window_end).toMatch(/T06:00:00\.000Z$/)
     expect(Date.parse(body.window_end!) - Date.parse(body.window_start!)).toBe(8 * 3600_000)
@@ -133,6 +137,7 @@ describe('ProfilesPage', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'New schedule' }))
     const form = screen.getByRole('form', { name: 'New schedule' })
     await within(form).findByRole('option', { name: 'lab-quick' })
+    fireEvent.change(within(form).getByLabelText('Name'), { target: { value: 'Overnight sweep' } })
     fireEvent.change(within(form).getByLabelText('Profile'), { target: { value: '3' } })
     fireEvent.change(within(form).getByLabelText('Window start'), { target: { value: '22:00' } })
     fireEvent.click(within(form).getByRole('button', { name: 'Create schedule' }))
