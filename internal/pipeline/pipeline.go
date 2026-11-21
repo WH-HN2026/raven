@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"net/netip"
 	"strconv"
 	"time"
@@ -241,14 +242,15 @@ func (s *Service) StartRun(ctx context.Context, u *auth.User, profileID int64) (
 	}
 
 	batches := SplitBatches(sl.IPs, s.cfg.BatchSize)
-	stats := map[string]any{
+	stats := lifecycleStats{}.runStats()
+	maps.Copy(stats, map[string]any{
 		"candidates":   sl.Stats.Candidates,
 		"not_included": sl.Stats.NotIncluded,
 		"excluded":     sl.Stats.Excluded,
 		"rejected":     sl.Stats.Rejected,
 		"warnings":     nonNil(sl.Warnings),
 		"batch_size":   s.cfg.BatchSize,
-	}
+	})
 	now := time.Now()
 	status, finished := "running", (*time.Time)(nil)
 	if len(sl.IPs) == 0 {
@@ -368,9 +370,9 @@ func finishRun(ctx context.Context, q *gen.Queries, runID int64, status string, 
 	if err != nil {
 		return fmt.Errorf("batch stats of run %d: %w", runID, err)
 	}
-	openPorts, err := q.CountRunOpenPorts(ctx, runID)
+	observations, err := q.RunObservationStats(ctx, runID)
 	if err != nil {
-		return fmt.Errorf("open ports of run %d: %w", runID, err)
+		return fmt.Errorf("observation stats of run %d: %w", runID, err)
 	}
 	stats := map[string]any{
 		"batches":         bs.Total,
@@ -379,7 +381,7 @@ func finishRun(ctx context.Context, q *gen.Queries, runID int64, status string, 
 		"batches_stopped": bs.Stopped,
 		"duration_ms_sum": bs.DurationMsSum,
 		"duration_ms_max": bs.DurationMsMax,
-		"services_open":   openPorts,
+		"services_open":   observations.ServicesOpen,
 	}
 	for k, v := range extra {
 		stats[k] = v
@@ -390,7 +392,7 @@ func finishRun(ctx context.Context, q *gen.Queries, runID int64, status string, 
 	}
 	now := time.Now()
 	if err := q.FinishRun(ctx, gen.FinishRunParams{
-		ID: runID, Status: status, FinishedAt: &now, HostsUp: int32(bs.HostsUp), Stats: b,
+		ID: runID, Status: status, FinishedAt: &now, HostsUp: int32(observations.HostsUp), Stats: b,
 	}); err != nil {
 		return fmt.Errorf("finish run %d: %w", runID, err)
 	}

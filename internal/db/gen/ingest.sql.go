@@ -113,6 +113,7 @@ VALUES ($1, $2::text[], 'active', $3, $3)
 ON CONFLICT (ip) DO UPDATE SET
     hostnames = ARRAY(SELECT DISTINCT h FROM unnest(hosts.hostnames || EXCLUDED.hostnames) AS h ORDER BY h),
     state = 'active',
+    miss_count = 0,
     last_seen = EXCLUDED.last_seen
 `
 
