@@ -96,7 +96,6 @@ paths:
     get:
       tags: [targets]
       operationId: listTargets
-      description: stub
       parameters:
         - { $ref: "#/components/parameters/Limit" }
         - { $ref: "#/components/parameters/Offset" }
@@ -110,7 +109,12 @@ paths:
     post:
       tags: [targets]
       operationId: createTargets
-      description: stub. Manual entry of one or more targets (permission targets:write).
+      description: |
+        Manual entry of one or more targets (permission targets:write). Kind is auto-detected
+        (ip / cidr / domain); if `kind` is given it must match. All items must be valid, otherwise
+        nothing is written and the 400 response lists `errors` (line = 1-based item index).
+        Re-adding an existing target merges its tags. Target rules: IPv4 only; no loopback,
+        link-local, multicast or unspecified addresses; CIDRs at most a /16.
       parameters: [{ $ref: "#/components/parameters/CSRF" }]
       requestBody:
         required: true
@@ -125,16 +129,39 @@ paths:
                   items: { $ref: "#/components/schemas/TargetInput" }
       responses:
         "201":
-          description: Created targets.
+          description: Created (or merged) targets.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/TargetList" }
+        "400":
+          description: Invalid targets; nothing was written.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TargetInputErrors" }
         default: { $ref: "#/components/responses/Error" }
   /targets/upload:
     post:
       tags: [targets]
       operationId: uploadTargets
-      description: stub. CSV or JSON upload (permission import); `dry_run=true` returns a preview.
+      description: |
+        CSV or JSON upload (permission import), multipart field `file`, max 10 MiB.
+        `dry_run=true` only parses and returns a preview (nothing is written); otherwise the valid
+        entries are stored (tags merged into existing targets) and the bad lines are reported.
+        The format comes from the file name (`.json`, `.csv`/`.txt`), else a leading `[` means JSON.
+
+        CSV: columns `value,tags,note`; the header row is optional (first cell `value`); tags are
+        separated by `;` or `|`; tags and note may be omitted; blank lines and `#` lines are skipped.
+        ```
+        value,tags,note
+        10.0.0.0/24,lab;web,main lab net
+        wordpress.lab,cms,
+        10.0.0.7
+        ```
+        JSON: an array of `{value, tags?, note?, kind?}`; error lines point at the line where the
+        bad element starts.
+        ```
+        [{"value": "10.0.0.0/24", "tags": ["lab"], "note": "main lab net"}, {"value": "wordpress.lab"}]
+        ```
       parameters:
         - { $ref: "#/components/parameters/CSRF" }
         - { name: dry_run, in: query, schema: { type: boolean, default: false } }
@@ -159,7 +186,6 @@ paths:
     delete:
       tags: [targets]
       operationId: deleteTarget
-      description: stub
       parameters: [{ $ref: "#/components/parameters/CSRF" }]
       responses:
         "204": { description: Deleted. }
@@ -170,7 +196,6 @@ paths:
     get:
       tags: [scope]
       operationId: listScope
-      description: stub
       parameters:
         - { name: profile_id, in: query, schema: { type: integer, format: int64 }, description: "omit = global entries" }
         - { $ref: "#/components/parameters/Limit" }
@@ -185,7 +210,12 @@ paths:
     post:
       tags: [scope]
       operationId: createScopeEntry
-      description: stub. Global entries (profile_id null) need scope:global.
+      description: |
+        Global entries (profile_id null: the global include list and the global blacklist) need
+        scope:global on top of scope:write. Kind is auto-detected. Scope CIDRs have no size cap.
+        A run applies: the include entries (global + profile; if there are none, the targets themselves
+        are the include set), then all exclude entries last; exclusions always win. Domain entries match
+        their resolved IPs and any host name equal to or under the domain. 409 = duplicate entry.
       parameters: [{ $ref: "#/components/parameters/CSRF" }]
       requestBody:
         required: true
@@ -204,7 +234,7 @@ paths:
     delete:
       tags: [scope]
       operationId: deleteScopeEntry
-      description: stub
+      description: Global entries need scope:global.
       parameters: [{ $ref: "#/components/parameters/CSRF" }]
       responses:
         "204": { description: Deleted. }
@@ -915,6 +945,24 @@ components:
         value: { type: string, description: "IP, CIDR or domain", examples: ["10.0.0.0/24", "example.agh.edu.pl"] }
         kind: { $ref: "#/components/schemas/TargetKind" }
         tags: { type: array, items: { type: string } }
+        note: { type: string }
+    TargetInputErrors:
+      type: object
+      required: [error, errors]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string, examples: [invalid_targets] }
+            message: { type: string }
+        errors: { type: array, items: { $ref: "#/components/schemas/LineError" } }
+    LineError:
+      type: object
+      required: [line, message]
+      properties:
+        line: { type: integer, description: 1-based input line (JSON - line where the element starts; manual POST - item index) }
+        message: { type: string }
     Target:
       type: object
       required: [id, kind, value, source, tags]
@@ -924,6 +972,8 @@ components:
         value: { type: string }
         source: { type: string, enum: [manual, csv, json, dojo] }
         tags: { type: array, items: { type: string } }
+        note: { type: string }
+        created_by: { type: [integer, "null"], format: int64 }
         created_at: { type: string, format: date-time }
     TargetList:
       type: object
@@ -933,22 +983,29 @@ components:
         total: { type: integer }
     TargetUploadResult:
       type: object
-      required: [targets, errors]
+      required: [targets, errors, source, dry_run, created]
       properties:
-        targets: { type: array, items: { $ref: "#/components/schemas/TargetInput" } }
-        errors:
+        targets:
+          description: Parsed valid entries (de-duplicated, kind detected, values normalized).
           type: array
-          items:
-            type: object
-            required: [line, message]
-            properties:
-              line: { type: integer }
-              message: { type: string }
-    ScopeEntryInput:
+          items: { $ref: "#/components/schemas/ParsedTarget" }
+        errors: { type: array, items: { $ref: "#/components/schemas/LineError" } }
+        source: { type: string, enum: [csv, json] }
+        dry_run: { type: boolean }
+        created: { type: integer, description: "targets written (0 on dry_run)" }
+    ParsedTarget:
       type: object
-      required: [kind, value, list]
+      required: [kind, value, tags]
       properties:
         kind: { $ref: "#/components/schemas/TargetKind" }
+        value: { type: string }
+        tags: { type: array, items: { type: string } }
+        note: { type: string }
+    ScopeEntryInput:
+      type: object
+      required: [value, list]
+      properties:
+        kind: { $ref: "#/components/schemas/TargetKind", description: "optional; auto-detected" }
         value: { type: string }
         list: { type: string, enum: [include, exclude] }
         profile_id: { type: [integer, "null"], format: int64, description: "null = global" }
@@ -957,9 +1014,10 @@ components:
       allOf:
         - $ref: "#/components/schemas/ScopeEntryInput"
         - type: object
-          required: [id]
+          required: [id, kind]
           properties:
             id: { type: integer, format: int64 }
+            created_by: { type: [integer, "null"], format: int64 }
             created_at: { type: string, format: date-time }
     ScopeEntryList:
       type: object
