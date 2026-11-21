@@ -32,12 +32,13 @@ func TestEncryptedColumnsAtRest(t *testing.T) {
 
 	ip := netip.MustParseAddr("10.66.0.7")
 	markers := map[string]string{
-		"hosts.notes_enc":                "MARKER-NOTES-owner-is-alice",
-		"services.banner_enc":            "MARKER-BANNER-SSH-2.0-OpenSSH_9.6",
-		"http_observations.headers_enc":  "MARKER-HEADERS-X-Internal-Host: db01",
-		"http_observations.cookies_enc":  "MARKER-COOKIES-session=abc123",
-		"http_observations.tls_cert_enc": "MARKER-TLSCERT-CN=intranet.example",
-		"artifacts.content_enc":          "<nmaprun>MARKER-ARTIFACT-raw-xml</nmaprun>",
+		"hosts.notes_enc":                      "MARKER-NOTES-owner-is-alice",
+		"services.banner_enc":                  "MARKER-BANNER-SSH-2.0-OpenSSH_9.6",
+		"http_observations.headers_enc":        "MARKER-HEADERS-X-Internal-Host: db01",
+		"http_observations.cookies_enc":        "MARKER-COOKIES-session=abc123",
+		"http_observations.tls_cert_enc":       "MARKER-TLSCERT-CN=intranet.example",
+		"artifacts.content_enc":                "<nmaprun>MARKER-ARTIFACT-raw-xml</nmaprun>",
+		"run_observations.nuclei_evidence_enc": `[["MARKER-NUCLEI-extracted-token"]]`,
 	}
 
 	// Every _enc column in the schema must be covered here.
@@ -82,17 +83,20 @@ func TestEncryptedColumnsAtRest(t *testing.T) {
 	if err := pipeline.Ingest(ctx, q, pipeline.IngestInput{
 		RunID: runID, BatchID: batchID, Scanner: "nmap", Raw: []byte(markers["artifacts.content_enc"]),
 		Plan: pipeline.Plan{
-			Up:       []netip.Addr{ip},
-			Hosts:    []pipeline.HostRow{{IP: ip}},
-			Services: []pipeline.ServiceRow{{IP: ip, Port: 22, Proto: "tcp", Name: "ssh", Banner: markers["services.banner_enc"]}},
+			Up:           []netip.Addr{ip},
+			Hosts:        []pipeline.HostRow{{IP: ip}},
+			Services:     []pipeline.ServiceRow{{IP: ip, Port: 22, Proto: "tcp", Name: "ssh", Banner: markers["services.banner_enc"]}},
+			Observations: []pipeline.ObsRow{{IP: ip, HostLevel: true, Up: true}, {IP: ip, Port: 22, Up: true}},
 		},
 		Ports: ports, Seen: time.Now(),
 	}); err != nil {
 		t.Fatal(err)
 	}
 
-	// Host notes: no write path on main yet (D6); same asi_enc call the edit query uses.
-	if _, err := pool.Exec(ctx, `UPDATE hosts SET notes_enc = asi_enc($2) WHERE ip = $1`, ip, markers["hosts.notes_enc"]); err != nil {
+	// Host notes: the query W10's host edit uses.
+	if err := q.UpdateHostUserFields(ctx, gen.UpdateHostUserFieldsParams{
+		Ip: ip, UserTags: []string{}, Notes: markers["hosts.notes_enc"],
+	}); err != nil {
 		t.Fatal(err)
 	}
 	// HTTP observation: the query S7's ingest uses (pipeline.ingestHTTP is unexported).
@@ -103,6 +107,15 @@ func TestEncryptedColumnsAtRest(t *testing.T) {
 		Technologies: []string{}, RunID: &runID, ObservedAt: time.Now(),
 	}); err != nil || n != 1 {
 		t.Fatalf("insert http observation: n=%d err=%v", n, err)
+	}
+
+	// Nuclei evidence: the query S4's ingest uses (pipeline.ingestNuclei is unexported),
+	// on the open-port run_observations row Ingest wrote above.
+	if n, err := q.RecordNucleiMatches(ctx, gen.RecordNucleiMatchesParams{
+		RunID: runID, Ip: ip, Port: pgtype.Int4{Int32: 22, Valid: true},
+		Matches: []byte("[]"), Evidence: markers["run_observations.nuclei_evidence_enc"],
+	}); err != nil || n != 1 {
+		t.Fatalf("record nuclei matches: n=%d err=%v", n, err)
 	}
 
 	// The audit_log never carries the plaintext either.
@@ -123,6 +136,7 @@ func TestEncryptedColumnsAtRest(t *testing.T) {
 		"services":          "ip = '10.66.0.7'",
 		"http_observations": "run_id = " + strconv.FormatInt(runID, 10),
 		"artifacts":         "run_id = " + strconv.FormatInt(runID, 10),
+		"run_observations":  "nuclei_evidence_enc IS NOT NULL AND run_id = " + strconv.FormatInt(runID, 10),
 	}
 	noKey, err := pgx.Connect(ctx, pool.Config().ConnString()) // plain connection: asi.enc_key not set
 	if err != nil {
