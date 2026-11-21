@@ -81,7 +81,7 @@ func TestBuildWhere(t *testing.T) {
 
 func TestBuildList(t *testing.T) {
 	list, count, args := buildList(Filter{State: "active", Tag: "x", Limit: 50, Offset: 100})
-	if !strings.HasSuffix(list, "ORDER BY h.ip LIMIT $3 OFFSET $4) h ORDER BY h.ip") {
+	if !strings.HasSuffix(list, "ORDER BY h.ip LIMIT $3 OFFSET $4) h LEFT JOIN users u ON u.id = h.edited_by ORDER BY h.ip") {
 		t.Fatalf("list = %q", list)
 	}
 	if !strings.HasPrefix(count, "SELECT count(*) FROM hosts h WHERE ") || strings.Contains(count, "LIMIT") {
