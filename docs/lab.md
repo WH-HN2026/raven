@@ -80,7 +80,9 @@ The organizers' lab files are in [`lab/organizers/`](../lab/organizers/README.md
 
 `quickstart.sh` is run with `bash` (it is committed without the executable bit). For latency on `modern-proxy`, set `ENABLE_LATENCY=true` and `LATENCY_MS=500` in `lab/organizers/.env` (gitignored), then `make lab-down` and `make lab-up` with `STACK=modern-proxy`.
 
-**Scan.** Their stacks publish on the Docker host. RAVEN reaches them at the `docker0` gateway, `172.17.0.1`; `make lab-up LAB=organizers` prints it and warns if it differs. In RAVEN, start a run of the seeded profile **Organizers' lab**: target `172.17.0.1`, Default stages, ports `21,80,81,443,2223,3001,5673,6379,8080,8081,8085,8086,8088-8090,8474,8787,8888,15432,15673`. RAVEN's own port (8000) and Dojo's (18080) are not in the list. The seeded `default` profile excludes `172.17.0.1`. It works the same from the `raven` container on the default compose network (no `lab/raven.compose.yml` needed) and from `make dev`.
+**Scan.** Their stacks publish on the Docker host. RAVEN reaches them at the `docker0` gateway, `172.17.0.1`; `make lab-up LAB=organizers` prints it and warns if it differs. In RAVEN, add `172.17.0.1` once in **Targets**, then start a run of the seeded profile **Organizers' lab**: include `172.17.0.1`, Default stages, ports `21,80,81,443,2223,3001,5673,6379,8080,8081,8085,8086,8088-8090,8474,8787,8888,15432,15673`, no schedule. RAVEN's own port (8000) and Dojo's (18080) are not in the list.
+
+The target is not seeded because a profile without include rules scans every target. The seeded `default` profile excludes `172.17.0.1`. Give every other profile an include scope, or an exclude for `172.17.0.1`, so that only **Organizers' lab** scans the Docker host. It works the same from the `raven` container on the default compose network (no `lab/raven.compose.yml` needed) and from `make dev`.
 
 **Port collisions.** DefectDojo's default host port is 18080 because the `modern` stack needs 8080 (and 80, 81, 443). Anything else on the host that uses one of their ports must be stopped before that stack starts; on a dev machine with a local service on 8080, `modern` fails to start.
 

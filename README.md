@@ -42,7 +42,7 @@ make lab-change                                # their ./quickstart.sh change
 make lab-down LAB=organizers                   # same STACK= as lab-up
 ```
 
-In RAVEN: **Runs** → **Start run** with the profile **Organizers' lab** (172.17.0.1, their published ports).
+In RAVEN: **Targets** → add `172.17.0.1` (once) → **Runs** → **Start run** with the profile **Organizers' lab** (include 172.17.0.1, their published ports only).
 
 Add more users with the roles `admin`, `editor`, `operator` and `viewer` on the **Users** page.
 
