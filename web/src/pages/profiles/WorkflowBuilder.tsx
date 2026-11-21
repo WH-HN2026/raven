@@ -204,7 +204,6 @@ function StageCard({
   if (!stage.available) note = 'Not available'
   else if (missingNeeds.length > 0) note = `needs ${missingNeeds.join(', ')}`
   else if (restricted) note = 'Admin only'
-  else if (isLocked) note = 'Always on'
 
   const borderClass = stage.aggressive
     ? 'border border-line border-l-2 border-l-red'

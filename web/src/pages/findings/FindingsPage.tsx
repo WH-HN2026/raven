@@ -165,6 +165,11 @@ export function FindingsPage() {
       <div className="mx-auto flex max-w-[1440px] items-start gap-10 px-10 pt-8 pb-16">
         <section aria-label="Findings" className="flex min-w-0 flex-[999_1_640px] flex-col gap-3.5 [container-type:inline-size]">
           {q.error && <ErrorText>Cannot load findings: {q.error.message}</ErrorText>}
+          {total > PAGE && (
+            <div className="[&>div]:pt-0">
+              <Pagination offset={offset} pageSize={PAGE} total={total} onChange={(o) => apply(filters, o)} />
+            </div>
+          )}
           <Table minWidth={900}>
             <thead>
               <THeadRow>

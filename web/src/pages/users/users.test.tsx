@@ -165,6 +165,10 @@ describe('API tokens actions', () => {
     fireEvent.click(within(form).getByRole('button', { name: 'Issue token' }))
 
     expect(await screen.findByTestId('issued-token')).toHaveTextContent('rvn_once_secret_token_value')
+    const banner = screen.getByRole('status')
+    expect(within(banner).getByText('ci-mcp')).toBeInTheDocument()
+    expect(within(banner).getByText('eve (editor)')).toBeInTheDocument()
+    expect(within(banner).queryByText('Shown once')).toBeNull()
     const post = fetchMock.mock.calls.find(([u, i]) => u === '/api/tokens' && i?.method === 'POST')!
     expect(JSON.parse(post[1]?.body as string)).toEqual({ name: 'ci-mcp', user_id: 2 })
 
