@@ -51,7 +51,7 @@ DELETE FROM cve_matches WHERE updated_at < @now;
 -- name: ListCVEMatches :many
 SELECT * FROM cve_matches
 WHERE (sqlc.narg(ip)::inet IS NULL OR ip = sqlc.narg(ip)::inet)
-ORDER BY max_cvss DESC, ip, port, cpe;
+ORDER BY max_cvss DESC, ip, port, cpe, proto;
 
 -- name: ListCVEPushHosts :many
 -- Active hosts that have matches or had some pushed before; the caller

@@ -3,14 +3,15 @@
 package dojo
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/netip"
 	"os"
-	"strings"
 	"testing"
 	"time"
 
@@ -20,9 +21,8 @@ import (
 
 // TestIntegrationCVE runs the C3 path end to end: services in a real DB →
 // match pass → cve_matches → push to the shared Dojo into "RAVEN CVE match",
-// then checks dedup on a second pass and that a version change closes the
-// old finding. IPs are random 198.18.R.x (benchmark range, never scanned),
-// under the organization "raven-it-c3-<rand>", deleted afterwards.
+// then checks the change from aggregated to per-CVE findings, UID dedup, and
+// closure on version change. IPs are benchmark addresses in a test-specific organization.
 func TestIntegrationCVE(t *testing.T) {
 	base := os.Getenv("RAVEN_DOJO_URL")
 	if base == "" {
@@ -41,7 +41,7 @@ func TestIntegrationCVE(t *testing.T) {
 	c := NewHTTPClient(base, token)
 	rnd := make([]byte, 4)
 	_, _ = rand.Read(rnd)
-	slug := "raven-it-c3-" + hex.EncodeToString(rnd)
+	slug := "raven-it-u4-" + hex.EncodeToString(rnd)
 	net := fmt.Sprintf("198.18.%d.", rnd[0])
 	web, ssh, down := netip.MustParseAddr(net+"10"), netip.MustParseAddr(net+"11"), netip.MustParseAddr(net+"12")
 	t.Logf("slug %s ips %s %s %s", slug, web, ssh, down)
@@ -87,7 +87,8 @@ func TestIntegrationCVE(t *testing.T) {
 			}
 		}
 	}
-	once()
+	_, err = cve.RunPass(ctx, pool, m, time.Now())
+	must(t, err)
 
 	// cve_matches: 4 rows (Apache + WordPress on web:80, OpenSSH on ssh:22, Apache on down:80;
 	// nmap+httpx Apache on web:80 deduplicated to 1; nginx without a version doesn't match).
@@ -110,57 +111,116 @@ func TestIntegrationCVE(t *testing.T) {
 	if sh.Confidence != "low" || !sh.Distro || sh.Severity != "Low" {
 		t.Errorf("openssh debian match: %+v", sh)
 	}
-	var pushed int
-	must(t, pool.QueryRow(ctx, `SELECT count(*) FROM cve_push`).Scan(&pushed))
-	if pushed != 2 {
-		t.Errorf("pushed IPs = %d, want 2 (the inactive host must not be pushed)", pushed)
+	asset, err := c.GetOrCreateAsset(ctx, AssetSpec{Name: web.String(), Description: "U4 integration test", OrganizationID: org.ID, Tags: []string{slug}})
+	must(t, err)
+	assets[asset.ID] = true
+	t.Cleanup(func() { deleteObj(t, c, "assets", asset.ID) })
+	eng, err := c.GetOrCreateEngagement(ctx, EngagementSpec{AssetID: asset.ID, Name: EngagementName(DefaultCVEProfile)})
+	must(t, err)
+	test, err := c.GetOrCreateTest(ctx, TestSpec{EngagementID: eng.ID, ScanType: GenericScanType, Title: cve.TestTitle})
+	must(t, err)
+	ids := make([]string, 0, len(ap.Hits))
+	for _, h := range ap.Hits {
+		ids = append(ids, h.ID)
 	}
-	if len(assets) != 2 {
-		t.Errorf("dojo assets = %d, want 2", len(assets))
+	legacy, err := json.Marshal(map[string]any{"findings": []map[string]any{{
+		"title": fmt.Sprintf("%s %s: %d known CVEs (%d KEV)", ap.Name, ap.Version, len(ap.Hits), ap.KEV), "description": "Aggregate report", "severity": ap.Severity,
+		"unique_id_from_tool": ap.UID(), "vulnerability_ids": ids,
+		"component_name": ap.Name, "component_version": ap.Version,
+		"tags": ap.FindingTags(), "active": true, "static_finding": true,
+	}}})
+	must(t, err)
+	_, err = c.ReimportScan(ctx, ImportRequest{
+		ScanType: GenericScanType, TestID: test.ID, FileName: "raven-cve-legacy.json",
+		File: bytes.NewReader(legacy), CloseOldFindings: true, ScanDate: time.Now(),
+	})
+	must(t, err)
+	must(t, cve.MarkPushed(ctx, pool, web, "old-aggregate-hash", time.Now()))
+
+	findings := func() map[string]Finding {
+		t.Helper()
+		out := map[string]Finding{}
+		for offset := 0; ; {
+			pg, err := c.ListFindings(ctx, FindingQuery{OrganizationID: org.ID, Limit: 100, Offset: offset})
+			must(t, err)
+			for _, f := range pg.Results {
+				if _, ok := out[f.UniqueIDFromTool]; ok {
+					t.Fatalf("duplicate UID %q in Dojo", f.UniqueIDFromTool)
+				}
+				out[f.UniqueIDFromTool] = f
+			}
+			if pg.Next == "" {
+				return out
+			}
+			offset += len(pg.Results)
+		}
+	}
+	legacyFinding := findings()[ap.UID()]
+	if !legacyFinding.Active {
+		t.Fatalf("legacy finding was not active before reimport: %+v", legacyFinding)
 	}
 
-	findings := func() []Finding {
-		t.Helper()
-		pg, err := c.ListFindings(ctx, FindingQuery{OrganizationID: org.ID, Limit: 100})
-		must(t, err)
-		return pg.Results
-	}
-	find := func(fs []Finding, title string) (active, inactive []Finding) {
-		for _, f := range fs {
-			if strings.EqualFold(f.Title, title) { // Dojo title-cases titles
-				if f.Active {
-					active = append(active, f)
-				} else {
-					inactive = append(inactive, f)
-				}
-			}
-		}
-		return active, inactive
+	once()
+	var pushed int
+	must(t, pool.QueryRow(ctx, `SELECT count(*) FROM cve_push`).Scan(&pushed))
+	if pushed != 2 || len(assets) != 2 {
+		t.Errorf("pushed IPs = %d, assets = %d, want 2 each (inactive host is skipped)", pushed, len(assets))
 	}
 	fs := findings()
-	t.Logf("findings: %v", titles(fs))
-	act, _ := find(fs, ap.Title())
-	if len(act) != 1 {
-		t.Fatalf("active %q = %d, want 1 (all: %v)", ap.Title(), len(act), titles(fs))
+	closed := fs[ap.UID()]
+	if closed.ID != legacyFinding.ID || closed.Active || !closed.IsMitigated {
+		t.Errorf("legacy finding after per-CVE reimport: %+v", closed)
 	}
-	apacheID := act[0].ID
-	if act[0].Severity != "Critical" || !contains(act[0].Tags, "raven") {
-		t.Errorf("apache finding: severity %s tags %v", act[0].Severity, act[0].Tags)
+
+	checkActive := func(fs map[string]Finding, m cve.Match) {
+		t.Helper()
+		for _, h := range m.Hits {
+			f := fs[m.FindingUID(h.ID)]
+			if !f.Active || f.Duplicate || f.Severity != cve.Severity(h.CVSS, h.KEV, m.Distro) || !contains(f.Tags, "raven") ||
+				(m.Distro && !contains(f.Tags, cve.TagDistroBuild)) {
+				t.Errorf("%s: invalid active finding: %+v", m.FindingUID(h.ID), f)
+			}
+		}
+	}
+	checkActive(fs, ap)
+	checkActive(fs, wp)
+	checkActive(fs, sh)
+	wantActive := len(ap.Hits) + len(wp.Hits) + len(sh.Hits)
+	if len(fs) != 1+wantActive {
+		t.Fatalf("got %d findings, want %d per-CVE findings and one legacy finding", len(fs), wantActive)
 	}
 	var detail struct {
 		VulnerabilityIDs []struct {
 			ID string `json:"vulnerability_id"`
 		} `json:"vulnerability_ids"`
-		UniqueID string `json:"unique_id_from_tool"`
 	}
-	must(t, c.do(ctx, http.MethodGet, fmt.Sprintf("/api/v2/findings/%d/", apacheID), nil, nil, &detail))
-	if len(detail.VulnerabilityIDs) != len(ap.Hits) || detail.UniqueID != ap.UID() {
-		t.Errorf("apache finding: %d vulnerability_ids (want %d), uid %q (want %q)",
-			len(detail.VulnerabilityIDs), len(ap.Hits), detail.UniqueID, ap.UID())
+	hit := ap.Hits[0]
+	must(t, c.do(ctx, http.MethodGet, fmt.Sprintf("/api/v2/findings/%d/", fs[ap.FindingUID(hit.ID)].ID), nil, nil, &detail))
+	if len(detail.VulnerabilityIDs) != 1 || detail.VulnerabilityIDs[0].ID != hit.ID {
+		t.Errorf("Dojo vulnerability IDs for %s: %+v", hit.ID, detail.VulnerabilityIDs)
 	}
-	sact, _ := find(fs, sh.Title())
-	if len(sact) != 1 || sact[0].Severity != "Low" || !contains(sact[0].Tags, cve.TagDistroBuild) {
-		t.Errorf("openssh finding: %+v", sact)
+	t.Logf("legacy finding %d mitigated, %d per-CVE findings active (%d Apache)", closed.ID, wantActive, len(ap.Hits))
+
+	mirror := Syncer{Client: c, Pool: pool, OrganizationID: org.ID}
+	stats, err := mirror.SyncOnce(ctx)
+	must(t, err)
+	var activeInMirror int
+	must(t, pool.QueryRow(ctx, `SELECT count(*) FROM dojo_findings WHERE active`).Scan(&activeInMirror))
+	if stats.Findings != len(fs) || activeInMirror != wantActive {
+		t.Errorf("mirror synced %d findings and contains %d active, want %d and %d", stats.Findings, activeInMirror, len(fs), wantActive)
+	}
+
+	// Force a Dojo reimport of the same UIDs and verify it retains the finding IDs.
+	_, err = sync.Pusher.Push(ctx, cve.PushHost{IP: web, Matches: []cve.Match{ap, wp}}, time.Now())
+	must(t, err)
+	if reimported := findings(); len(reimported) != len(fs) {
+		t.Errorf("unchanged Dojo reimport produced %d findings, want %d", len(reimported), len(fs))
+	} else {
+		for uid, f := range fs {
+			if g := reimported[uid]; g.ID != f.ID || g.Active != f.Active {
+				t.Errorf("unchanged Dojo reimport changed %s: before %+v, after %+v", uid, f, g)
+			}
+		}
 	}
 
 	// Second pass: nothing changed → no push, no duplicates.
@@ -175,7 +235,7 @@ func TestIntegrationCVE(t *testing.T) {
 		t.Errorf("findings after second pass = %d, want %d", n, len(fs))
 	}
 
-	// Version change: the old finding closes, a new one opens (update both nmap service and httpx obs).
+	// Version change: old findings close and findings for the new version open.
 	exec(`UPDATE services SET version = '2.4.50', cpe = 'apache:http_server:2.4.50' WHERE ip = $1 AND port = 80`, web)
 	exec(`UPDATE http_observations SET technologies = ARRAY['Apache HTTP Server:2.4.50', 'WordPress:6.4.1'], cpes = ARRAY['apache:http_server:2.4.50', 'wordpress:wordpress:6.4.1']`)
 	once()
@@ -190,11 +250,16 @@ func TestIntegrationCVE(t *testing.T) {
 	if len(got) != 2 || apNew == nil || apNew.Version != "2.4.50" {
 		t.Fatalf("matches of %s after upgrade: %+v", web, got)
 	}
-	fs = findings()
-	_, closed := find(fs, ap.Title())
-	nact, _ := find(fs, apNew.Title())
-	if len(closed) != 1 || closed[0].ID != apacheID || len(nact) != 1 {
-		t.Errorf("after version change: closed %v, new active %v (all: %v)", closed, nact, titles(fs))
+	afterUpgrade := findings()
+	for _, h := range ap.Hits {
+		uid := ap.FindingUID(h.ID)
+		f := afterUpgrade[uid]
+		if f.ID != fs[uid].ID || f.Active || !f.IsMitigated {
+			t.Errorf("old version finding %s after upgrade: %+v", uid, f)
+		}
 	}
-	t.Logf("old %q closed, new %q; wp %q active", ap.Title(), apNew.Title(), wp.Title())
+	checkActive(afterUpgrade, *apNew)
+	checkActive(afterUpgrade, wp)
+	t.Logf("upgrade mitigated %d Apache %s findings and activated %d Apache %s findings",
+		len(ap.Hits), ap.Version, len(apNew.Hits), apNew.Version)
 }

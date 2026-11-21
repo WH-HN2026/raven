@@ -78,7 +78,7 @@ func (q *Queries) ListCVECandidates(ctx context.Context) ([]ListCVECandidatesRow
 const listCVEMatches = `-- name: ListCVEMatches :many
 SELECT ip, port, proto, product, cpe, version, cve_ids, hits, max_cvss, kev, distro, confidence, severity, matched_at, updated_at FROM cve_matches
 WHERE ($1::inet IS NULL OR ip = $1::inet)
-ORDER BY max_cvss DESC, ip, port, cpe
+ORDER BY max_cvss DESC, ip, port, cpe, proto
 `
 
 func (q *Queries) ListCVEMatches(ctx context.Context, ip *netip.Addr) ([]CveMatch, error) {

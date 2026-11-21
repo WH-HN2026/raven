@@ -130,12 +130,13 @@ func Hash(ms []Match) string {
 		return ""
 	}
 	h := sha256.New()
+	// Changing the format invalidates hashes stored for the old aggregated reports.
+	fmt.Fprintln(h, "per-CVE findings")
 	for _, m := range ms {
-		fmt.Fprintf(h, "%s|%s|%s|%d|%t\n", m.UID(), m.Severity, m.Confidence, m.KEV, m.Distro)
+		fmt.Fprintf(h, "%q|%q|%t\n", m.Name, m.Confidence, m.Distro)
 		for _, x := range m.Hits {
-			fmt.Fprintf(h, "%s,", x.ID)
+			fmt.Fprintf(h, "%q|%g|%g|%t\n", m.FindingUID(x.ID), x.CVSS, x.EPSS, x.KEV)
 		}
-		h.Write([]byte{'\n'})
 	}
 	return hex.EncodeToString(h.Sum(nil))
 }

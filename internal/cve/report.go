@@ -3,6 +3,7 @@ package cve
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"strconv"
 	"strings"
 	"time"
@@ -10,10 +11,6 @@ import (
 
 // TestTitle is the per-IP Dojo test the CVE findings live in (§11).
 const TestTitle = "RAVEN CVE match"
-
-// descriptionCVEs caps the CVE table in a finding's description; the full
-// list is always in vulnerability_ids.
-const descriptionCVEs = 40
 
 type genericFinding struct {
 	Title             string   `json:"title"`
@@ -24,8 +21,8 @@ type genericFinding struct {
 	VulnerabilityIDs  []string `json:"vulnerability_ids"`
 	ComponentName     string   `json:"component_name"`
 	ComponentVersion  string   `json:"component_version"`
-	CVSSv3Score       float64  `json:"cvssv3_score,omitempty"`
-	EPSSScore         float64  `json:"epss_score,omitempty"`
+	CVSSv3Score       float64  `json:"cvssv3_score"`
+	EPSSScore         float64  `json:"epss_score"`
 	KnownExploited    bool     `json:"known_exploited"`
 	ScannerConfidence int      `json:"scanner_confidence"`
 	Tags              []string `json:"tags"`
@@ -44,56 +41,39 @@ func (m *Match) FindingTags() []string {
 	return tags
 }
 
-// Description lists the CVEs with CVSS, EPSS and KEV.
-func (m *Match) Description() string {
+func (m *Match) findingDescription(h Hit, instance string) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "%s %s on %s:%d/%s matches %d known CVEs from the offline NVD dataset (%d in CISA KEV).\n\n",
-		m.Name, m.Version, m.IP, m.Port, m.Proto, len(m.Hits), m.KEV)
-	fmt.Fprintf(&b, "**CPE:** %s  \n**Confidence:** %s", m.CPE, m.Confidence)
+	fmt.Fprintf(&b, "**CVE:** %s  \n**Instance:** %s  \n**CVSS:** %.1f  \n**EPSS:** %g  \n**KEV:** %t  \n**CPE:** %s  \n**Confidence:** %s",
+		h.ID, instance, h.CVSS, h.EPSS, h.KEV, m.CPE, m.Confidence)
 	if m.Distro {
 		b.WriteString(" (distribution build: fixes may be backported, severity capped at Low)")
-	}
-	b.WriteString("\n\n| CVE | CVSS | EPSS | KEV |\n|---|---|---|---|\n")
-	for i, h := range m.Hits {
-		if i == descriptionCVEs {
-			fmt.Fprintf(&b, "\n… and %d more (all listed in the vulnerability IDs).\n", len(m.Hits)-i)
-			break
-		}
-		kev := ""
-		if h.KEV {
-			kev = "yes"
-		}
-		fmt.Fprintf(&b, "| %s | %s | %s | %s |\n", h.ID, strconv.FormatFloat(h.CVSS, 'f', 1, 64),
-			strconv.FormatFloat(h.EPSS, 'f', 3, 64), kev)
 	}
 	return b.String()
 }
 
-// Report is the Generic Findings Import JSON for one IP: one finding per
-// product instance. Findings carry no "service": Dojo's close_old_findings
-// only closes findings with the reimport's service value (none). An empty list is valid and, reimported with
-// close_old_findings, closes the IP's previous CVE findings.
+// Report produces one Generic Findings Import finding per matched CVE on an IP.
+// Findings omit "service" so Dojo's reimport can close absent findings in the
+// same test. An empty report closes all previous CVE findings in that test.
 func Report(ms []Match, date time.Time) ([]byte, error) {
-	out := make([]genericFinding, 0, len(ms))
+	out := []genericFinding{}
 	for i := range ms {
 		m := &ms[i]
-		ids := make([]string, len(m.Hits))
-		var epss float64
-		for j, h := range m.Hits {
-			ids[j] = h.ID
-			epss = max(epss, h.EPSS)
-		}
 		conf := 1 // Dojo: 1 = certain …
 		if m.Confidence == ConfidenceLow {
 			conf = 6
 		}
-		out = append(out, genericFinding{
-			Title: m.Title(), Description: m.Description(), Severity: m.Severity,
-			Date: date.UTC().Format(time.DateOnly), UniqueIDFromTool: m.UID(), VulnerabilityIDs: ids,
-			ComponentName: m.Name, ComponentVersion: m.Version, CVSSv3Score: m.MaxCVSS, EPSSScore: epss,
-			KnownExploited: m.KEV > 0, ScannerConfidence: conf,
-			Tags: m.FindingTags(), Active: true, StaticFinding: true,
-		})
+		instance := fmt.Sprintf("%s %s (%s/%s)", m.Name, m.Version,
+			net.JoinHostPort(m.IP.String(), strconv.Itoa(int(m.Port))), m.Proto)
+		for _, h := range m.Hits {
+			out = append(out, genericFinding{
+				Title: h.ID + " in " + instance, Description: m.findingDescription(h, instance),
+				Severity: Severity(h.CVSS, h.KEV, m.Distro),
+				Date:     date.UTC().Format(time.DateOnly), UniqueIDFromTool: m.FindingUID(h.ID), VulnerabilityIDs: []string{h.ID},
+				ComponentName: m.Name, ComponentVersion: m.Version, CVSSv3Score: h.CVSS, EPSSScore: h.EPSS,
+				KnownExploited: h.KEV, ScannerConfidence: conf,
+				Tags: m.FindingTags(), Active: true, StaticFinding: true,
+			})
+		}
 	}
 	return json.Marshal(map[string]any{"findings": out})
 }

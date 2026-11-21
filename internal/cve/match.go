@@ -10,8 +10,7 @@ import (
 	"time"
 )
 
-// Instance is one detected product on one service (architecture §11: one
-// finding per IP + port + product + version).
+// Instance is one detected product on one service (architecture §11).
 type Instance struct {
 	IP      netip.Addr
 	Port    int32
@@ -56,19 +55,14 @@ type Match struct {
 	MatchedAt  time.Time  `json:"matched_at"` // first matched with this cpe+version
 }
 
-// UID is the stable Dojo unique_id_from_tool: ip:port:cpe:version. A version
-// change gives a new id, so reimport closes the old finding.
+// UID is the base identity of a matched instance: ip:port:cpe:version.
 func (m *Match) UID() string {
 	return m.IP.String() + ":" + strconv.Itoa(int(m.Port)) + ":" + m.CPE + ":" + m.Version
 }
 
-// Title is e.g. "Apache httpd 2.4.49: 12 known CVEs (2 KEV)".
-func (m *Match) Title() string {
-	noun := "CVEs"
-	if len(m.Hits) == 1 {
-		noun = "CVE"
-	}
-	return m.Name + " " + m.Version + ": " + strconv.Itoa(len(m.Hits)) + " known " + noun + " (" + strconv.Itoa(m.KEV) + " KEV)"
+// FindingUID identifies one CVE on one version of a product instance.
+func (m *Match) FindingUID(cveID string) string {
+	return m.UID() + ":" + m.Proto + ":" + cveID
 }
 
 // Matcher matches instances against a dataset.
@@ -180,7 +174,7 @@ func (m *Matcher) Match(in Instance) *Match {
 
 // MatchAll matches all instances and deduplicates by (ip, port, proto,
 // canonical CPE). When multiple scanners (e.g. nmap and httpx) report the
-// same product on the same port, one finding is returned; a distro-build
+// same product on the same port, one match is returned; a distro-build
 // detection wins over a non-distro match so the distro severity cap is kept.
 func (m *Matcher) MatchAll(instances []Instance) []Match {
 	type key struct {
@@ -270,18 +264,17 @@ func InstancesFromNucleiJSON(ip netip.Addr, port int32, proto string, raw json.R
 // Severities in Dojo's spelling, lowest first.
 var severities = []string{"Info", "Low", "Medium", "High", "Critical"}
 
-// Severity is the finding severity (§11): from the highest CVSS score,
-// raised one level if any CVE is in KEV, capped at Low for distro builds.
-func Severity(maxCVSS float64, kev, distro bool) string {
+// Severity maps CVSS to Dojo severity, raised one level for KEV and capped at Low for distro builds.
+func Severity(cvss float64, kev, distro bool) string {
 	lvl := 0
 	switch {
-	case maxCVSS >= 9:
+	case cvss >= 9:
 		lvl = 4
-	case maxCVSS >= 7:
+	case cvss >= 7:
 		lvl = 3
-	case maxCVSS >= 4:
+	case cvss >= 4:
 		lvl = 2
-	case maxCVSS > 0:
+	case cvss > 0:
 		lvl = 1
 	}
 	if kev && lvl < 4 {
