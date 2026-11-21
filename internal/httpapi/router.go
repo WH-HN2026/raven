@@ -58,6 +58,7 @@ func NewRouter(d Deps) http.Handler {
 		a.mountSignatures(r)
 		a.mountExchange(r)
 		a.mountUsers(r)
+		a.mountDashboard(r)
 	})
 
 	r.Handle("/*", spaHandler())

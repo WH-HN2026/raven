@@ -23,6 +23,7 @@ tags:
   - name: hosts
   - name: findings
   - name: changes
+  - name: dashboard
   - name: profiles
   - name: schedules
   - name: signatures
@@ -571,6 +572,24 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/HostTimeline" }
+        default: { $ref: "#/components/responses/Error" }
+
+  # ───────────────────────── dashboard (W4) ─────────────────────────
+  /dashboard:
+    get:
+      tags: [dashboard]
+      operationId: getDashboard
+      description: |
+        Overview (read): active findings by severity (Dojo mirror), host counts, the change summary of the latest
+        done run against the previous done run of its profile (as GET /api/changes, lists capped at 10; null with
+        fewer than two done runs), hosts first seen in the latest done run, unstable/inactive hosts, top web
+        technologies, top CVE matches and the last runs. Lists are capped at 8.
+      responses:
+        "200":
+          description: Dashboard.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Dashboard" }
         default: { $ref: "#/components/responses/Error" }
 
   # ───────────────────────── profiles (W7) ─────────────────────────
@@ -1481,6 +1500,98 @@ components:
         ip: { type: string }
         ports: { type: array, items: { type: integer }, description: "every port open in any of the runs" }
         runs: { type: array, items: { $ref: "#/components/schemas/HostTimelineRun" } }
+
+    # ── dashboard ──
+    DashboardSeverityCount:
+      type: object
+      required: [severity, count]
+      properties:
+        severity: { $ref: "#/components/schemas/Severity" }
+        count: { type: integer }
+    DashboardFindings:
+      type: object
+      required: [by_severity, total]
+      properties:
+        by_severity: { type: array, items: { $ref: "#/components/schemas/DashboardSeverityCount" }, description: "all five, Critical first" }
+        total: { type: integer }
+    DashboardHosts:
+      type: object
+      required: [active, unstable, inactive, services_open]
+      properties:
+        active: { type: integer }
+        unstable: { type: integer }
+        inactive: { type: integer }
+        services_open: { type: integer }
+    DashboardNewHost:
+      type: object
+      required: [ip, hostnames, state, first_seen, ports]
+      properties:
+        ip: { type: string }
+        hostnames: { type: array, items: { type: string } }
+        state: { $ref: "#/components/schemas/HostState" }
+        first_seen: { type: string, format: date-time }
+        ports: { type: array, items: { type: integer }, description: "open ports, ascending" }
+    DashboardUnstableHost:
+      type: object
+      required: [ip, hostnames, state, last_seen, miss_count, up_runs, seen_runs]
+      properties:
+        ip: { type: string }
+        hostnames: { type: array, items: { type: string } }
+        state: { $ref: "#/components/schemas/HostState" }
+        last_seen: { type: string, format: date-time }
+        miss_count: { type: integer }
+        up_runs: { type: integer, description: "runs the host was up in, of the last seen_runs" }
+        seen_runs: { type: integer, description: "runs that scanned it (at most 10)" }
+    DashboardTechnology:
+      type: object
+      required: [name, hosts]
+      properties:
+        name: { type: string }
+        hosts: { type: integer }
+    DashboardCveMatch:
+      type: object
+      required: [ip, port, proto, product, version, severity, max_cvss, kev, cves]
+      properties:
+        ip: { type: string }
+        port: { type: integer }
+        proto: { type: string }
+        product: { type: string }
+        version: { type: string }
+        severity: { $ref: "#/components/schemas/Severity" }
+        max_cvss: { type: number }
+        kev: { type: integer }
+        cves: { type: integer, description: "matched CVEs" }
+    DashboardRun:
+      type: object
+      required: [id, profile_id, profile, status, created_at, started_at, finished_at, duration_ms, hosts_total, hosts_up, batches_total, batches_done]
+      properties:
+        id: { type: integer, format: int64 }
+        profile_id: { type: integer, format: int64 }
+        profile: { type: string }
+        status: { $ref: "#/components/schemas/RunStatus" }
+        created_at: { type: string, format: date-time }
+        started_at: { type: [string, "null"], format: date-time }
+        finished_at: { type: [string, "null"], format: date-time }
+        duration_ms: { type: [integer, "null"], description: "finished_at - started_at; null while unfinished" }
+        hosts_total: { type: integer }
+        hosts_up: { type: integer }
+        batches_total: { type: integer }
+        batches_done: { type: integer }
+    Dashboard:
+      type: object
+      required: [findings, hosts, changes, new_hosts, new_hosts_total, unstable_hosts, technologies, cve_matches, cve_total, runs, latest_run]
+      properties:
+        findings: { $ref: "#/components/schemas/DashboardFindings" }
+        hosts: { $ref: "#/components/schemas/DashboardHosts" }
+        changes: { oneOf: [{ $ref: "#/components/schemas/RunDiff" }, { type: "null" }] }
+        new_hosts: { type: array, items: { $ref: "#/components/schemas/DashboardNewHost" } }
+        new_hosts_total: { type: integer }
+        unstable_hosts: { type: array, items: { $ref: "#/components/schemas/DashboardUnstableHost" }, description: "unstable first, then inactive" }
+        technologies: { type: array, items: { $ref: "#/components/schemas/DashboardTechnology" } }
+        cve_matches: { type: array, items: { $ref: "#/components/schemas/DashboardCveMatch" } }
+        cve_total: { type: integer }
+        runs: { type: array, items: { $ref: "#/components/schemas/DashboardRun" }, description: "newest first" }
+        latest_run: { oneOf: [{ $ref: "#/components/schemas/DiffRun" }, { type: "null" }], description: "latest done run" }
 
     # ── profiles / schedules ──
     ProfileInput:

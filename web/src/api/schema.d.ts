@@ -489,6 +489,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Overview (read): active findings by severity (Dojo mirror), host counts, the change summary of the latest
+         *     done run against the previous done run of its profile (as GET /api/changes, lists capped at 10; null with
+         *     fewer than two done runs), hosts first seen in the latest done run, unstable/inactive hosts, top web
+         *     technologies, top CVE matches and the last runs. Lists are capped at 8.
+         */
+        get: operations["getDashboard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/profiles": {
         parameters: {
             query?: never;
@@ -1196,6 +1218,94 @@ export interface components {
             /** @description every port open in any of the runs */
             ports: number[];
             runs: components["schemas"]["HostTimelineRun"][];
+        };
+        DashboardSeverityCount: {
+            severity: components["schemas"]["Severity"];
+            count: number;
+        };
+        DashboardFindings: {
+            /** @description all five, Critical first */
+            by_severity: components["schemas"]["DashboardSeverityCount"][];
+            total: number;
+        };
+        DashboardHosts: {
+            active: number;
+            unstable: number;
+            inactive: number;
+            services_open: number;
+        };
+        DashboardNewHost: {
+            ip: string;
+            hostnames: string[];
+            state: components["schemas"]["HostState"];
+            /** Format: date-time */
+            first_seen: string;
+            /** @description open ports, ascending */
+            ports: number[];
+        };
+        DashboardUnstableHost: {
+            ip: string;
+            hostnames: string[];
+            state: components["schemas"]["HostState"];
+            /** Format: date-time */
+            last_seen: string;
+            miss_count: number;
+            /** @description runs the host was up in, of the last seen_runs */
+            up_runs: number;
+            /** @description runs that scanned it (at most 10) */
+            seen_runs: number;
+        };
+        DashboardTechnology: {
+            name: string;
+            hosts: number;
+        };
+        DashboardCveMatch: {
+            ip: string;
+            port: number;
+            proto: string;
+            product: string;
+            version: string;
+            severity: components["schemas"]["Severity"];
+            max_cvss: number;
+            kev: number;
+            /** @description matched CVEs */
+            cves: number;
+        };
+        DashboardRun: {
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            profile_id: number;
+            profile: string;
+            status: components["schemas"]["RunStatus"];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            started_at: string | null;
+            /** Format: date-time */
+            finished_at: string | null;
+            /** @description finished_at - started_at; null while unfinished */
+            duration_ms: number | null;
+            hosts_total: number;
+            hosts_up: number;
+            batches_total: number;
+            batches_done: number;
+        };
+        Dashboard: {
+            findings: components["schemas"]["DashboardFindings"];
+            hosts: components["schemas"]["DashboardHosts"];
+            changes: components["schemas"]["RunDiff"] | null;
+            new_hosts: components["schemas"]["DashboardNewHost"][];
+            new_hosts_total: number;
+            /** @description unstable first, then inactive */
+            unstable_hosts: components["schemas"]["DashboardUnstableHost"][];
+            technologies: components["schemas"]["DashboardTechnology"][];
+            cve_matches: components["schemas"]["DashboardCveMatch"][];
+            cve_total: number;
+            /** @description newest first */
+            runs: components["schemas"]["DashboardRun"][];
+            /** @description latest done run */
+            latest_run: components["schemas"]["DiffRun"] | null;
         };
         ProfileInput: {
             name: string;
@@ -2103,6 +2213,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HostTimeline"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getDashboard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Dashboard. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Dashboard"];
                 };
             };
             default: components["responses"]["Error"];
