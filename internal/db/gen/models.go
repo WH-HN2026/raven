@@ -210,6 +210,7 @@ type Target struct {
 	Tags      []string  `json:"tags"`
 	CreatedBy *int64    `json:"created_by"`
 	CreatedAt time.Time `json:"created_at"`
+	Note      string    `json:"note"`
 }
 
 type User struct {
