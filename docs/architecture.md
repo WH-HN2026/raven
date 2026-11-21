@@ -156,6 +156,58 @@ audit_log(id, user_id, action, object, object_id, diff jsonb, at)
 - Keep IPs, ports and other filter/join keys **in plaintext**: they are identifiers, not secrets.
 - Statement logging must stay off on `asi-db`.
 
+### 5.1 Encryption at rest: what, how, and what not (P4 audit)
+
+**Threat model.** A copy of the `asi-db` volume, a `pg_dump`, or a DB backup leaks without the `.env`. Then the content scanners pulled off the network (banners, HTTP headers and cookies, TLS certs, raw tool output) and the operators' free-text notes stay unreadable. Network facts (which IP has which port open, running which product) stay readable: they are needed for filtering, joins and diffs, and the jury needs them in Dojo anyway. A live attacker who has the app's env or a pooled connection can decrypt; that is out of scope.
+
+**Mechanism.** pgcrypto `pgp_sym_encrypt` (OpenPGP symmetric, AES-128, salted S2K, random salt and IV per value, so equal plaintexts give different ciphertexts) wrapped as `asi_enc(text) → bytea` and `asi_dec(bytea) → text` (baseline migration). The key lives only in the session GUC `asi.enc_key`, which `internal/db.Open` sets in pgx `AfterConnect` with a bound parameter (`set_config('asi.enc_key', $1, false)`), so it never appears in statement text. A connection without the key fails both in `asi_enc` and `asi_dec` (`current_setting` raises); the integration test checks both.
+
+**Key lifecycle.**
+- `scripts/gen-env.sh` generates `ASI_ENCRYPTION_KEY` (32 random bytes, base64url) into `.env`, which is gitignored; it refuses to overwrite an existing `.env` without `-f`. Dev worktrees get one from `scripts/wt-env.sh` in `.env.local`.
+- `internal/config` refuses to start with a key shorter than 32 characters. `compose.yml` passes it to the `asi` container only (`${ASI_ENCRYPTION_KEY:?…}`), not to `asi-db`.
+- **Losing the key = losing every `_enc` value** (notes, banners, headers, cookies, certs, artifacts). There is no escrow and no recovery. Back up `.env` together with the DB volume, but store them separately.
+- **No rotation in the prototype.** Changing the key makes existing ciphertext unreadable (`asi_dec` errors with "Wrong key or corrupt data"). Rotation would be `UPDATE t SET c = pgp_sym_encrypt(pgp_sym_decrypt(c, old), new)` per column in one transaction; not implemented.
+
+**Rules that keep it true (enforced by tests).**
+- A column whose name looks sensitive (`note(s)`, `banner`, `header(s)`, `cookie(s)`, `cert`, `content`, `body`, `password`, `token`, `secret`, `key`) must end in `_enc` and be `bytea`, unless it is in the documented allowlist below. `internal/db/encryption_test.go` parses every migration and fails otherwise.
+- `internal/db/encryption_integration_test.go` writes a marker into every `_enc` column (banner and artifact through the real `pipeline.Ingest`), reads the raw bytes, asserts the marker is absent and `asi_dec` returns it, and that a connection without the key can neither decrypt nor encrypt. It also fails when the schema gains an `_enc` column the test doesn't cover.
+- `audit_log.diff` is plaintext jsonb, so `audit.Log` redacts the values of sensitive keys (`notes`, `banner`, `headers`, `cookies`, `tls_cert`, `cert`, `content`, `password`, `token`, `secret`, `key`, `*_enc`, and `*_<one of those>`) to `"[redacted]"`. Boolean values are kept (`"password_reset": true`). Callers should still log only that a field changed, never its value.
+- Decrypted values are never passed to `slog`. As of P4 no log call carries a banner, header, note, artifact or credential: logs carry IDs, IPs, counts and wrapped errors.
+- `asi-db` runs with `log_statement=none` and `log_min_duration_statement=-1` (`compose.yml`). Statements use bind parameters, so even error logging (`log_min_error_statement`, default `error`) shows `$n`, not plaintext. `log_parameter_max_length_on_error` stays at its default 0.
+
+**Column audit** (all migrations as of P4; S = sensitive content, I = identifier or fingerprint used for filtering, joins or diffs, M = metadata or counters).
+
+| Table.column | Class | Stored as | Why |
+|---|---|---|---|
+| `hosts.notes_enc` | S | `_enc` | operator free text |
+| `services.banner_enc` | S | `_enc` | raw service banner, can carry internal names and versions beyond the fingerprint |
+| `http_observations.headers_enc`, `cookies_enc`, `tls_cert_enc` | S | `_enc` | response headers, session cookies, certificate subject/SANs |
+| `artifacts.content_enc` | S | `_enc` | raw nmap/nuclei/httpx output, superset of all of the above |
+| `users.password_hash` | S | plaintext (allowlisted) | argon2id hash; encrypting a hash adds nothing |
+| `sessions.token_hash`, `api_tokens.token_hash` | S | plaintext (allowlisted) | SHA-256 of a random token; it's the lookup key |
+| `targets.note`, `scope_entries.note` | I | plaintext (allowlisted) | short operator label from the import file, shown in lists like a tag; not meant for secrets |
+| `hosts.ip`, `hostnames`, `services.ip/port/proto`, `run_observations.*`, `batches.ips`, `scope_entries.value`, `targets.value`, `dojo_*.ip` | I | plaintext | filter and join keys (architecture §5) |
+| `services.name/product/version`, `http_observations.url/status/title/technologies/favicon_hash` | I | plaintext | fingerprint: filtered, diffed (C1), CPE-matched (§11) |
+| `http_observations.redirects` | I | plaintext | redirect chain URLs; see follow-up A4 below |
+| `hosts.owner/criticality/user_tags`, `*.overrides` | I | plaintext | filter fields and corrections of scan-owned fingerprint fields; notes are not in `overrides` |
+| `runs.stats`, `batches.error`, `batches.*` counters | M | plaintext | counters; `error` is a wrapped Go error (nmap's last stderr line, Dojo status), not scan content |
+| `profiles.*`, `schedules.*`, `signatures.*` | M | plaintext | configuration; signature templates are not secret |
+| `dojo_assets.*`, `dojo_findings.*` | I | plaintext | mirror of Dojo, which is plaintext anyway (D8) |
+| `audit_log.diff` | M | plaintext, redacted | see the redaction rule above |
+| `users.username`, `audit_log` login-failure `username` | I | plaintext | account names |
+| `river_job.args` | M | plaintext (River) | job args hold IDs, IPs, host names, scanner names only (`pipeline.BatchArgs`, `dojo.PushArgs`) |
+
+**Not encrypted, by decision.**
+- **DefectDojo's DB (D8).** The raw nmap XML (with banners and `http-headers`/`ssl-cert` script output) is re-imported into Dojo per Asset, and Dojo stores findings, endpoints and the uploaded files in its own stock Postgres and media volume, all plaintext. Protect the Dojo host as you would protect the data; Dojo-side encryption is out of scope.
+- **Identifiers and fingerprints**: see the table. Encrypting them would break indexes, filters and diffs, and they are mirrored to Dojo in plaintext anyway.
+- **Transport** inside the compose network (`sslmode=disable` to `asi-db`) is plain: both containers sit on one private Docker network.
+
+**Known follow-ups (Person A's code, not changed in P4).**
+- A1 `internal/dojo/http.go:200-208`: `HTTPError.Body` keeps up to 512 bytes of Dojo's response. It ends up in logs (`pushjob.go:145,158`) and in `river_job.errors`. A Dojo parser error could echo uploaded scan content. Suggested fix: keep the status and Dojo's `message`/`detail` field only, or cut the body to about 120 chars.
+- A2 `internal/scanner/nmap/nmap.go:64`: the last stderr line goes into `batches.error` (plaintext). Today that's nmap's own diagnostics, so it's acceptable. Keep it that way: never put stdout or the XML into errors.
+- A3 when S7/httpx writes `http_observations`, use `asi_enc` for headers, cookies and the cert (the integration test fails on any new `_enc` column it doesn't cover), and don't log them.
+- A4 `http_observations.redirects`: if httpx stores full redirect URLs, strip query strings (they can carry tokens) or move them to an `_enc` column.
+
 ## 6. RBAC
 
 The roles come straight from requirement 13:
