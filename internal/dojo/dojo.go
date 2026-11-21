@@ -1,6 +1,9 @@
 // Package dojo talks to DefectDojo 3.5 API v2 (D4). This file defines the
-// client interface for task D1; http.go has the minimal concrete client that
-// startup (bootstrap.go) needs. D1 completes HTTPClient so it implements Client.
+// client interface and the wire types; http.go has the concrete HTTPClient.
+//
+// Naming in 3.5.202: organizations/ and assets/ are the new endpoints for
+// Product_Type/Product. Engagement, test and import-scan payloads still use
+// the old field names ("product", "product_name", "product_type_name").
 package dojo
 
 import (
@@ -59,10 +62,18 @@ type Asset struct {
 }
 
 type AssetQuery struct {
-	Tags   []string
+	Name   string   // exact (case-insensitive) name
+	Tags   []string // any of (Dojo "tags" filter is OR)
 	Limit  int
 	Offset int
 }
+
+// Engagement statuses we use (Dojo ENGAGEMENT_STATUS_CHOICES).
+const (
+	EngagementNotStarted = "Not Started"
+	EngagementInProgress = "In Progress"
+	EngagementCompleted  = "Completed"
+)
 
 type EngagementSpec struct {
 	AssetID int64
@@ -83,6 +94,7 @@ type Engagement struct {
 
 type EngagementQuery struct {
 	AssetID int64
+	Name    string
 	Status  string
 	Tags    []string
 	Limit   int
@@ -91,7 +103,7 @@ type EngagementQuery struct {
 
 type TestSpec struct {
 	EngagementID int64
-	ScanType     string // scanner.DojoScanType(): "Nmap Scan", "Nuclei Scan"
+	ScanType     string // scanner.DojoScanType(): "Nmap Scan", "Nuclei Scan"; also the Dojo test type name
 	Title        string
 }
 
@@ -102,6 +114,9 @@ type Test struct {
 	ScanType     string `json:"scan_type"`
 }
 
+// ImportRequest is one import-scan / reimport-scan upload. The target is
+// either TestID (reimport), EngagementID (import), or the names with
+// AutoCreate=true (Dojo then creates the organization/asset/engagement).
 type ImportRequest struct {
 	ScanType         string // Dojo parser name
 	TestID           int64  // reimport target (0 = resolve by names below)
@@ -109,19 +124,30 @@ type ImportRequest struct {
 	AssetName        string
 	OrganizationName string
 	EngagementName   string
+	TestTitle        string
+	AutoCreate       bool // auto_create_context
 	FileName         string
 	File             io.Reader
 	CloseOldFindings bool
-	Tags             []string
+	Tags             []string // test tags (reimport overwrites them)
+	TagFindings      bool     // apply_tags_to_findings
 	ScanDate         time.Time
 }
 
+// ImportResult is parsed from the import/reimport response. Created/Closed/
+// Reactivated/Untouched come from statistics.delta, which only reimport into
+// an existing test returns; for a fresh import Created = all findings.
 type ImportResult struct {
-	TestID        int64 `json:"test"`
-	EngagementID  int64 `json:"engagement_id"`
-	AssetID       int64 `json:"product_id"`
-	FindingsNew   int   `json:"-"`
-	FindingsClose int   `json:"-"`
+	TestID         int64
+	EngagementID   int64
+	AssetID        int64
+	OrganizationID int64
+	Created        int
+	Closed         int
+	Reactivated    int
+	Untouched      int
+	Active         int // active findings in the test after the import
+	Total          int // all findings in the test after the import
 }
 
 type Finding struct {
@@ -140,7 +166,9 @@ type Finding struct {
 }
 
 type FindingQuery struct {
-	Tags   []string
+	Tags   []string // any of (Dojo "tags" filter is OR)
+	TestID int64
+	Active *bool
 	Limit  int
 	Offset int
 }
