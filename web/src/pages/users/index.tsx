@@ -1,10 +1,10 @@
-import { Placeholder } from '../../components/Placeholder'
 import type { AppRoute } from '../types'
+import { UsersPage } from './UsersPage'
 
 export const routes: AppRoute[] = [
   {
     path: '/users',
-    element: <Placeholder title="Users" task="W9" />,
+    element: <UsersPage />,
     perm: 'users:admin',
     nav: { label: 'Users', order: 110 },
   },

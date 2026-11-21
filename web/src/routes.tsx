@@ -1,4 +1,5 @@
 // Concatenates the route arrays exported by each page module. One line per area.
+import { routes as account } from './pages/account'
 import { routes as changes } from './pages/changes'
 import { routes as dashboard } from './pages/dashboard'
 import { routes as exchange } from './pages/exchange'
@@ -24,4 +25,5 @@ export const appRoutes: AppRoute[] = [
   ...signatures,
   ...exchange,
   ...users,
+  ...account,
 ]

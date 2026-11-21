@@ -82,7 +82,9 @@ function TopBar({
           ))}
         </nav>
         <div className="flex flex-wrap items-center gap-3.5 py-3">
-          <span className="text-sm">{user.username}</span>
+          <NavLink to="/account" className="text-sm text-white no-underline hover:text-on-dark-muted">
+            {user.username}
+          </NavLink>
           <span className="bg-red px-2 py-1 text-[11px] font-medium tracking-[0.08em] text-white uppercase">
             {user.role}
           </span>
