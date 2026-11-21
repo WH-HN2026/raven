@@ -98,6 +98,11 @@ M0 is sequential and blocking. Do it in **one** worktree, as fast as possible, t
 - [ ] **W8 Signatures page.** YAML editor, validate button with errors, enable/disable, test against one URL in the lab.
 - [ ] **W9 Users page + role-aware UI.** User admin; every action button hidden/disabled per role.
 - [ ] **W10 Host edit.** Edit user-owned fields + overrides; show "edited by user" markers; verify edits survive the next run.
+- [ ] **W11 Restyle to the design.** (best after W2, W3) Bring the shell and existing pages in line with [`docs/design/`](design/README.md):
+  - replace the guessed palette in `web/src/theme.css` with the design tokens (red `#C10D14` primary, black frame) and self-host Roboto / Roboto Mono;
+  - replace the sidebar with the black top bar, the black page header with the squares band, and the footer (assets in `docs/design/assets/`);
+  - square corners everywhere, and restyle the merged pages (Targets, Runs, Hosts) to their mockups;
+  - remove explanatory copy.
 
 **Track L — Lab**
 - [ ] **L1 Local test lab.** `compose.lab.yml` on an isolated docker network: WordPress, Joomla or Drupal, nginx with `/admin`, an app with `X-Environment: staging`, Tomcat, a fake IoT banner (e.g. a small Go service), a TLS service with a self-signed/expired cert, and **one flapping container** (toggled by a script) for unstable-host testing. Until the organizers' lab arrives, **all dev scans target only this network.**
@@ -125,7 +130,7 @@ M0: F0 → F1 → F2 → F3 → F4
 M1:     ├─ S1 ─┬─ S3 ─┬─ D2          W1 (S1)  W2/W3 (S3)
         │  S2 ─┘      │
         └─ D1 ────────┴─ D3
-M2:  S4, S5, S6 (S3) · D4 (S4,S6) · D5 (D1) · D6 (D3) · P1..P4 · C1 (S3) · C2 · W4..W10 · L1 (anytime)
+M2:  S4, S5, S6 (S3) · D4 (S4,S6) · D5 (D1) · D6 (D3) · P1..P4 · C1 (S3) · C2 · W4..W11 · L1 (anytime)
 M3:  after the relevant M2 parts     M4: after P2
 ```
 
