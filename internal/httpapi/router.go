@@ -14,6 +14,7 @@ import (
 	"github.com/WH-HN2026/raven/internal/db/gen"
 	"github.com/WH-HN2026/raven/internal/dojo"
 	"github.com/WH-HN2026/raven/internal/httpx"
+	"github.com/WH-HN2026/raven/internal/mcp"
 	"github.com/WH-HN2026/raven/internal/pipeline"
 	"github.com/WH-HN2026/raven/internal/signatures"
 	"github.com/WH-HN2026/raven/internal/targets"
@@ -64,8 +65,17 @@ func NewRouter(d Deps) http.Handler {
 		a.mountSignatures(r)
 		a.mountExchange(r)
 		a.mountUsers(r)
+		a.mountTokens(r)
 		a.mountDashboard(r)
 	})
+
+	r.Handle("/mcp", mcp.NewHandler(mcp.Deps{
+		Pool:          d.Pool,
+		Queries:       d.Queries,
+		Tokens:        d.Auth,
+		Pipeline:      d.Pipeline,
+		DojoPublicURL: d.DojoPublicURL,
+	}))
 
 	r.Handle("/*", spaHandler())
 	return r

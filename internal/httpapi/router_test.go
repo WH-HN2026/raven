@@ -23,6 +23,7 @@ func TestRouter(t *testing.T) {
 		{"mutation without CSRF header", "POST", "/api/targets", false, 403, `"csrf"`},
 		{"login without CSRF header", "POST", "/api/auth/login", false, 403, `"csrf"`},
 		{"mutation without session", "POST", "/api/targets", true, 401, `"unauthenticated"`},
+		{"mcp without bearer token (no csrf required)", "POST", "/mcp", false, 401, "no bearer token"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
