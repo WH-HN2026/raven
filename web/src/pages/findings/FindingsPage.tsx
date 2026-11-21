@@ -1,5 +1,5 @@
 import { keepPreviousData, useQueries, useQuery } from '@tanstack/react-query'
-import { useState, type FormEvent } from 'react'
+import { Fragment, useState, useSyncExternalStore, type FormEvent } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { api } from '../../api/client'
 import { ExportButton } from '../../components/ExportButton'
@@ -55,7 +55,19 @@ const sevEdge: Record<Severity, string> = {
   Info: 'border-sev-info',
 }
 
+// The existing column bases (640px + 380px), gap (40px), and side padding (80px).
+const detailMedia = '(min-width: 1140px)'
+
+function subscribeToDetailMedia(onChange: () => void) {
+  const media = window.matchMedia(detailMedia)
+  media.addEventListener('change', onChange)
+  return () => media.removeEventListener('change', onChange)
+}
+
+const detailFitsBesideList = () => window.matchMedia(detailMedia).matches
+
 export function FindingsPage() {
+  const wide = useSyncExternalStore(subscribeToDetailMedia, detailFitsBesideList)
   const [params, setParams] = useSearchParams()
   const filters = filtersFromParams(params)
   const offset = offsetFromParams(params)
@@ -89,6 +101,19 @@ export function FindingsPage() {
   const current = items.find((f) => f.id === selected)
   const filtered = JSON.stringify(filters) !== JSON.stringify(emptyFilters)
   const selectHref = (id: number) => '?' + paramsFromFilters(filters, offset, id).toString()
+  const detailId = current ? `finding-detail-${current.id}` : undefined
+  const detail = (
+    <aside
+      id={detailId}
+      aria-label="Selected finding"
+      className={
+        'flex flex-col gap-5 border-t-4 border-red bg-band p-6 ' +
+        (wide ? 'sticky top-4 max-h-[calc(100dvh-2rem)] min-w-0 flex-[1_1_380px] overflow-y-auto' : 'sticky left-0 w-[100cqw]')
+      }
+    >
+      {current ? <TriagePanel key={current.id} finding={current} /> : <EmptyState>No finding selected.</EmptyState>}
+    </aside>
+  )
 
   return (
     <>
@@ -126,8 +151,8 @@ export function FindingsPage() {
       </Section>
       {/* key: re-initialise the inputs when the URL filters change (back/forward, reset). */}
       <FilterForm key={paramsFromFilters(filters).toString()} initial={filters} onApply={apply} />
-      <div className="mx-auto flex max-w-[1440px] flex-wrap items-start gap-10 px-10 pt-8 pb-16">
-        <section aria-label="Findings" className="flex min-w-0 flex-[999_1_640px] flex-col gap-3.5">
+      <div className="mx-auto flex max-w-[1440px] items-start gap-10 px-10 pt-8 pb-16">
+        <section aria-label="Findings" className="flex min-w-0 flex-[999_1_640px] flex-col gap-3.5 [container-type:inline-size]">
           {q.error && <ErrorText>Cannot load findings: {q.error.message}</ErrorText>}
           <Table minWidth={900}>
             <thead>
@@ -145,32 +170,44 @@ export function FindingsPage() {
                 const st = statusOf(f)
                 const sel = f.id === selected
                 return (
-                  <Tr key={f.id} className={sel ? 'bg-band' : ''}>
-                    <Td className={'whitespace-nowrap ' + (sel ? 'border-l-4 border-l-red pl-2!' : '')}>
-                      <SeverityLabel severity={sevKey(f.severity)} />
-                    </Td>
-                    <Td>
-                      <Link
-                        to={selectHref(f.id)}
-                        aria-current={sel ? 'true' : undefined}
-                        className="font-medium"
-                      >
-                        {f.title}
-                      </Link>
-                    </Td>
-                    <Td className="whitespace-nowrap">
-                      {f.ip && (
-                        <Link className="font-mono" to={`/hosts/${encodeURIComponent(f.ip)}`}>
-                          {f.ip}
+                  <Fragment key={f.id}>
+                    <Tr className={sel ? 'bg-band' : ''}>
+                      <Td className={'whitespace-nowrap ' + (sel ? 'border-l-4 border-l-red pl-2!' : '')}>
+                        <SeverityLabel severity={sevKey(f.severity)} />
+                      </Td>
+                      <Td>
+                        <Link
+                          to={selectHref(f.id)}
+                          aria-current={sel ? 'true' : undefined}
+                          aria-expanded={sel}
+                          aria-controls={sel ? detailId : undefined}
+                          preventScrollReset
+                          className="font-medium"
+                        >
+                          {f.title}
                         </Link>
-                      )}
-                    </Td>
-                    <Td className="text-[13px] text-muted">{f.scanner}</Td>
-                    <Td>
-                      <Badge tone={statusTone[st]}>{statusLabel[st]}</Badge>
-                    </Td>
-                    <Td className="whitespace-nowrap text-muted">{fmtDate(f.date)}</Td>
-                  </Tr>
+                      </Td>
+                      <Td className="whitespace-nowrap">
+                        {f.ip && (
+                          <Link className="font-mono" to={`/hosts/${encodeURIComponent(f.ip)}`}>
+                            {f.ip}
+                          </Link>
+                        )}
+                      </Td>
+                      <Td className="text-[13px] text-muted">{f.scanner}</Td>
+                      <Td>
+                        <Badge tone={statusTone[st]}>{statusLabel[st]}</Badge>
+                      </Td>
+                      <Td className="whitespace-nowrap text-muted">{fmtDate(f.date)}</Td>
+                    </Tr>
+                    {!wide && sel && (
+                      <Tr>
+                        <td colSpan={6} className="p-0">
+                          {detail}
+                        </td>
+                      </Tr>
+                    )}
+                  </Fragment>
                 )
               })}
               {q.isSuccess && items.length === 0 && (
@@ -180,16 +217,7 @@ export function FindingsPage() {
           </Table>
           <Pagination offset={offset} pageSize={PAGE} total={total} onChange={(o) => apply(filters, o)} />
         </section>
-        <aside
-          aria-label="Selected finding"
-          className="flex min-w-0 flex-[1_1_380px] flex-col gap-5 border-t-4 border-red bg-band p-6"
-        >
-          {current ? (
-            <TriagePanel key={current.id} finding={current} />
-          ) : (
-            <EmptyState>No finding selected.</EmptyState>
-          )}
-        </aside>
+        {wide && detail}
       </div>
     </>
   )
