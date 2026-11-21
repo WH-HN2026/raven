@@ -276,7 +276,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description stub */
+        /** @description Hosts ordered by IP. All filters are optional and combined with AND. */
         get: operations["listHosts"];
         put?: never;
         post?: never;
@@ -295,7 +295,11 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** @description stub */
+        /**
+         * @description Host with all its services (user overrides applied, banner decrypted), the latest
+         *     HTTP observation per URL (headers/cookies/TLS decrypted) and the last 20 host-level
+         *     up/down observations. 400 for a malformed IP, 404 for an unknown host.
+         */
         get: operations["getHost"];
         put?: never;
         post?: never;
@@ -846,15 +850,18 @@ export interface components {
             last_seen: string;
             miss_count: number;
             /** Format: int64 */
-            dojo_asset_id?: number | null;
-            open_ports?: number[];
-            technologies?: string[];
-            owner?: string;
+            dojo_asset_id: number | null;
+            /** @description services in state open (port/proto pairs) */
+            open_service_count: number;
+            /** @description distinct open ports, ascending */
+            open_ports: number[];
+            /** @description from HTTP observations, sorted */
+            technologies: string[];
+            owner: string;
             /** @enum {string} */
-            criticality?: "" | "low" | "medium" | "high" | "critical";
-            notes?: string;
-            user_tags?: string[];
-            overrides?: {
+            criticality: "" | "low" | "medium" | "high" | "critical";
+            user_tags: string[];
+            overrides: {
                 [key: string]: unknown;
             };
         };
@@ -870,13 +877,35 @@ export interface components {
             };
         };
         HostDetail: components["schemas"]["Host"] & {
+            /** @description decrypted */
+            notes: string;
             services: components["schemas"]["Service"][];
-            http?: components["schemas"]["HttpObservation"][];
+            /** @description latest per (service, URL); empty until nuclei (S4) runs */
+            http: components["schemas"]["HttpObservation"][];
+            /** @description newest first */
+            timeline: components["schemas"]["HostObservation"][];
+        };
+        HostObservation: {
+            /** Format: int64 */
+            run_id: number;
+            up: boolean;
+            /** Format: date-time */
+            observed_at: string;
         };
         HostList: {
             items: components["schemas"]["Host"][];
             total: number;
         };
+        ServiceFields: {
+            name: string;
+            product: string;
+            version: string;
+        };
+        /**
+         * @description name/product/version are the effective values: `overrides` (user edits) layered on the scan
+         *     values (architecture §5). `scan` holds what the scanner saw; `overridden` names the fields
+         *     taken from overrides.
+         */
         Service: {
             /** Format: int64 */
             id: number;
@@ -884,17 +913,20 @@ export interface components {
             port: number;
             /** @enum {string} */
             proto: "tcp" | "udp";
-            name?: string;
-            product?: string;
-            version?: string;
-            banner?: string;
+            name: string;
+            product: string;
+            version: string;
+            scan: components["schemas"]["ServiceFields"];
+            overridden: ("name" | "product" | "version")[];
+            /** @description decrypted */
+            banner: string;
             /** @enum {string} */
             state: "open" | "gone";
             /** Format: date-time */
-            first_seen?: string;
+            first_seen: string;
             /** Format: date-time */
-            last_seen?: string;
-            overrides?: {
+            last_seen: string;
+            overrides: {
                 [key: string]: unknown;
             };
         };
@@ -902,26 +934,30 @@ export interface components {
             items: components["schemas"]["Service"][];
             total: number;
         };
+        /**
+         * @description Decrypted on read. Storage format (for the S4 ingest): headers_enc = JSON object of strings,
+         *     cookies_enc = JSON array of strings, tls_cert_enc = text; redirects jsonb = array of strings.
+         */
         HttpObservation: {
             /** Format: int64 */
             id: number;
             /** Format: int64 */
             service_id: number;
             url: string;
-            status?: number | null;
-            title?: string;
-            headers?: {
+            status: number | null;
+            title: string;
+            headers: {
                 [key: string]: string;
             };
-            cookies?: string[];
-            tls_cert?: string;
-            redirects?: string[];
-            technologies?: string[];
-            favicon_hash?: string;
+            cookies: string[];
+            tls_cert: string;
+            redirects: string[];
+            technologies: string[];
+            favicon_hash: string;
             /** Format: int64 */
-            run_id?: number | null;
+            run_id: number | null;
             /** Format: date-time */
-            observed_at?: string;
+            observed_at: string;
         };
         Finding: {
             /**
@@ -1510,10 +1546,13 @@ export interface operations {
         parameters: {
             query?: {
                 state?: components["schemas"]["HostState"];
+                /** @description has an open service on this port */
                 port?: number;
+                /** @description technology seen in any HTTP observation of the host (case-insensitive) */
                 tech?: string;
+                /** @description user tag (exact) */
                 tag?: string;
-                /** @description IP prefix or hostname substring */
+                /** @description IP or CIDR (containment); otherwise IP text prefix or hostname substring */
                 q?: string;
                 limit?: components["parameters"]["Limit"];
                 offset?: components["parameters"]["Offset"];
