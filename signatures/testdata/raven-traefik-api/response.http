@@ -1,0 +1,6 @@
+HTTP/1.1 200 OK
+Content-Type: application/json; charset=UTF-8
+Date: Sat, 21 Nov 2026 21:05:50 GMT
+Content-Length: 83
+
+{"Version":"3.1.7","Codename":"comte","startDate":"2026-11-21T21:00:33.618097002Z"}

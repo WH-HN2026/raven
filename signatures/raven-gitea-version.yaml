@@ -1,0 +1,30 @@
+id: raven-gitea-version
+info:
+  name: Gitea version in footer
+  author: raven
+  severity: info
+  description: The Gitea footer shows "Powered by Gitea" and the server version.
+  tags: raven,gitea,version,footer
+  metadata:
+    vendor: gitea
+    product: gitea
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}"
+    matchers-condition: and
+    matchers:
+      - type: status
+        status:
+          - 200
+      - type: regex
+        part: body
+        regex:
+          - '(?s)Powered by Gitea.{0,200}?Version:\s*[0-9]+\.[0-9]+'
+    extractors:
+      - type: regex
+        name: version
+        part: body
+        group: 1
+        regex:
+          - '(?s)Powered by Gitea.{0,200}?Version:\s*([0-9]+\.[0-9]+[0-9A-Za-z.+~-]*)'

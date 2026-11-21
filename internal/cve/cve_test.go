@@ -148,6 +148,24 @@ func TestCPEForTech(t *testing.T) {
 		{"Apache Tomcat:9.0.10", "apache:tomcat", "9.0.10", true},
 		{"Apache Tomcat/9.0.10", "apache:tomcat", "9.0.10", true},
 		{"WordPress:6.4.1", "wordpress:wordpress", "6.4.1", true},
+		// names the vuln-lab built-in signatures emit (template id / name)
+		{"raven-traefik-api", "traefik:traefik", "", true},
+		{"Traefik dashboard API", "traefik:traefik", "", true},
+		{"Traefik:3.1.7", "traefik:traefik", "3.1.7", true},
+		{"raven-gitea-version", "gitea:gitea", "", true},
+		{"Gitea version in footer", "gitea:gitea", "", true},
+		{"Gitea:28.4.0", "gitea:gitea", "28.4.0", true},
+		{"raven-adminer-login", "adminer:adminer", "", true},
+		{"Adminer login", "adminer:adminer", "", true},
+		{"Adminer:6.3.0", "adminer:adminer", "6.3.0", true},
+		{"raven-phpmyadmin-login", "phpmyadmin:phpmyadmin", "", true},
+		{"phpMyAdmin login", "phpmyadmin:phpmyadmin", "", true},
+		{"raven-rabbitmq-management", "vmware:rabbitmq", "", true},
+		{"RabbitMQ management panel", "vmware:rabbitmq", "", true},
+		{"vsftpd", "beasts:vsftpd", "", true},
+		{"raven-toxiproxy-api", "", "", false},
+		{"raven-npm-admin", "", "", false},
+		{"raven-dvwa-login", "", "", false},
 		{"jQuery UI", "", "", false},
 		{"Bootstrap", "", "", false},
 	}
@@ -188,6 +206,7 @@ func testDB() *DB {
 			"CVE-2018-15473": {CVSS: 5.3},
 			"CVE-2023-38408": {CVSS: 9.8},
 			"CVE-2016-0777":  {CVSS: 6.5},
+			"CVE-2015-1419":  {CVSS: 5.0},
 		},
 		Products: map[string][]Affect{
 			"apache:http_server": {
@@ -199,6 +218,9 @@ func testDB() *DB {
 				{ID: "CVE-2018-15473", Ranges: []Range{{EndIncl: "7.7"}}},
 				{ID: "CVE-2023-38408", Ranges: []Range{{EndExcl: "9.3p2"}}},
 				{ID: "CVE-2016-0777", Ranges: []Range{{StartIncl: "5.4", EndExcl: "7.1p2"}}},
+			},
+			"vsftpd_project:vsftpd": {
+				{ID: "CVE-2015-1419", Ranges: []Range{{EndIncl: "3.0.2"}}},
 			},
 		},
 	}
@@ -231,6 +253,8 @@ func TestMatch(t *testing.T) {
 		{"no version", Instance{IP: ip, Port: 22, CPE: "openbsd:openssh", Product: "OpenSSH"}, 0, 0, "", "", ""},
 		{"untracked", Instance{IP: ip, Port: 9, CPE: "acme:widget:1.0", Product: "Widget", Version: "1.0"}, 0, 0, "", "", ""},
 		{"alias cpe", Instance{IP: ip, Port: 80, CPE: "apache:httpd:2.4.49", Version: ""}, 3, 2, "", "", ""},
+		{"vsftpd nmap cpe alias", Instance{IP: ip, Port: 21, CPE: "vsftpd:vsftpd:3.0.2", Product: "vsftpd", Version: "3.0.2"},
+			1, 0, "Medium", ConfidenceHigh, "172.30.0.25:21:beasts:vsftpd:3.0.2"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

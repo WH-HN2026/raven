@@ -1,0 +1,23 @@
+id: raven-rabbitmq-management
+info:
+  name: RabbitMQ management panel
+  author: raven
+  severity: low
+  description: The RabbitMQ management web UI is reachable.
+  tags: raven,panel,rabbitmq
+  metadata:
+    vendor: vmware
+    product: rabbitmq
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}"
+    matchers-condition: and
+    matchers:
+      - type: status
+        status:
+          - 200
+      - type: word
+        part: body
+        words:
+          - "<title>RabbitMQ Management</title>"

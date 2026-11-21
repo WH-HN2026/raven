@@ -1,0 +1,32 @@
+id: raven-adminer-login
+info:
+  name: Adminer login
+  author: raven
+  severity: medium
+  description: The Adminer database login page is reachable.
+  tags: raven,panel,adminer,version
+  metadata:
+    vendor: adminer
+    product: adminer
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}"
+      - "{{BaseURL}}/adminer.php"
+    stop-at-first-match: true
+    matchers-condition: and
+    matchers:
+      - type: status
+        status:
+          - 200
+      - type: regex
+        part: body
+        regex:
+          - '<title>[^<]*Adminer</title>'
+    extractors:
+      - type: regex
+        name: version
+        part: body
+        group: 1
+        regex:
+          - "<span class='version'>([0-9]+\\.[0-9]+[0-9A-Za-z.+~-]*)"

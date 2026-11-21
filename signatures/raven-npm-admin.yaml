@@ -1,0 +1,20 @@
+id: raven-npm-admin
+info:
+  name: Nginx Proxy Manager admin
+  author: raven
+  severity: low
+  description: The Nginx Proxy Manager admin interface is reachable.
+  tags: raven,panel,nginx-proxy-manager
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}"
+    matchers-condition: and
+    matchers:
+      - type: status
+        status:
+          - 200
+      - type: word
+        part: body
+        words:
+          - "<title>Nginx Proxy Manager</title>"
