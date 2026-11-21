@@ -112,6 +112,43 @@ docker compose -f compose.yml -f lab/raven.compose.yml -f lab/vuln/raven.compose
 - `make dev` on native Linux reaches `10.77.0.0/16` through the bridge. The host's address there is the gateway `10.77.0.1`, which is blacklisted.
 - A host with more than about 1,000 live neighbours (scale layer at ≥1,024 hosts): `net.ipv4.neigh.default.gc_thresh*` exist only in the host's namespace (`docker run --sysctl …gc_thresh3` fails, *trial*), so the kernel ARP table is shared and capped at 1,024 entries by default. V4 measures whether `sudo sysctl -w net.ipv4.neigh.default.gc_thresh3=16384` (host-wide, optional) is needed and documents it.
 
+### 2.6 Run the lab (V1)
+
+```sh
+docker login                 # optional; Docker Hub allows 100 anonymous pulls per hour per IP
+make vlab-pull               # pulls only missing images, 6 attempts 2 min apart
+make vlab-up                 # lab/vuln/preflight.sh, up -d --wait, then `run --rm vlab-init`
+make vlab-ps
+docker compose -f compose.yml -f lab/vuln/raven.compose.yml up -d    # RAVEN as 10.77.254.10
+make vlab-down               # disconnects RAVEN and any other attached container, then down (volumes kept)
+```
+
+Before any scan: global excludes `10.77.0.1` and `10.77.254.0/23`; targets [`lab/vuln/targets.csv`](../lab/vuln/targets.csv); profile ports [`lab/vuln/ports.txt`](../lab/vuln/ports.txt) (accepted by the profile API). Checks from inside the lab: `docker compose -f compose.vlab.yml --profile tools up -d --wait tools`, then `docker exec raven-vlab-tools-1 curl …`; remove it with `docker compose -f compose.vlab.yml --profile tools rm -sf tools`.
+
+Measured on 2026-11-21 (8 vCPU, 16 GB VM, Docker Compose v5.8.0):
+
+| What | Value |
+|---|---|
+| images on disk (all services incl. `device` and `vlab-init`) | 10.1 GB |
+| `make vlab-up`, images present, fresh volumes (all 21 healthy + init installs) | 29 s |
+| `make vlab-up` after `make vlab-down` (volumes kept) | 16 s |
+| steady RAM, 21 services | ≈ 1.2 GB (largest: MySQL 5.7 182 MB, RabbitMQ 128 MB, Gitea 103 MB, MariaDB ×2 ~98 MB, DVWA 89 MB) |
+
+Scenario hooks for V2: `VLAB_FLASK_NGINX_TAG` (default `1.20.0-alpine`; upgrade tag `1.30.7-alpine`, the current stable) recreates `flask-app` with another nginx; the shadow-IT `device` is in compose profile `scenario` (`--profile scenario up -d --wait device`, `rm -sf device`); Toxiproxy's API is `http://10.77.2.11:8474`, proxy `wordpress`.
+
+### 2.7 Deviations from §2.1–§2.5 (V1)
+
+- **Service names** carry the stack prefix: `modern-wordpress`, `modern-mariadb`, `modern-phpmyadmin`, `modern-redis`, `modern-npm`, `proxy-traefik`, `proxy-toxiproxy`, `proxy-wordpress`, `proxy-mariadb`, `proxy-redis`, `vuln-wordpress`, `vuln-mysql`, `vuln-adminer`, `vuln-ftp`, `vuln-dvwa`, `custom-api`, `custom-postgres`, `custom-rabbitmq`, `apphost`, `gitea`, `flask-app`, `device` (profile `scenario`), `tools` (profile `tools`), `vlab-init` (profile `init`). Containers are `raven-vlab-<service>-1`.
+- **Init job:** with Compose v5.8.0, `up -d --wait` returns 1 (`container raven-vlab-vlab-init-1 exited (0)`) when a one-shot is part of the project, so `vlab-init` is under compose profile `init` and `make vlab-up` runs it with `docker compose run --rm vlab-init` after `--wait`. The script is `lab/vuln/init/vlab-init.sh`; it treats a WordPress site whose `/` returns 200 as installed.
+- **WordPress home URL** follows the request's `Host` header (`WP_HOME`/`WP_SITEURL` in `WORDPRESS_CONFIG_EXTRA`), so the proxy site answers 200 directly (10.77.2.12), through Toxiproxy (:8666) and through Traefik (10.77.2.10) without redirects. `WP_HTTP_BLOCK_EXTERNAL` and `AUTOMATIC_UPDATER_DISABLED` are set. WordPress 4.7.5's theme appends the tagline: its title is `RAVEN vlab Legacy – Just another WordPress site`.
+- **flask-app** listens on **8787** (`lab/vuln/flask-app.conf`) because it shares 10.77.4.20 with Gitea; 10.77.4.20:80 is closed.
+- **Gitea** title comes from the image's `APP_NAME` variable (read when `app.ini` is first written); `GITEA__DEFAULT__APP_NAME` writes a `[DEFAULT]` section that Gitea ignores. The footer shows `Version:` and `28.4.0` on separate lines. Also `OFFLINE_MODE=true` and the update checker off (no egress).
+- **Traefik** runs with `--ping` (healthcheck) and `--global.checknewversion=false --global.sendanonymoususage=false`.
+- **RabbitMQ** listens on 4369, 5672, 15672, 15692 and 25672 (all in `ports.txt`).
+- **vsftpd** passive ports 21000–21010 open only during a transfer; they are not scan targets.
+- `httpd:2.4.49-alpine` exists and is used for `device` (`Server: Apache/2.4.49 (Unix)`).
+- The subnet preflight is `lab/vuln/preflight.sh`: it fails when `raven_vlab` exists with other settings, another Docker network uses `10.77.x` (or `10.0.0.0/8`), or a host route other than the lab bridge covers or sits inside `10.77.0.0/16`.
+
 ## 3. Service inventory: what RAVEN should detect
 
 Status: **today** = expected to work with `main` at V0 (`08678b6`), from the code (`signatures/`, `internal/cve/products.txt` + `CPEForTech`, the nuclei policy in `internal/scanner/nuclei`, the default profile) and the Q1 results; **V***n* = needs that task; **verify** = plausible today but not proven, and V6 confirms it.
