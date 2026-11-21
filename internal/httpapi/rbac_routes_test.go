@@ -53,7 +53,8 @@ var routePerms = map[string]auth.Permission{
 	"PATCH /api/findings/{id}":      auth.PermFindingsEdit,
 	"POST /api/findings/{id}/notes": auth.PermFindingsEdit,
 
-	"GET /api/changes": auth.PermRead,
+	"GET /api/changes":            auth.PermRead,
+	"GET /api/changes/hosts/{ip}": auth.PermRead,
 
 	"GET /api/profiles":         auth.PermRead,
 	"POST /api/profiles":        auth.PermProfilesWrite,
