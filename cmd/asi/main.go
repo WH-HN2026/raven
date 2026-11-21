@@ -64,7 +64,18 @@ func run() error {
 	})
 
 	// Dojo bootstrap must never block the HTTP server (Dojo's first boot takes minutes).
+	// Push jobs (D2) are enqueued from the start and wait until it's done.
+	var hook pipeline.BatchHook
 	if cfg.DojoURL != "" {
+		push, err := dojo.NewPushService(pool, map[string]dojo.ParseFunc{"nmap": nmap.Parse})
+		if err != nil {
+			return err
+		}
+		if err := push.Start(ctx); err != nil {
+			return err
+		}
+		defer shutdown("dojo push", push.Shutdown)
+		hook = push // enqueues one push job per finished batch
 		go func() {
 			res, err := dojo.Bootstrap(ctx, dojo.BootstrapConfig{
 				URL: cfg.DojoURL, Token: cfg.DojoToken,
@@ -77,6 +88,8 @@ func run() error {
 				}
 				return
 			}
+			push.SetPusher(&dojo.Pusher{Client: res.Client, OrganizationID: res.Organization.ID,
+				Parallel: res.Client.Concurrency()})
 			// Read-model pull (D3): once now, then every 5 min.
 			(&dojo.Syncer{Client: res.Client, Pool: pool, OrganizationID: res.Organization.ID}).Run(ctx, 5*time.Minute)
 		}()
@@ -85,14 +98,14 @@ func run() error {
 	}
 
 	// Scan pipeline: River workers running nmap per batch (S3).
-	pipe, err := pipeline.New(pool, pipeline.Config{Scanner: nmap.New(nmap.Config{}), Resolver: net.DefaultResolver})
+	pipe, err := pipeline.New(pool, pipeline.Config{Scanner: nmap.New(nmap.Config{}), Resolver: net.DefaultResolver, Hook: hook})
 	if err != nil {
 		return err
 	}
 	if err := pipe.Start(ctx); err != nil {
 		return err
 	}
-	defer shutdownPipeline(pipe)
+	defer shutdown("pipeline", pipe.Shutdown)
 
 	srv := &http.Server{
 		Addr: cfg.HTTPAddr,
@@ -119,11 +132,11 @@ func run() error {
 	return srv.Shutdown(shutCtx)
 }
 
-func shutdownPipeline(p *pipeline.Service) {
+func shutdown(name string, f func(context.Context) error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if err := p.Shutdown(ctx); err != nil {
-		slog.Warn("pipeline shutdown", "err", err)
+	if err := f(ctx); err != nil {
+		slog.Warn(name+" shutdown", "err", err)
 	}
 }
 
