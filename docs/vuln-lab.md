@@ -236,6 +236,36 @@ Jury test points (challenge §6) → steps:
 
 Scoring criteria (challenge §8): discovery at scale (30 %) → 1 + 14; changes and unstable hosts (15 %) → 2–7, 14; quality, docs, ease of deployment, import/export, Dojo (20 %) → 0, 10, 13 and this document; safety and intensity control (15 %) → §7, the profile rate limits, 12; fingerprinting (10 %) → 1, 8; roles and data protection (10 %) → 9, 11.
 
+### 4.1 Scenario driver (V2)
+
+[`scripts/vlab-scenario.sh`](../scripts/vlab-scenario.sh) automates steps 1–13 against the running vuln lab (`compose.vlab.yml`) and an attached RAVEN instance. Every step is idempotent and prints `check:` lines pointing to the page, filter and expected outcome.
+
+```sh
+scripts/vlab-scenario.sh status                                     # lab state, RAVEN setup, last runs
+scripts/vlab-scenario.sh baseline [--run]                           # restore lab + ensure blacklist, targets, vuln-lab profile
+scripts/vlab-scenario.sh service-gone|service-back [--run]          # stop / start flask-app (10.77.4.20:8787)
+scripts/vlab-scenario.sh upgrade|downgrade [--run]                  # flask-app nginx 1.20.0-alpine <-> 1.30.7-alpine
+scripts/vlab-scenario.sh device-new|device-remove [--run]           # shadow-IT device 10.77.9.50 (httpd 2.4.49)
+scripts/vlab-scenario.sh host-off|host-on [--run]                   # stop / start custom-api (httpbin 10.77.4.10)
+scripts/vlab-scenario.sh toxic latency <ms>|timeout|slow-close|down|clear [--run]
+scripts/vlab-scenario.sh signature [--run]                          # editor: validate, save and test lab/vuln/scenario/vlab-dvwa-security-cookie.yaml
+scripts/vlab-scenario.sh edit [--run]                               # operator: host, service override and finding edits on 10.77.3.14 (--run verifies survival)
+scripts/vlab-scenario.sh exchange [--run]                           # viewer exports CSV/JSON; editor imports lab/vuln/scenario/import-sample.json (10.77.9.51)
+scripts/vlab-scenario.sh roles                                      # permission matrix across viewer, operator, editor, admin
+scripts/vlab-scenario.sh window                                     # non-aggressive vuln-lab-slow profile: start, suspend at window end, resume, then stop/disable
+scripts/vlab-scenario.sh dojo-plan [--run]                          # planned engagement in Dojo "RAVEN Planning" -> schedule -> run
+scripts/vlab-scenario.sh walk                                       # runs steps 1–7 end to end with PASS/FAIL checks, then restores the lab
+```
+
+Fixtures in [`lab/vuln/scenario/`](../lab/vuln/scenario/):
+- `vlab-dvwa-security-cookie.yaml` — GET-only nuclei template matching DVWA's `Set-Cookie: security=(low|medium|high|impossible)` header and extracting the level;
+- `import-sample.json` — RAVEN `results-json` v1 sample for the import-only host `10.77.9.51` (`legacy-erp.vlab`, ports 22 and 8080).
+
+Notes:
+- **Setup & credentials:** admin calls read `RAVEN_ADMIN_USERNAME`/`RAVEN_ADMIN_PASSWORD` (and `RAVEN_PORT` when `RAVEN_URL` is unset) from `.env` (`RAVEN_ENV_FILE`); role steps read `DEMO_<ROLE>_PASSWORD` from `.demo-credentials` (`VLAB_CREDENTIALS`, same format as `scripts/demo.sh`) and create missing `demo-<role>` users if needed; `dojo-plan` reads `DD_ADMIN_USER`/`DD_ADMIN_PASSWORD`/`DD_PORT` from `.env`. When the `vuln-lab` profile is missing, the script seeds the global blacklist (`10.77.0.1`, `10.77.254.0/23`), `lab/vuln/targets.csv` and `vuln-lab` with the §6 values before running.
+- **Toxiproxy:** all calls to `http://10.77.2.11:8474` run via a one-shot `vlab-init` curl container on `raven_vlab` (dynamic IP in `10.77.255.0/24`), never from the host.
+- **Tuning:** `VLAB_PROFILE` (default `vuln-lab`), `VLAB_RUN_TIMEOUT` (default `3600` s), `VLAB_ASYNC_WAIT` (default `720` s for the 5-minute CVE/Dojo passes at the end of `walk`; `0` skips them).
+
 ## 5. Scale layer (V4)
 
 Goal: a **real** scan (nmap → httpx → nuclei → Dojo, not the Q2 fakes) over more than 10,000 addresses, with hosts that are interesting to fingerprint and group, on a laptop.
