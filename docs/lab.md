@@ -111,3 +111,17 @@ Before `make lab-down`, detach both `raven` and `zap` from `raven_lab` (or stop 
 ```sh
 docker compose -f compose.yml -f lab/raven.compose.yml --profile aggressive stop zap
 ```
+
+## Nikto (aggressive stage)
+
+The `nikto` stage is an admin-only aggressive stage (`scan:aggressive`) that runs Nikto 2.6.1 against httpx-confirmed literal-IP HTTP(S) origins with `-Tuning 123be`, `-Pause` derived from the profile web rate, `-maxtime 300s`, `-timeout 10`, `-Format json`, `-nointeractive`, `-nocheck`, `-ask no`, and `-nolookup` (no credential tests, no evasion/mutation, no update checks).
+
+To reproduce the lab test against the nginx `/admin`, staging, and Tomcat fixtures (`172.30.0.19`, `172.30.0.20`, `172.30.0.21`) from a RAVEN container attached to `raven_lab`:
+
+1. Log in as an `admin` user and add `172.30.0.19`, `172.30.0.20`, and `172.30.0.21` in **Targets**.
+2. Create an aggressive profile (e.g. `ag3-nikto-lab`) with ports `80,8080`, stages `nmap`, `httpx`, `nuclei`, `nikto`, and include scope entries `172.30.0.19/32`, `172.30.0.20/32`, `172.30.0.21/32`.
+3. Start a run with explicit confirmation (`confirm_aggressive: true`).
+4. Verify:
+   - `runs.stats` records `nikto_urls: 3` and `nikto_errors: 0`, and `artifacts` contains an encrypted `scanner = 'nikto'` JSON report.
+   - DefectDojo creates a `"RAVEN: nikto"` (`Nikto Scan`) Test per responding IP under engagement `RAVEN: <profile>` with tagged findings (`raven`).
+   - **Findings** (filtered by `scanner=nikto`) displays the synced Nikto findings.
