@@ -6,6 +6,7 @@ Read before working:
 - [`docs/architecture.md`](docs/architecture.md): decisions D1–D10, data flow, Dojo mapping, schema, RBAC, safety rules.
 - [`docs/roadmap.md`](docs/roadmap.md): tasks, dependencies, status.
 - [`docs/challenge.md`](docs/challenge.md): the brief (Polish) and the organizers' notes.
+- [`docs/design/`](docs/design/README.md): **UI design reference.** Tokens, layout rules, one `.dc.html` mockup per screen, AGH logo and squares assets. Any UI task starts here.
 - DefectDojo source is checked out at `../django-DefectDojo` (parsers: `dojo/tools/<name>/parser.py`, API: `dojo/*/api/`). Read it instead of guessing API behaviour.
 
 ## Ground rules
@@ -147,10 +148,12 @@ scripts/gen-env.sh && docker compose up -d --build   # full deployment, what the
 
 **Web** (`web/`)
 - React + TS strict, TanStack Query for server state, React Router, Tailwind.
-- Use colours only through the theme tokens in `web/src/theme.css` (AGH palette). No raw hex in components.
+- Follow [`docs/design/README.md`](docs/design/README.md) and the matching `docs/design/canvas/<Screen>.dc.html` mockup: square corners, AGH black/red, Roboto, the shared page frame.
+- Use colours only through the theme tokens in `web/src/theme.css` (copied from `docs/design/README.md`). No raw hex in components.
 - API types come only from the generated `web/src/api/schema.d.ts`, via the small client in `web/src/api/client.ts`.
 - Pages live in `web/src/pages/<area>/` and export their routes. Use `useCan(perm)` to hide controls the role can't use.
 - UI language: English.
+- **UI copy is data, labels and actions only.** No sentences explaining how the system works (encryption, write-back to Dojo, re-probing, scheduling rules); those belong in `docs/`.
 
 ## Don'ts
 

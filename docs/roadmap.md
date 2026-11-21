@@ -48,7 +48,7 @@ M0 is sequential and blocking. Do it in **one** worktree, as fast as possible, t
   - `web/src/routes.tsx` concatenating page modules.
 - [x] **F4 Auth & app shell.**
   - Login/logout, sessions, bootstrap admin from env, `auth.Require` middleware, CSRF header.
-  - SPA shell: AGH theme tokens (`web/src/theme.css`), logo, sidebar nav filtered by role, login page.
+  - SPA shell per [`docs/design/`](design/README.md): theme tokens in `web/src/theme.css`, self-hosted Roboto, the page frame (top bar with logo and role-filtered nav, black page header with the squares band, footer), login page.
   - Worktree helper `scripts/wt-env.sh` (see AGENTS.md "Parallel worktrees").
 
 ## M1 — Walking skeleton (parallel tracks; each needs M0)
