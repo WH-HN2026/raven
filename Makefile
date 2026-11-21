@@ -57,7 +57,7 @@ test-integration:
 	set -a; [ -f .env.local ] && . ./.env.local; set +a; go test -count=1 -tags integration $(GO_PKGS)
 
 lab-up:
-	docker compose -f compose.lab.yml up -d
+	docker compose -f compose.lab.yml up -d --build --wait
 
 lab-down:
 	docker compose -f compose.lab.yml down

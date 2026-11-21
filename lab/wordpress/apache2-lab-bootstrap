@@ -1,0 +1,13 @@
+#!/bin/sh
+set -eu
+
+# The upstream entrypoint prepares the webroot and wp-config.php before this runs.
+if ! wp --allow-root --skip-plugins --skip-themes core is-installed; then
+    password=$(php -r 'echo bin2hex(random_bytes(24));')
+    wp --allow-root --skip-plugins --skip-themes core install \
+        --url=http://172.30.0.17 --title='ASI WordPress Lab' \
+        --admin_user=lab-admin --admin_email=admin@example.invalid \
+        --admin_password="$password" --skip-email
+fi
+
+exec apache2-foreground
