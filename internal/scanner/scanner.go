@@ -71,11 +71,12 @@ type Observation struct {
 }
 
 type HTTPInfo struct {
-	Status      int
-	Title       string
-	Headers     map[string]string
-	Cookies     []string
-	TLSCert     string // PEM or summary
-	Redirects   []string
-	FaviconHash string
+	Status       int
+	Title        string
+	Headers      map[string]string
+	Cookies      []string
+	TLSCert      string // PEM or summary
+	Redirects    []string
+	FaviconHash  string
+	Technologies []string
 }
