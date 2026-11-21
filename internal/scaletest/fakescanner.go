@@ -19,7 +19,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner"
+	"github.com/WH-HN2026/raven/internal/scanner"
 )
 
 // World defines a deterministic synthetic network where ~30% of IPs are up,

@@ -24,41 +24,41 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/auth"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/db"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/db/gen"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/dojo"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/httpapi"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/pipeline"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner/httpx"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner/nmap"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner/nuclei"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/targets"
+	"github.com/WH-HN2026/raven/internal/auth"
+	"github.com/WH-HN2026/raven/internal/db"
+	"github.com/WH-HN2026/raven/internal/db/gen"
+	"github.com/WH-HN2026/raven/internal/dojo"
+	"github.com/WH-HN2026/raven/internal/httpapi"
+	"github.com/WH-HN2026/raven/internal/pipeline"
+	"github.com/WH-HN2026/raven/internal/scanner"
+	"github.com/WH-HN2026/raven/internal/scanner/httpx"
+	"github.com/WH-HN2026/raven/internal/scanner/nmap"
+	"github.com/WH-HN2026/raven/internal/scanner/nuclei"
+	"github.com/WH-HN2026/raven/internal/targets"
 )
 
 const scaleEncKey = "scale-test-encryption-key-0123456789abcdef"
 
 // freshScaleDB creates an isolated throwaway database on the worktree's local
-// Postgres server (ASI_DATABASE_URL from scripts/wt-env.sh) and drops it on
-// cleanup. It refuses non-loopback hosts or the shared "asi" database name.
+// Postgres server (RAVEN_DATABASE_URL from scripts/wt-env.sh) and drops it on
+// cleanup. It refuses non-loopback hosts or the shared "raven"/"asi" database name.
 func freshScaleDB(t *testing.T) *pgxpool.Pool {
 	t.Helper()
-	base := os.Getenv("ASI_DATABASE_URL")
+	base := os.Getenv("RAVEN_DATABASE_URL")
 	if base == "" {
-		t.Fatal("ASI_DATABASE_URL not set (run scripts/wt-env.sh first)")
+		t.Fatal("RAVEN_DATABASE_URL not set (run scripts/wt-env.sh first)")
 	}
 	u, err := url.Parse(base)
 	if err != nil {
-		t.Fatalf("parse ASI_DATABASE_URL: %v", err)
+		t.Fatalf("parse RAVEN_DATABASE_URL: %v", err)
 	}
 	host := u.Hostname()
 	if host != "127.0.0.1" && host != "localhost" && host != "::1" {
 		t.Fatalf("refusing scale test against non-loopback DB host %q", host)
 	}
 	baseDB := strings.TrimPrefix(u.Path, "/")
-	if baseDB == "" || baseDB == "asi" {
-		t.Fatalf("refusing scale test when ASI_DATABASE_URL points to %q; run scripts/wt-env.sh for a per-worktree DB", baseDB)
+	if baseDB == "" || baseDB == "raven" || baseDB == "asi" {
+		t.Fatalf("refusing scale test when RAVEN_DATABASE_URL points to %q; run scripts/wt-env.sh for a per-worktree DB", baseDB)
 	}
 
 	ctx := context.Background()
@@ -68,7 +68,7 @@ func freshScaleDB(t *testing.T) *pgxpool.Pool {
 	}
 	b := make([]byte, 4)
 	_, _ = rand.Read(b)
-	name := "asi_scale_" + hex.EncodeToString(b)
+	name := "raven_scale_" + hex.EncodeToString(b)
 	if _, err := admin.Exec(ctx, "CREATE DATABASE "+name); err != nil {
 		_ = admin.Close(ctx)
 		t.Fatalf("create scale DB %s: %v", name, err)
@@ -231,7 +231,7 @@ func runScaleScenario(t *testing.T, cidr string, wantHosts int32, assertAPI bool
 		MaxAttempts: 2,
 		Timeout:     30 * time.Second,
 	})
-	org, err := dojoClient.GetOrCreateOrganization(ctx, "ASI")
+	org, err := dojoClient.GetOrCreateOrganization(ctx, "RAVEN")
 	if err != nil {
 		t.Fatalf("fake dojo org: %v", err)
 	}

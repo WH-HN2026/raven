@@ -6,11 +6,11 @@
 
 The load test lives in [`internal/scaletest/`](../internal/scaletest/) behind the `//go:build scaletest` build tag:
 
-- **Impossible to select in production:** none of the fake scanners compile into `cmd/asi` or normal `make check` builds.
+- **Impossible to select in production:** none of the fake scanners compile into `cmd/raven` or normal `make check` builds.
 - **No external scanner traffic:** `FakeNmap`, `FakeHTTPX`, and `FakeNuclei` implement `scanner.Scanner` in-process with deterministic synthetic results (~30% of IPs up, 1–5 TCP services each, HTTP/HTTPS headers/cookies/TLS/technologies, ~15% nuclei matches, valid nmap XML / httpx JSONL / nuclei JSONL accepted by the real parsers). Scaled-down per-IP delays keep batch `duration_ms > 0` so S5 adaptive batching exercises its real throughput estimator (Run 1 uses `DefaultBatchSize = 256`, Run 2 adapts up to `MaxBatchSize = 4096`).
 - **No outbound DNS:** `pipeline.Config.Resolver` is `LocalOnlyResolver`, which blocks any DNS lookup.
 - **Loopback-only Dojo stub:** `FakeDojo` is an `httptest.Server` bound to `127.0.0.1` implementing the DefectDojo 3.5 API v2 endpoints used by `dojo.Pusher` and counting requests/reimports without retaining uploaded payloads.
-- **Isolated throwaway DB:** `freshScaleDB` reads `ASI_DATABASE_URL` (from `scripts/wt-env.sh`), refuses non-loopback hosts or the shared `asi` DB name, creates a throwaway `asi_scale_<rand>` database, runs migrations, and drops it on cleanup.
+- **Isolated throwaway DB:** `freshScaleDB` reads `RAVEN_DATABASE_URL` (from `scripts/wt-env.sh`), refuses non-loopback hosts or the shared `raven`/`asi` DB name, creates a throwaway `raven_scale_<rand>` database, runs migrations, and drops it on cleanup.
 
 ## Bottlenecks found and fixed
 

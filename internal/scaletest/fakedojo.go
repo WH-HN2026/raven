@@ -78,7 +78,7 @@ type stubTest struct {
 func NewFakeDojo() *FakeDojo {
 	d := &FakeDojo{
 		nextID:       100,
-		orgs:         map[string]int64{"ASI": 1},
+		orgs:         map[string]int64{"RAVEN": 1},
 		assetsByName: make(map[string]*stubAsset),
 		assetsByID:   make(map[int64]*stubAsset),
 		engsByKey:    make(map[string]*stubEng),
