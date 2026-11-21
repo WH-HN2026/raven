@@ -52,12 +52,23 @@ function run(over: Partial<Schemas['Run']> = {}): Schemas['Run'] {
     batches_total: 4,
     batches_done: 2,
     batches_failed: 1,
+    aggressive: false,
     stats: { candidates: 3, batch_size: 1 },
     ...over,
   }
 }
 
-const profiles = { items: [{ id: 1, name: 'default', ports: '80', nmap_max_rate: 300, enabled: true }], total: 1 }
+const profiles = {
+  items: [{ id: 1, name: 'default', ports: '80', nmap_max_rate: 300, enabled: true, stages: ['nmap', 'httpx', 'nuclei'], aggressive: false }],
+  total: 1,
+}
+const mixedProfiles = {
+  items: [
+    profiles.items[0],
+    { id: 2, name: 'agg-lab', ports: '80,443', nmap_max_rate: 300, enabled: true, stages: ['nmap', 'httpx', 'nikto'], aggressive: true },
+  ],
+  total: 2,
+}
 
 const batch = (over: Partial<Schemas['Batch']> = {}): Schemas['Batch'] => ({
   id: 1,
@@ -164,6 +175,44 @@ describe('RunsPage', () => {
     expect((post[1]?.headers as Record<string, string>)['X-RAVEN-CSRF']).toBe('1')
     expect(JSON.parse(post[1]?.body as string)).toEqual({ profile_id: 1 })
   })
+
+  it('shows Aggressive badge and requires confirmation dialog when starting an aggressive profile', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = String(input)
+      if (url.startsWith('/api/profiles')) return json(mixedProfiles)
+      if (init?.method === 'POST') return json(run({ id: 9, profile_id: 2, aggressive: true }), 201)
+      if (url === '/api/runs/9/batches') return json({ items: [], total: 0 })
+      if (url === '/api/runs/9') return json(run({ id: 9, profile_id: 2, aggressive: true }))
+      return json({ items: [run({ id: 8, profile_id: 2, aggressive: true })], total: 1 })
+    })
+    wrap(<RunsPage />)
+    const table = await screen.findByRole('table')
+    expect(await within(table).findByText('#8')).toBeInTheDocument()
+    expect(within(table).getByText('Aggressive')).toBeInTheDocument()
+
+    const select = screen.getByLabelText('Profile')
+    fireEvent.change(select, { target: { value: '2' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Start run' }))
+
+    const dialog = screen.getByRole('dialog', { name: 'Start aggressive run?' })
+    expect(dialog).toHaveTextContent('Start aggressive run?')
+    expect(dialog).toHaveTextContent('agg-lab')
+    expect(fetchMock.mock.calls.some(([, i]) => i?.method === 'POST')).toBe(false)
+
+    // Cancel closes the dialog without starting.
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(fetchMock.mock.calls.some(([, i]) => i?.method === 'POST')).toBe(false)
+
+    // Re-open and confirm Start -> sends confirm_aggressive: true.
+    fireEvent.click(screen.getByRole('button', { name: 'Start run' }))
+    const dialog2 = screen.getByRole('dialog', { name: 'Start aggressive run?' })
+    fireEvent.click(within(dialog2).getByRole('button', { name: 'Start' }))
+    await waitFor(() => expect(fetchMock.mock.calls.some(([, i]) => i?.method === 'POST')).toBe(true))
+    const post = fetchMock.mock.calls.find(([, i]) => i?.method === 'POST')!
+    expect(post[0]).toBe('/api/runs')
+    expect(JSON.parse(post[1]?.body as string)).toEqual({ profile_id: 2, confirm_aggressive: true })
+  })
 })
 
 describe('RunDetailPage', () => {
@@ -251,5 +300,16 @@ describe('RunDetailPage', () => {
     wrap(<RunsPage />, VIEWER, '/runs/7')
     await waitFor(() => expect(screen.getAllByText('running')).toHaveLength(2)) // run + batch
     expect(screen.queryByRole('button', { name: /Stop/ })).not.toBeInTheDocument()
+  })
+
+  it('shows the Aggressive badge in run detail header for an aggressive run', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input)
+      if (url.startsWith('/api/profiles')) return json(mixedProfiles)
+      if (url === '/api/runs/7/batches') return json({ items: [], total: 0 })
+      return json(run({ profile_id: 2, aggressive: true }))
+    })
+    wrap(<RunsPage />, VIEWER, '/runs/7')
+    expect(await screen.findByText('Aggressive')).toBeInTheDocument()
   })
 })

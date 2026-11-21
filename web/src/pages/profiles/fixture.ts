@@ -28,6 +28,15 @@ export const profile: Profile = {
   target_batch_seconds: 600,
   enabled: true,
   stages: ['nmap', 'httpx', 'nuclei'],
+  aggressive: false,
+}
+
+export const aggressiveProfile: Profile = {
+  ...profile,
+  id: 4,
+  name: 'lab-aggressive',
+  stages: ['nmap', 'httpx', 'nuclei', 'nikto'],
+  aggressive: true,
 }
 
 export const uiSchedule: Schedule = {

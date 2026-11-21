@@ -14,7 +14,7 @@ afterEach(() => {
 // runs:control (editor, admin) starts and stops runs.
 const canControl: Record<Role, boolean> = { viewer: false, operator: false, editor: true, admin: true }
 
-const profiles = { items: [{ id: 1, name: 'default', ports: '80', nmap_max_rate: 300, enabled: true }], total: 1 }
+const profiles = { items: [{ id: 1, name: 'default', ports: '80', nmap_max_rate: 300, enabled: true, stages: ['nmap', 'httpx', 'nuclei'], aggressive: false }], total: 1 }
 const run: Schemas['Run'] = {
   id: 7,
   profile_id: 1,
@@ -27,6 +27,7 @@ const run: Schemas['Run'] = {
   batches_total: 4,
   batches_done: 2,
   batches_failed: 0,
+  aggressive: false,
   stats: {},
 }
 

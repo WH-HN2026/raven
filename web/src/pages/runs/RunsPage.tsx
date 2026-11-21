@@ -7,6 +7,7 @@ import { useCan } from '../../auth/hooks'
 import { PageHeader } from '../../components/PageHeader'
 import {
   Alert,
+  Badge,
   Button,
   EmptyRow,
   ErrorText,
@@ -49,13 +50,19 @@ export function StartRunForm() {
   const profiles = useProfiles()
   const enabled = (profiles.data?.items ?? []).filter((p) => p.enabled)
   const [picked, setPicked] = useState<number | null>(null)
+  const [confirming, setConfirming] = useState(false)
   const profileId = picked ?? enabled[0]?.id ?? null
+  const selected = enabled.find((p) => p.id === profileId) ?? null
 
   const start = useMutation({
-    mutationFn: (profile_id: number) => api.post('/runs', { body: { profile_id } }),
+    mutationFn: (body: { profile_id: number; confirm_aggressive?: boolean }) => api.post('/runs', { body }),
     onSuccess: (run) => {
+      setConfirming(false)
       void qc.invalidateQueries({ queryKey: runsKey })
       void navigate(`/runs/${run.id}`)
+    },
+    onError: () => {
+      setConfirming(false)
     },
   })
 
@@ -75,7 +82,12 @@ export function StartRunForm() {
           className="flex flex-wrap items-end gap-4"
           onSubmit={(e) => {
             e.preventDefault()
-            if (profileId !== null) start.mutate(profileId)
+            if (profileId === null) return
+            if (selected?.aggressive) {
+              setConfirming(true)
+              return
+            }
+            start.mutate({ profile_id: profileId })
           }}
         >
           <Field label="Profile" className="flex-[0_1_360px]">
@@ -84,6 +96,7 @@ export function StartRunForm() {
               value={profileId ?? ''}
               onChange={(e) => {
                 setPicked(Number(e.target.value))
+                setConfirming(false)
                 start.reset()
               }}
               disabled={enabled.length === 0}
@@ -98,7 +111,32 @@ export function StartRunForm() {
           <Button type="submit" variant="primary" disabled={profileId === null || start.isPending}>
             {start.isPending ? 'Starting…' : 'Start run'}
           </Button>
+          {selected?.aggressive && <Badge tone="red">Aggressive</Badge>}
         </form>
+        {confirming && selected?.aggressive && (
+          <div role="dialog" aria-label="Start aggressive run?" className="flex flex-col gap-3 border-2 border-red bg-white p-4">
+            <div className="flex flex-wrap items-center gap-2 font-medium">
+              <span>Start aggressive run?</span>
+              <Badge tone="red">Aggressive</Badge>
+            </div>
+            <div className="text-sm text-muted">
+              Profile: <span className="font-medium text-ink">{selected.name}</span>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="primary"
+                onClick={() => start.mutate({ profile_id: selected.id, confirm_aggressive: true })}
+                disabled={start.isPending}
+              >
+                Start
+              </Button>
+              <Button type="button" onClick={() => setConfirming(false)} disabled={start.isPending}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
         {profiles.error && <ErrorText>Cannot load profiles: {profiles.error.message}</ErrorText>}
         {profiles.data && enabled.length === 0 && <p className="m-0 text-sm text-muted">No enabled profiles</p>}
         {err && (
@@ -164,7 +202,12 @@ export function RunsTable() {
               <Td className="text-xl leading-none font-light">
                 <Link to={`/runs/${r.id}`}>#{r.id}</Link>
               </Td>
-              <Td>{names.get(r.profile_id) ?? `profile ${r.profile_id}`}</Td>
+              <Td>
+                <span className="inline-flex flex-wrap items-center gap-2">
+                  {names.get(r.profile_id) ?? `profile ${r.profile_id}`}
+                  {r.aggressive && <Badge tone="red">Aggressive</Badge>}
+                </span>
+              </Td>
               <Td>
                 <StageChips stages={r.stages} />
               </Td>

@@ -8,6 +8,7 @@ import { PageHeader } from '../../components/PageHeader'
 import { StageChips } from '../../components/StageChips'
 import {
   Alert,
+  Badge,
   Button,
   EmptyRow,
   ErrorText,
@@ -149,7 +150,14 @@ export function RunDetailPage() {
       <PageHeader
         title={title}
         crumbs={[{ label: 'Runs', to: '/runs' }, { label: title }]}
-        badges={run && <StatusBadge status={run.status} />}
+        badges={
+          run && (
+            <>
+              <StatusBadge status={run.status} />
+              {run.aggressive && <Badge tone="red">Aggressive</Badge>}
+            </>
+          )
+        }
       />
       {runQ.error && (
         <Section>

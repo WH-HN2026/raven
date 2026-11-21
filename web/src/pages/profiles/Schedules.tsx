@@ -52,8 +52,9 @@ function SourceBadge({ s }: { s: Schedule }) {
 
 export function Schedules() {
   const canWrite = useCan('schedules:write')
+  const canAggressive = useCan('scan:aggressive')
   const profiles = useProfiles()
-  const names = new Map((profiles.data?.items ?? []).map((p) => [p.id, p.name]))
+  const profilesById = new Map((profiles.data?.items ?? []).map((p) => [p.id, p]))
   const sort = useTableSort(['name', 'profile', 'source', 'repeats', 'window', 'next_window', 'timezone', 'enabled'], { prefix: 'schedule_' })
   const q = useQuery({ queryKey: [...schedulesKey, sort.query], queryFn: () => api.get('/schedules', { query: { limit: 1000, ...sort.query } }) })
   const items = q.data?.items ?? []
@@ -109,7 +110,12 @@ export function Schedules() {
                   <span className="text-xl leading-none font-light">#{s.id}</span>
                 )}
               </Td>
-              <Td>{names.get(s.profile_id) ?? `profile ${s.profile_id}`}</Td>
+              <Td>
+                <span className="inline-flex flex-wrap items-center gap-2">
+                  {profilesById.get(s.profile_id)?.name ?? `profile ${s.profile_id}`}
+                  {profilesById.get(s.profile_id)?.aggressive && <Badge tone="red">Aggressive</Badge>}
+                </span>
+              </Td>
               <Td>
                 <SourceBadge s={s} />
               </Td>
@@ -128,7 +134,7 @@ export function Schedules() {
               </Td>
               {canWrite && (
                 <Td className="text-right whitespace-nowrap">
-                  {s.source === 'ui' && (
+                  {s.source === 'ui' && (!profilesById.get(s.profile_id)?.aggressive || canAggressive) && (
                     <div className="flex justify-end gap-2">
                       <Button size="sm" aria-label={`Edit schedule ${s.id}`} onClick={() => setEditing(s)}>
                         Edit
@@ -188,7 +194,9 @@ const KINDS: { value: Frequency['kind']; label: string }[] = [
 
 function ScheduleForm({ schedule, onDone }: { schedule: Schedule | null; onDone: () => void }) {
   const qc = useQueryClient()
+  const canAggressive = useCan('scan:aggressive')
   const profiles = useProfiles()
+  const selectableProfiles = (profiles.data?.items ?? []).filter((p) => !p.aggressive || canAggressive)
   const zones = useMemo(() => timezones(), [])
   const initial = cronToFrequency(schedule?.cron ?? '0 * * * *')
   const tz0 = schedule?.timezone ?? 'Europe/Warsaw'
@@ -203,7 +211,9 @@ function ScheduleForm({ schedule, onDone }: { schedule: Schedule | null; onDone:
   const [winEnd, setWinEnd] = useState(schedule?.window_end ? clockIn(schedule.window_end, tz0) : '')
   const [timezone, setTimezone] = useState(tz0)
   const [enabled, setEnabled] = useState(schedule?.enabled ?? true)
+  const [confirmAggressive, setConfirmAggressive] = useState(false)
   const [clientErr, setClientErr] = useState<string | null>(null)
+  const selectedProfile = selectableProfiles.find((p) => p.id === profileId)
 
   const save = useMutation({
     mutationFn: () => {
@@ -222,6 +232,7 @@ function ScheduleForm({ schedule, onDone }: { schedule: Schedule | null; onDone:
         window_end: win?.window_end ?? null,
         timezone,
         enabled,
+        ...(selectedProfile?.aggressive ? { confirm_aggressive: confirmAggressive } : {}),
       }
       return schedule
         ? api.put('/schedules/{id}', { params: { id: schedule.id }, body })
@@ -242,6 +253,7 @@ function ScheduleForm({ schedule, onDone }: { schedule: Schedule | null; onDone:
     else if (kind === 'daily' && !time) err = 'Pick a time'
     else if (!winStart !== !winEnd) err = 'Set both window start and end, or neither'
     else if (winStart && winStart === winEnd) err = 'Window start and end must differ'
+    else if (selectedProfile?.aggressive && !confirmAggressive) err = 'Confirm aggressive schedule'
     setClientErr(err)
     if (!err) save.mutate()
   }
@@ -271,10 +283,13 @@ function ScheduleForm({ schedule, onDone }: { schedule: Schedule | null; onDone:
           <select
             className={inputClass}
             value={profileId}
-            onChange={(e) => setProfileId(e.target.value ? Number(e.target.value) : '')}
+            onChange={(e) => {
+              setProfileId(e.target.value ? Number(e.target.value) : '')
+              setConfirmAggressive(false)
+            }}
           >
             <option value="">Select…</option>
-            {(profiles.data?.items ?? []).map((p) => (
+            {selectableProfiles.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}
               </option>
@@ -327,6 +342,13 @@ function ScheduleForm({ schedule, onDone }: { schedule: Schedule | null; onDone:
           Enabled
         </label>
       </div>
+      {selectedProfile?.aggressive && (
+        <label className="flex items-center gap-2 text-sm font-medium">
+          <input type="checkbox" checked={confirmAggressive} onChange={(e) => setConfirmAggressive(e.target.checked)} />
+          Confirm aggressive schedule
+          <Badge tone="red">Aggressive</Badge>
+        </label>
+      )}
       {(clientErr || serverMsg) && <Alert>{clientErr ?? serverMsg}</Alert>}
       <div className="flex gap-2">
         <Button type="submit" variant="primary" disabled={save.isPending}>
