@@ -275,7 +275,7 @@ container_state() { # SERVICE -> "running nginx:1.20.0-alpine" | "absent"
 
 # lab_curl ARGS…: curl from a one-shot container on raven_vlab (dynamic range 10.77.255.0/24).
 lab_curl() {
-  "${VLAB[@]}" run --rm --no-deps -T --entrypoint curl vlab-init -sS --max-time 15 "$@" 2>/dev/null
+  "${VLAB[@]}" run --rm --no-deps -T --entrypoint curl vlab-init -fsS --max-time 15 "$@" 2>/dev/null
 }
 
 toxi_get() { lab_curl "$TOXI$1"; }
@@ -293,9 +293,10 @@ toxics_state() {
 
 toxic_clear() {
   local t
-  for t in $(toxi_get /proxies/wordpress/toxics | jq -r '.[].name'); do
+  while IFS= read -r t; do
+    [ -n "$t" ] || continue
     toxi_send DELETE "/proxies/wordpress/toxics/$t"
-  done
+  done < <(toxi_get /proxies/wordpress/toxics | jq -r '.[].name')
   toxi_send POST /proxies/wordpress '{"enabled": true}'
 }
 
@@ -393,12 +394,12 @@ step_toxic() {
       [[ $ms =~ ^[0-9]+$ ]] || die "usage: toxic latency <ms>"
       toxic_clear
       toxic_add latency "$(jq -cn --argjson l "$ms" '{latency: $l, jitter: 0}')"
-      check "next run: slower but complete; 10.77.2.10:80 and 10.77.2.11:8666 keep their facts (title 'RAVEN vlab Proxy')"
+      check "next run: slower but complete; 10.77.2.10:80 and 10.77.2.11:8666 keep their facts (title 'RAVEN vlab Proxy') and record ~${ms} ms / slow (at >=2000 ms)"
       ;;
     timeout)
       toxic_clear
       toxic_add timeout '{"timeout": 0}'
-      check "next run: 10.77.2.11:8666 open but no HTTP answer; 10.77.2.10:80 (Traefik) changed (status/title) in Changes"
+      check "next run: 10.77.2.11:8666 open with http_unresponsive in Changes and run stats; 10.77.2.10:80 (Traefik) changed in Changes"
       ;;
     slow-close)
       toxic_clear
@@ -421,7 +422,8 @@ step_toxic() {
 
 step_signature() {
   local yaml v id current res code
-  yaml=$(cat "$SIG_FILE")
+  ensure_setup
+  yaml=$(<"$SIG_FILE")
   as_demo editor
   v=$(raven_post /signatures/validate "$(jq -cn --arg y "$yaml" '{template_yaml: $y}')")
   expect "signature $SIG_NAME passes the safe-subset validator" "$v" '.valid == true'
@@ -544,9 +546,9 @@ step_roles() {
       if [ -n "$body" ]; then code=$(api_code "$method" "$path" "$body"); else code=$(api_code "$method" "$path"); fi
       allowed=$(jq -r --arg p "$perm" 'index($p) != null' <<<"$perms")
       if [ "$allowed" = true ]; then
-        [ "$code" != 403 ] && [ "$code" != 401 ] && verdict=allowed || verdict=WRONG
+        if [ "$code" != 403 ] && [ "$code" != 401 ]; then verdict=allowed; else verdict=WRONG; fi
       else
-        [ "$code" = 403 ] && verdict=denied || verdict=WRONG
+        if [ "$code" = 403 ]; then verdict=denied; else verdict=WRONG; fi
       fi
       printf '%-10s %-18s %-7s %s\n' "$role" "$perm" "$code" "$verdict"
       if [ "$verdict" = WRONG ]; then bad "$user $method $path -> $code"; else PASS=$((PASS + 1)); fi
@@ -556,15 +558,16 @@ step_roles() {
 }
 
 step_window() {
-  local pid sid sched rid st start end body i
+  local pid sid rid st start end body i
   ensure_blacklist
   ensure_targets
   pid=$(ensure_profile "$SLOW_PROFILE" "$(slow_profile_json)" 10.77.4.0/24)
   as_admin
   # Idempotent: stop what an earlier window step left behind.
-  for rid in $(raven_get "/runs?profile_id=$pid&limit=50" | jq -r '.items[] | select(.status == "pending" or .status == "running" or .status == "suspended") | .id'); do
+  while IFS= read -r rid; do
+    [ -n "$rid" ] || continue
     raven_post "/runs/$rid/stop" >/dev/null && say "stopped earlier run $rid"
-  done
+  done < <(raven_get "/runs?profile_id=$pid&limit=50" | jq -r '.items[] | select(.status == "pending" or .status == "running" or .status == "suspended") | .id')
   start=$(date -u -d '+1 min' +%Y-%m-%dT%H:%M:00Z)
   end=$(date -u -d '+3 min' +%Y-%m-%dT%H:%M:00Z)
   body=$(jq -cn --argjson p "$pid" --arg s "$start" --arg e "$end" '{name: "vlab-window", profile_id: $p, cron: "* * * * *", window_start: $s, window_end: $e, timezone: "UTC", enabled: true}')
@@ -572,7 +575,7 @@ step_window() {
   if [ -n "$sid" ]; then raven_put "/schedules/$sid" "$body" >/dev/null; else sid=$(raven_post /schedules "$body" | jq -r .id); fi
   say "schedule $sid: $SLOW_PROFILE (ports 1-65535, rate 2) daily window $start -> $end (UTC)"
   rid=""
-  for i in $(seq 1 60); do
+  for ((i = 1; i <= 60; i++)); do
     rid=$(raven_get "/runs?profile_id=$pid&limit=20" | jq -r --argjson s "$sid" '[.items[] | select(.schedule_id == $s and (.status == "running" or .status == "pending"))][0].id // empty')
     [ -n "$rid" ] && break
     sleep 5
@@ -580,9 +583,9 @@ step_window() {
   [ -n "$rid" ] || die "no run of schedule $sid started within 5 minutes"
   expect "run $rid started by schedule $sid inside the window" "$(raven_get "/runs/$rid")" '.started_at != null'
   say "waiting for the window to close ($end)"
-  for i in $(seq 1 60); do
+  for ((i = 1; i <= 60; i++)); do
     st=$(raven_get "/runs/$rid" | jq -r .status)
-    [ "$st" = suspended ] || [ "$st" = done ] && break
+    if [ "$st" = suspended ] || [ "$st" = done ]; then break; fi
     sleep 5
   done
   run_summary "$rid"
@@ -593,7 +596,7 @@ step_window() {
   end=$(date -u -d '+3 min' +%Y-%m-%dT%H:%M:00Z)
   raven_put "/schedules/$sid" "$(jq -c --arg s "$start" --arg e "$end" '.window_start = $s | .window_end = $e' <<<"$body")" >/dev/null
   say "next window $start -> $end"
-  for i in $(seq 1 60); do
+  for ((i = 1; i <= 60; i++)); do
     st=$(raven_get "/runs/$rid" | jq -r .status)
     [ "$st" = running ] && break
     sleep 5
@@ -637,7 +640,7 @@ step_dojo_plan() {
   as_admin
   say "waiting for RAVEN's planning poll (every 5 min)"
   sid=""
-  for i in $(seq 1 80); do
+  for ((i = 1; i <= 80; i++)); do
     sid=$(raven_get "/schedules?limit=1000" | jq -r --argjson e "$eid" '.items[] | select(.source == "dojo" and .dojo_engagement_id == $e) | .id' | head -n 1)
     [ -n "$sid" ] && break
     sleep 5
@@ -645,7 +648,7 @@ step_dojo_plan() {
   [ -n "$sid" ] || die "no Dojo schedule for engagement $eid after ~7 min"
   ok "Dojo-sourced schedule $sid for engagement $eid"
   rid=""
-  for i in $(seq 1 36); do
+  for ((i = 1; i <= 36; i++)); do
     rid=$(raven_get "/runs?limit=50" | jq -r --argjson s "$sid" '[.items[] | select(.schedule_id == $s)][0].id // empty')
     [ -n "$rid" ] && break
     sleep 5
@@ -666,7 +669,7 @@ svc_in() { # LIST IP PORT -> jq filter: the diff list has IP:PORT
 }
 
 walk() {
-  local r1 r2 r3 r4 r5 r6 r7 r8 r9 r10 r11 c h i
+  local r1 r2 r3 r4 r5 r6 r7 r8 r9 r10 r11 c i
   say "1 baseline"
   step_baseline
   do_run
@@ -725,7 +728,9 @@ walk() {
   do_run
   r9=$LAST_RUN
   expect "7 latency: run $r9 done with $((EXPECTED_HOSTS + 1)) hosts up" "$(raven_get "/runs/$r9")" ".status == \"done\" and .hosts_up == $((EXPECTED_HOSTS + 1))"
-  expect "7 latency: 10.77.2.10:80 facts unchanged" "$(changes "$r8" "$r9")" "$(svc_in services_changed 10.77.2.10 80) | not"
+  c=$(changes "$r8" "$r9")
+  expect "7 latency: 10.77.2.10:80 facts unchanged (only slow allowed)" "$c" '[.services_changed[] | select(.ip == "10.77.2.10" and .port == 80) | .fields[] | select(. != "slow")] | length == 0'
+  expect "7 latency: 10.77.2.10:80 marked slow" "$c" 'any(.services_changed[]; .ip == "10.77.2.10" and .port == 80 and (.fields | index("slow")))'
   step_toxic timeout
   do_run
   r10=$LAST_RUN
@@ -733,6 +738,7 @@ walk() {
   echo "changes $r9 -> $r10 on 10.77.2.x: $(jq -c '[.services_changed[], .services_gone[] | select(.ip | startswith("10.77.2.")) | {ip, port, fields, before: .before.title, after: .after.title}]' <<<"$c")"
   expect "7 timeout: 10.77.2.10:80 changed (title)" "$c" 'any(.services_changed[]; .ip == "10.77.2.10" and .port == 80 and (.fields | index("title")))'
   expect "7 timeout: 10.77.2.11:8666 still open" "$c" "$(svc_in services_gone 10.77.2.11 8666) | not"
+  expect "7 timeout: 10.77.2.11:8666 marked http_unresponsive" "$c" 'any(.services_changed[]; .ip == "10.77.2.11" and .port == 8666 and (.fields | index("http_unresponsive")))'
   step_toxic clear
   do_run
   r11=$LAST_RUN
@@ -741,16 +747,16 @@ walk() {
   if [ "$ASYNC_WAIT" -gt 0 ]; then
     say "waiting up to ${ASYNC_WAIT}s for the 5-minute CVE and Dojo sync passes"
     local cve=0 newdev=0 off=0
-    for i in $(seq 1 $((ASYNC_WAIT / 15))); do
-      [ $cve = 1 ] || raven_get "/cve-matches?ip=10.77.9.50" | jq -e 'any(.items[]; any(.cves[]; .id == "CVE-2021-41773"))' >/dev/null && cve=1
-      [ $newdev = 1 ] || raven_get "/findings?ip=10.77.9.50&limit=1000" | jq -e 'any(.items[]; .title == "New device found: 10.77.9.50")' >/dev/null && newdev=1
-      [ $off = 1 ] || raven_get "/findings?ip=10.77.4.10&limit=1000" | jq -e 'any(.items[]; .title == "Host offline: 10.77.4.10")' >/dev/null && off=1
-      [ $cve = 1 ] && [ $newdev = 1 ] && [ $off = 1 ] && break
+    for ((i = 1; i <= ASYNC_WAIT / 15; i++)); do
+      if [ "$cve" = 0 ] && raven_get "/cve-matches?ip=10.77.9.50" | jq -e 'any(.items[]; any(.cves[]; .id == "CVE-2021-41773"))' >/dev/null; then cve=1; fi
+      if [ "$newdev" = 0 ] && raven_get "/findings?ip=10.77.9.50&limit=1000" | jq -e 'any(.items[]; .title == "New device found: 10.77.9.50")' >/dev/null; then newdev=1; fi
+      if [ "$off" = 0 ] && raven_get "/findings?ip=10.77.4.10&limit=1000" | jq -e 'any(.items[]; .title == "Host offline: 10.77.4.10")' >/dev/null; then off=1; fi
+      [ "$cve" = 1 ] && [ "$newdev" = 1 ] && [ "$off" = 1 ] && break
       sleep 15
     done
-    if [ $cve = 1 ]; then ok "5 device-new: CVE-2021-41773 matched on 10.77.9.50"; else bad "5 device-new: CVE-2021-41773 matched on 10.77.9.50"; fi
-    if [ $newdev = 1 ]; then ok "5 device-new: finding 'New device found: 10.77.9.50'"; else bad "5 device-new: finding 'New device found: 10.77.9.50'"; fi
-    if [ $off = 1 ]; then ok "6 host-off: finding 'Host offline: 10.77.4.10'"; else bad "6 host-off: finding 'Host offline: 10.77.4.10'"; fi
+    if [ "$cve" = 1 ]; then ok "5 device-new: CVE-2021-41773 matched on 10.77.9.50"; else bad "5 device-new: CVE-2021-41773 matched on 10.77.9.50"; fi
+    if [ "$newdev" = 1 ]; then ok "5 device-new: finding 'New device found: 10.77.9.50'"; else bad "5 device-new: finding 'New device found: 10.77.9.50'"; fi
+    if [ "$off" = 1 ]; then ok "6 host-off: finding 'Host offline: 10.77.4.10'"; else bad "6 host-off: finding 'Host offline: 10.77.4.10'"; fi
   fi
 
   say "restoring the lab"
@@ -768,6 +774,10 @@ usage() {
 
 main() {
   local args=() a step
+  if [ -z "${RAVEN_URL:-}" ] && [ -z "${RAVEN_PORT:-}" ]; then
+    RAVEN_PORT=$(env_or_file RAVEN_PORT 8000)
+    export RAVEN_PORT
+  fi
   DO_RUN=0
   for a in "$@"; do
     case $a in
