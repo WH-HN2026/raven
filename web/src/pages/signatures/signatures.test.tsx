@@ -80,7 +80,7 @@ describe('parseMeta / parseValidationError', () => {
 })
 
 describe('list', () => {
-  it('shows severity, tags, source, validation and enabled toggles', async () => {
+  it('shows severity, tags, source, status and enabled toggles', async () => {
     const invalid = { ...custom, id: 10, name: 'bad-one', valid: false, enabled: false, validation_error: 'line 8: nope' }
     const fetchMock = mockApi({
       'GET /api/signatures': () => json({ items: [builtin, invalid], total: 2 }),
@@ -89,13 +89,15 @@ describe('list', () => {
     renderAs('editor', <SignaturesList />, { path: '/signatures' })
     await screen.findByText('bad-one')
     const table = screen.getByRole('table', { name: 'Signatures' })
+    expect(within(table).getByRole('columnheader', { name: 'Status' })).toBeInTheDocument()
     const rows = within(table).getAllByRole('row')
     expect(rows[1]).toHaveTextContent('Admin page at /admin')
     expect(rows[1]).toHaveTextContent('low')
     expect(rows[1]).toHaveTextContent('panel')
     expect(rows[1]).toHaveTextContent('Built-in')
-    expect(rows[1]).toHaveTextContent('Valid')
-    expect(rows[2]).toHaveTextContent('Invalid')
+    expect(rows[1]).toHaveTextContent('Ready')
+    expect(rows[2]).toHaveTextContent('Rejected')
+    expect(rows[2]).toHaveTextContent('line 8: nope')
     // an invalid, disabled signature can't be enabled
     expect(within(rows[2]!).getByRole('checkbox')).toBeDisabled()
 

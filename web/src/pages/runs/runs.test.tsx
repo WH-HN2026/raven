@@ -143,7 +143,7 @@ describe('RunsPage', () => {
       return json({ items: [run()], total: 1 })
     })
     wrap(<RunsPage />)
-    expect(await screen.findByRole('option', { name: /default/ })).toBeInTheDocument()
+    expect(await screen.findByRole('option', { name: 'default' })).toBeInTheDocument()
     await screen.findByText('#7')
     fireEvent.click(screen.getByRole('button', { name: 'Start run' }))
     const alert = await screen.findByRole('alert')

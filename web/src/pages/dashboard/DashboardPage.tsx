@@ -119,7 +119,7 @@ function Body({ d }: { d: Dashboard }) {
           <KeyNumber label="Changed services" value={counts ? formatCount(counts.changed) : '—'} edge="rose" note={since} />
           <KeyNumber label="Gone" value={counts ? formatCount(counts.gone) : '—'} edge="black" note={since} />
           <KeyNumber
-            label="Unstable hosts"
+            label="Intermittent hosts"
             value={<Link to={hostsLink({ state: 'unstable' })}>{formatCount(d.hosts.unstable)}</Link>}
             edge="black"
             note={<Link to={hostsLink({ state: 'inactive' })}>{formatCount(d.hosts.inactive)} inactive</Link>}
@@ -140,7 +140,7 @@ function Body({ d }: { d: Dashboard }) {
           <CVESection d={d} />
         </div>
         <div className="min-w-0 flex-[1_1_300px]">
-          <UnstableSection d={d} />
+          <IntermittentSection d={d} />
         </div>
       </Section>
 
@@ -369,14 +369,14 @@ function CVESection({ d }: { d: Dashboard }) {
   )
 }
 
-function UnstableSection({ d }: { d: Dashboard }) {
+function IntermittentSection({ d }: { d: Dashboard }) {
   return (
     <div className="flex flex-col gap-4">
-      <SectionHeading>Unstable hosts</SectionHeading>
+      <SectionHeading>Intermittent hosts</SectionHeading>
       {d.unstable_hosts.length === 0 ? (
-        <EmptyState>No unstable or inactive hosts</EmptyState>
+        <EmptyState>No intermittent or inactive hosts</EmptyState>
       ) : (
-        <ul className="m-0 list-none border-t-2 border-black p-0" aria-label="Unstable hosts">
+        <ul className="m-0 list-none border-t-2 border-black p-0" aria-label="Intermittent hosts">
           {d.unstable_hosts.map((u) => (
             <li key={u.ip} className="flex flex-wrap items-center justify-between gap-2 border-b border-line py-2.5">
               <span className="flex items-center gap-2">
@@ -393,7 +393,7 @@ function UnstableSection({ d }: { d: Dashboard }) {
         </ul>
       )}
       <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm font-medium">
-        <Link to={hostsLink({ state: 'unstable' })}>All unstable ({formatCount(d.hosts.unstable)})</Link>
+        <Link to={hostsLink({ state: 'unstable' })}>All intermittent ({formatCount(d.hosts.unstable)})</Link>
         <Link to={hostsLink({ state: 'inactive' })}>Inactive ({formatCount(d.hosts.inactive)})</Link>
       </div>
     </div>

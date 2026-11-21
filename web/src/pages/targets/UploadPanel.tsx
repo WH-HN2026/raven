@@ -94,7 +94,7 @@ export function UploadPanel() {
                 <thead className="sr-only">
                   <THeadRow>
                     <Th>Value</Th>
-                    <Th>Kind</Th>
+                    <Th>Type</Th>
                     <Th>Tags</Th>
                     <Th>Note</Th>
                   </THeadRow>

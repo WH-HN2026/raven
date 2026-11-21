@@ -22,7 +22,7 @@ export function TargetsPage() {
   const mode = picked ?? modes[0]?.value
   return (
     <>
-      <PageHeader title="Targets & scope" crumbs={[{ label: 'Targets & scope' }]}>
+      <PageHeader title="Targets & scope">
         <ExportButton kind="targets" onDark />
       </PageHeader>
       <Section className="flex flex-wrap items-start gap-12">

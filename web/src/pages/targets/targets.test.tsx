@@ -150,6 +150,8 @@ describe('TargetsPage permissions', () => {
     wrap(<TargetsPage />, ['read', 'export'])
     expect(await screen.findByText('10.0.0.7')).toBeInTheDocument()
     expect(await screen.findByText('10.9.0.0/16')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Exclude' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Type' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Delete|Add|Import/ })).not.toBeInTheDocument()
     expect(screen.queryByLabelText('File')).not.toBeInTheDocument()
     await waitFor(() => expect(screen.getByText('Admin only')).toBeInTheDocument())

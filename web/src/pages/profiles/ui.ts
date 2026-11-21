@@ -27,6 +27,11 @@ export const PROFILE_DEFAULTS = {
   target_batch_seconds: 600,
 }
 
+/** Two decimal places preserve whole seconds when converted back and rounded. */
+export function batchMinutes(seconds: number): number {
+  return Number((seconds / 60).toFixed(2))
+}
+
 const PORT_SPEC = /^[0-9]+(-[0-9]+)?(,[0-9]+(-[0-9]+)?)*$/
 
 /** Mirrors nmap.CheckPorts: digits, commas and ranges, ports 1–65535. Returns an error or null. */

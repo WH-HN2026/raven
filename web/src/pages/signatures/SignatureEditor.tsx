@@ -76,7 +76,7 @@ export function SignatureEditor({ sig }: { sig: Sig | null }) {
   const validate = useMutation({
     mutationFn: () => api.post('/signatures/validate', { body: { template_yaml: draft } }),
     onSuccess: (r) =>
-      setOutcome(r.valid ? { kind: 'ok', text: 'Valid' } : { kind: 'issues', title: 'Invalid', issues: r.issues }),
+      setOutcome(r.valid ? { kind: 'ok', text: 'Ready' } : { kind: 'issues', title: 'Rejected', issues: r.issues }),
   })
 
   const onSaved = (s: Sig) => {
@@ -84,7 +84,7 @@ export function SignatureEditor({ sig }: { sig: Sig | null }) {
     setOutcome(
       s.valid
         ? { kind: 'ok', text: 'Saved' }
-        : { kind: 'issues', title: 'Saved, disabled: invalid', issues: parseValidationError(s.validation_error) },
+        : { kind: 'issues', title: 'Saved · Rejected', issues: parseValidationError(s.validation_error) },
     )
   }
   const saveError = (e: Error) => {
@@ -124,12 +124,12 @@ export function SignatureEditor({ sig }: { sig: Sig | null }) {
     <>
       <PageHeader
         title={title}
-        crumbs={[{ label: 'Signatures', to: '/signatures' }, { label: sig ? sig.name : 'New' }]}
+        crumbs={[{ label: 'Signatures', to: '/signatures' }, { label: title }]}
         badges={
           sig && (
             <>
               <Badge tone="outline-dark">{sig.builtin ? 'Built-in' : 'Custom'}</Badge>
-              {sig.valid ? <Badge tone="new">Valid</Badge> : <Badge tone="red">Invalid</Badge>}
+              {sig.valid ? <Badge tone="new">Ready</Badge> : <Badge tone="red">Rejected</Badge>}
               {sig.enabled ? <Badge tone="new">Enabled</Badge> : <Badge tone="gone">Disabled</Badge>}
             </>
           )
@@ -184,7 +184,7 @@ export function SignatureEditor({ sig }: { sig: Sig | null }) {
           {shownIssues.length > 0 && (
             <IssueList
               issues={shownIssues}
-              title={outcome?.kind === 'issues' ? outcome.title : 'Invalid'}
+              title={outcome?.kind === 'issues' ? outcome.title : 'Rejected'}
               onGo={go}
             />
           )}

@@ -120,7 +120,7 @@ describe('HostsPage', () => {
     // the state toggle applies immediately
     const state = screen.getByRole('group', { name: 'State' })
     expect(within(state).getByRole('button', { name: 'Active' })).toHaveAttribute('aria-pressed', 'true')
-    fireEvent.click(within(state).getByRole('button', { name: 'Unstable' }))
+    fireEvent.click(within(state).getByRole('button', { name: 'Intermittent' }))
     await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('state=unstable'))
 
     fireEvent.click(screen.getByRole('button', { name: 'Reset' }))

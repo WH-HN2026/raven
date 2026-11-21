@@ -3,7 +3,7 @@ import { useCan } from '../../auth/hooks'
 import { PageHeader } from '../../components/PageHeader'
 import { Badge, Chip, EmptyRow, ErrorText, Section, SectionHeading, Table, Td, Th, THeadRow, Tr, buttonClass } from '../../components/ui'
 import { Schedules } from './Schedules'
-import { useProfiles } from './ui'
+import { batchMinutes, useProfiles } from './ui'
 
 function ProfilesTable() {
   const q = useProfiles()
@@ -21,7 +21,7 @@ function ProfilesTable() {
             <Th className="text-right">nuclei rate</Th>
             <Th>Nuclei tags</Th>
             <Th className="text-right">Miss threshold</Th>
-            <Th className="text-right">Batch</Th>
+            <Th className="text-right">Batch duration</Th>
             <Th>Enabled</Th>
           </THeadRow>
         </thead>
@@ -44,7 +44,7 @@ function ProfilesTable() {
               </Td>
               <Td className="text-right tabular-nums">{p.miss_threshold ?? '—'}</Td>
               <Td className="text-right whitespace-nowrap tabular-nums">
-                {p.target_batch_seconds !== undefined ? `${Math.round(p.target_batch_seconds / 60)} min` : '—'}
+                {p.target_batch_seconds !== undefined ? `${batchMinutes(p.target_batch_seconds)} min` : '—'}
               </Td>
               <Td>{p.enabled ? <Badge tone="new">On</Badge> : <Badge tone="gone">Off</Badge>}</Td>
             </Tr>
@@ -60,7 +60,7 @@ export function ProfilesPage() {
   const canWrite = useCan('profiles:write')
   return (
     <>
-      <PageHeader title="Profiles & schedules" crumbs={[{ label: 'Profiles & schedules' }]}>
+      <PageHeader title="Profiles & schedules">
         {canWrite && (
           <Link to="/profiles/new" className={buttonClass('primary', 'lg', true)}>
             New profile
