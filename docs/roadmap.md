@@ -148,7 +148,7 @@ M0 is sequential and blocking. Do it in **one** worktree, as fast as possible, t
 - [x] **AG1 Aggressive gating.** (needs WF1) `scan:aggressive` permission (admin), confirmation on start, "Aggressive" badge on profiles/runs, audit_log entries, viewer/editor 403s.
 - [ ] **AG2 nuclei active.** (needs AG1) intrusive/fuzz templates pinned in an aggressive set, dos excluded, no interactsh; own Dojo test.
 - [ ] **AG3 nikto.** (needs AG1) Pinned in the image, flag allowlist with limited tuning and rate/time caps, "Nikto Scan" push, lab test.
-- [ ] **AG4 wpscan.** (needs AG1) Pinned in the image, WordPress URLs only, enumeration without passwords or API token, "Wpscan" push, versions into offline CVE matching, lab test against the lab WordPress.
+- [x] **AG4 wpscan.** (needs AG1) Pinned in the image, WordPress URLs only, enumeration without passwords or API token, "Wpscan" push, versions into offline CVE matching, lab test against the lab WordPress.
 - [ ] **AG5 ZAP.** (needs AG1) ZAP service under compose profile `aggressive`, API-driven spider + capped active scan, "ZAP Scan" push, lab test.
 
 **Track V — vuln_lab (organizers' example lab)** · design and task specs: [`vuln-lab.md`](vuln-lab.md)

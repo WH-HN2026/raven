@@ -16,15 +16,15 @@ import (
 )
 
 type report struct {
-	StartTime           int64                 `json:"start_time"`
-	TargetURL           string                `json:"target_url"`
-	TargetIP            string                `json:"target_ip"`
-	EffectiveURL        string                `json:"effective_url"`
-	Version             *versionInfo          `json:"version"`
-	MainTheme           *componentInfo        `json:"main_theme"`
+	StartTime           int64                     `json:"start_time"`
+	TargetURL           string                    `json:"target_url"`
+	TargetIP            string                    `json:"target_ip"`
+	EffectiveURL        string                    `json:"effective_url"`
+	Version             *versionInfo              `json:"version"`
+	MainTheme           *componentInfo            `json:"main_theme"`
 	Plugins             map[string]*componentInfo `json:"plugins"`
 	Themes              map[string]*componentInfo `json:"themes"`
-	InterestingFindings []json.RawMessage     `json:"interesting_findings"`
+	InterestingFindings []json.RawMessage         `json:"interesting_findings"`
 }
 
 type versionInfo struct {

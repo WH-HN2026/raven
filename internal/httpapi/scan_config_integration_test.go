@@ -62,8 +62,11 @@ func TestProfilesAndSchedulesAPI(t *testing.T) {
 		t.Fatalf("GET /stages = %+v", stagesResp)
 	}
 	for _, st := range stagesResp.Stages {
-		if st.Aggressive && st.Available {
-			t.Fatalf("aggressive stage %s should not be available in WF1", st.Name)
+		if st.Name == pipeline.StageWPScan && !st.Available {
+			t.Fatalf("aggressive stage %s should be available", st.Name)
+		}
+		if st.Aggressive && st.Name != pipeline.StageWPScan && st.Available {
+			t.Fatalf("aggressive stage %s should not be available yet", st.Name)
 		}
 	}
 
@@ -128,7 +131,7 @@ func TestProfilesAndSchedulesAPI(t *testing.T) {
 		`{"name":"bad","ports":"80","stages":["nmap","masscan"]}`,
 		`{"name":"bad","ports":"80","stages":["nmap","httpx","nuclei_active"]}`,
 		`{"name":"bad","ports":"80","stages":["nmap","httpx","nikto"]}`,
-		`{"name":"bad","ports":"80","stages":["nmap","httpx","wpscan"]}`,
+		`{"name":"bad","ports":"80","stages":["nmap","wpscan"]}`,
 		`{"name":"bad","ports":"80","stages":["nmap","httpx","zap"]}`,
 	} {
 		request(400, admin, http.MethodPost, "/profiles", body)
