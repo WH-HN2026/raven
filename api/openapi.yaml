@@ -329,13 +329,13 @@ paths:
     get:
       tags: [hosts]
       operationId: listHosts
-      description: stub
+      description: Hosts ordered by IP. All filters are optional and combined with AND.
       parameters:
         - { name: state, in: query, schema: { $ref: "#/components/schemas/HostState" } }
-        - { name: port, in: query, schema: { type: integer } }
-        - { name: tech, in: query, schema: { type: string } }
-        - { name: tag, in: query, schema: { type: string } }
-        - { name: q, in: query, schema: { type: string }, description: "IP prefix or hostname substring" }
+        - { name: port, in: query, schema: { type: integer, minimum: 0, maximum: 65535 }, description: "has an open service on this port" }
+        - { name: tech, in: query, schema: { type: string }, description: "technology seen in any HTTP observation of the host (case-insensitive)" }
+        - { name: tag, in: query, schema: { type: string }, description: "user tag (exact)" }
+        - { name: q, in: query, schema: { type: string }, description: "IP or CIDR (containment); otherwise IP text prefix or hostname substring" }
         - { $ref: "#/components/parameters/Limit" }
         - { $ref: "#/components/parameters/Offset" }
       responses:
@@ -351,7 +351,10 @@ paths:
     get:
       tags: [hosts]
       operationId: getHost
-      description: stub
+      description: |
+        Host with all its services (user overrides applied, banner decrypted), the latest
+        HTTP observation per URL (headers/cookies/TLS decrypted) and the last 20 host-level
+        up/down observations. 400 for a malformed IP, 404 for an unknown host.
       responses:
         "200":
           description: Host with services and HTTP observations.
@@ -1098,7 +1101,7 @@ components:
     # ── hosts / services ──
     Host:
       type: object
-      required: [ip, hostnames, state, first_seen, last_seen, miss_count]
+      required: [ip, hostnames, state, first_seen, last_seen, miss_count, dojo_asset_id, open_service_count, open_ports, technologies, owner, criticality, user_tags, overrides]
       properties:
         ip: { type: string }
         hostnames: { type: array, items: { type: string } }
@@ -1107,12 +1110,12 @@ components:
         last_seen: { type: string, format: date-time }
         miss_count: { type: integer }
         dojo_asset_id: { type: [integer, "null"], format: int64 }
-        open_ports: { type: array, items: { type: integer } }
-        technologies: { type: array, items: { type: string } }
+        open_service_count: { type: integer, description: "services in state open (port/proto pairs)" }
+        open_ports: { type: array, items: { type: integer }, description: "distinct open ports, ascending" }
+        technologies: { type: array, items: { type: string }, description: "from HTTP observations, sorted" }
         # user-owned
         owner: { type: string }
         criticality: { type: string, enum: ["", low, medium, high, critical] }
-        notes: { type: string }
         user_tags: { type: array, items: { type: string } }
         overrides: { type: object, additionalProperties: true }
     HostPatch:
@@ -1128,19 +1131,39 @@ components:
       allOf:
         - $ref: "#/components/schemas/Host"
         - type: object
-          required: [services]
+          required: [notes, services, http, timeline]
           properties:
+            notes: { type: string, description: decrypted }
             services: { type: array, items: { $ref: "#/components/schemas/Service" } }
-            http: { type: array, items: { $ref: "#/components/schemas/HttpObservation" } }
+            http: { type: array, items: { $ref: "#/components/schemas/HttpObservation" }, description: "latest per (service, URL); empty until nuclei (S4) runs" }
+            timeline: { type: array, items: { $ref: "#/components/schemas/HostObservation" }, description: "newest first" }
+    HostObservation:
+      type: object
+      required: [run_id, up, observed_at]
+      properties:
+        run_id: { type: integer, format: int64 }
+        up: { type: boolean }
+        observed_at: { type: string, format: date-time }
     HostList:
       type: object
       required: [items, total]
       properties:
         items: { type: array, items: { $ref: "#/components/schemas/Host" } }
         total: { type: integer }
+    ServiceFields:
+      type: object
+      required: [name, product, version]
+      properties:
+        name: { type: string }
+        product: { type: string }
+        version: { type: string }
     Service:
       type: object
-      required: [id, ip, port, proto, state]
+      description: |
+        name/product/version are the effective values: `overrides` (user edits) layered on the scan
+        values (architecture §5). `scan` holds what the scanner saw; `overridden` names the fields
+        taken from overrides.
+      required: [id, ip, port, proto, name, product, version, scan, overridden, banner, state, first_seen, last_seen, overrides]
       properties:
         id: { type: integer, format: int64 }
         ip: { type: string }
@@ -1149,7 +1172,9 @@ components:
         name: { type: string }
         product: { type: string }
         version: { type: string }
-        banner: { type: string }
+        scan: { $ref: "#/components/schemas/ServiceFields" }
+        overridden: { type: array, items: { type: string, enum: [name, product, version] } }
+        banner: { type: string, description: decrypted }
         state: { type: string, enum: [open, gone] }
         first_seen: { type: string, format: date-time }
         last_seen: { type: string, format: date-time }
@@ -1162,7 +1187,10 @@ components:
         total: { type: integer }
     HttpObservation:
       type: object
-      required: [id, service_id, url]
+      description: |
+        Decrypted on read. Storage format (for the S4 ingest): headers_enc = JSON object of strings,
+        cookies_enc = JSON array of strings, tls_cert_enc = text; redirects jsonb = array of strings.
+      required: [id, service_id, url, status, title, headers, cookies, tls_cert, redirects, technologies, favicon_hash, run_id, observed_at]
       properties:
         id: { type: integer, format: int64 }
         service_id: { type: integer, format: int64 }
