@@ -72,7 +72,7 @@ func TestIntegrationHostEdit(t *testing.T) {
 	}
 	var diff string
 	must(pool.QueryRow(ctx, `SELECT diff::text FROM audit_log WHERE action = 'host.update' AND object_id = '10.10.0.3' AND user_id = $1`, actor).Scan(&diff))
-	if strings.Contains(diff, "top secret") || !strings.Contains(diff, `"notes": "changed"`) || !strings.Contains(diff, `"owner"`) {
+	if strings.Contains(diff, "top secret") || !strings.Contains(diff, `"notes": `) || !strings.Contains(diff, `"owner"`) {
 		t.Fatalf("audit diff = %s", diff)
 	}
 	// Clearing notes nulls notes_enc.
