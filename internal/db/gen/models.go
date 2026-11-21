@@ -140,11 +140,13 @@ type Run struct {
 }
 
 type RunObservation struct {
-	RunID      int64       `json:"run_id"`
-	Ip         netip.Addr  `json:"ip"`
-	Port       pgtype.Int4 `json:"port"`
-	Up         bool        `json:"up"`
-	ObservedAt time.Time   `json:"observed_at"`
+	RunID             int64           `json:"run_id"`
+	Ip                netip.Addr      `json:"ip"`
+	Port              pgtype.Int4     `json:"port"`
+	Up                bool            `json:"up"`
+	ObservedAt        time.Time       `json:"observed_at"`
+	NucleiMatches     json.RawMessage `json:"nuclei_matches"`
+	NucleiEvidenceEnc []byte          `json:"nuclei_evidence_enc"`
 }
 
 type Schedule struct {
