@@ -2,6 +2,7 @@ import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-quer
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { ApiError, api } from '../../api/client'
+import { ExportButton } from '../../components/ExportButton'
 import { PageHeader } from '../../components/PageHeader'
 import {
   Alert,
@@ -108,7 +109,9 @@ export function ChangesPage() {
   const err = diff.error
   return (
     <>
-      <PageHeader title="Changes" crumbs={[{ label: 'Changes' }]} />
+      <PageHeader title="Changes" crumbs={[{ label: 'Changes' }]}>
+        <ExportButton kind="changes" onDark />
+      </PageHeader>
       <FilterBar onSubmit={(e) => e.preventDefault()}>
         <Field label="Profile" className="flex-[0_1_280px]">
           <select

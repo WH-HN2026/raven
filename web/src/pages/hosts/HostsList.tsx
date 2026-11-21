@@ -2,6 +2,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useState, type FormEvent } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { api } from '../../api/client'
+import { ExportButton } from '../../components/ExportButton'
 import { PageHeader } from '../../components/PageHeader'
 import {
   Badge,
@@ -57,7 +58,9 @@ export function HostsPage() {
         title="Hosts"
         crumbs={[{ label: 'Hosts' }]}
         meta={q.isSuccess ? `${total} ${filtered ? 'matching' : 'total'}` : undefined}
-      />
+      >
+        <ExportButton kind="hosts" onDark />
+      </PageHeader>
       {/* key: re-initialise the inputs when the URL changes (back/forward, reset). */}
       <FilterForm key={params.toString()} initial={filters} onApply={apply} />
       <Section className="pt-10 pb-16">

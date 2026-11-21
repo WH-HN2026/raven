@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useCan } from '../../auth/hooks'
+import { ExportButton } from '../../components/ExportButton'
 import { PageHeader } from '../../components/PageHeader'
 import { Section, SectionHeading, ToggleGroup } from '../../components/ui'
 import type { AppRoute } from '../types'
@@ -21,7 +22,9 @@ export function TargetsPage() {
   const mode = picked ?? modes[0]?.value
   return (
     <>
-      <PageHeader title="Targets & scope" crumbs={[{ label: 'Targets & scope' }]} />
+      <PageHeader title="Targets & scope" crumbs={[{ label: 'Targets & scope' }]}>
+        <ExportButton kind="targets" onDark />
+      </PageHeader>
       <Section className="flex flex-wrap items-start gap-12">
         {mode && (
           <section className="flex min-w-0 flex-[1_1_520px] flex-col gap-5">

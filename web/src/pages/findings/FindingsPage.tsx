@@ -2,6 +2,7 @@ import { keepPreviousData, useQueries, useQuery } from '@tanstack/react-query'
 import { useState, type FormEvent } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { api } from '../../api/client'
+import { ExportButton } from '../../components/ExportButton'
 import { PageHeader } from '../../components/PageHeader'
 import {
   Badge,
@@ -91,7 +92,9 @@ export function FindingsPage() {
         title="Findings"
         crumbs={[{ label: 'Findings' }]}
         meta={q.isSuccess ? `${total} ${filtered ? 'matching' : 'total'}` : undefined}
-      />
+      >
+        <ExportButton kind="findings" onDark />
+      </PageHeader>
       <Section label="Findings by severity" className="pt-10 pb-8">
         <div className="grid gap-6" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))' }}>
           {severities.map((s, i) => {
