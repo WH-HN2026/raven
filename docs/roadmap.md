@@ -108,7 +108,7 @@ M0 is sequential and blocking. Do it in **one** worktree, as fast as possible, t
 
 **Track W — Web UI**
 - [ ] **W4 Dashboard.** Key findings by severity, new/gone/changed since the last run, new devices (shadow IT), unstable hosts, top technologies, last runs with durations.
-- [ ] **W5 Findings page.** Mirror list with filters, inline triage (status, severity, notes) via D6; link out to Dojo.
+- [x] **W5 Findings page.** Mirror list with filters, inline triage (status, severity, notes) via D6; link out to Dojo.
 - [x] **W6 Changes page.** Pick two runs → diff table; per-host timeline.
 - [ ] **W7 Profiles & Schedules pages.** Profile editor (ports, rates, nuclei tags, miss threshold), schedule editor; Dojo-sourced schedules shown read-only with a badge.
 - [x] **W8 Signatures page.** YAML editor, validate button with errors, enable/disable, test against one URL in the lab.
