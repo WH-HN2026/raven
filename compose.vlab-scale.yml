@@ -1,0 +1,33 @@
+# vuln lab scale layer (docs/vuln-lab.md §5): one container that occupies VLAB_SCALE_HOSTS
+# addresses of 10.77.64.0/18 on the internal raven_vlab network. Use scripts/vlab-scale.sh.
+# Never add `ports:` here: nothing in this lab may be reachable from the host or the LAN.
+name: raven-vlab-scale
+
+services:
+  swarm:
+    build: lab/vuln/scale
+    image: raven-vlab-scale:local
+    environment:
+      VLAB_SCALE_HOSTS: "${VLAB_SCALE_HOSTS:-256}"
+      VLAB_SCALE_SEED: "${VLAB_SCALE_SEED:-1}"
+      VLAB_SCALE_EPOCH: "${VLAB_SCALE_EPOCH:-0}"
+    # NET_ADMIN only here, to add the scale addresses to its own interface (ip addr, own netns).
+    cap_drop: [ALL]
+    cap_add: [NET_ADMIN, NET_BIND_SERVICE]
+    ulimits:
+      nofile: 65536
+    restart: "no"
+    healthcheck:
+      test: [CMD, test, -f, /tmp/ready]
+      interval: 2s
+      timeout: 2s
+      retries: 150
+    networks:
+      vlab:
+        # In the blacklisted tooling range, so the swarm's own address is never a scan target.
+        ipv4_address: 10.77.254.30
+
+networks:
+  vlab:
+    external: true
+    name: raven_vlab

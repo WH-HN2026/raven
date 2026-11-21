@@ -113,3 +113,12 @@ demo-down:
 ## demo-reset: delete RAVEN/Dojo/lab volumes and .demo-credentials, keep .env (asks first; CONFIRM=1 skips)
 demo-reset:
 	CONFIRM=$(CONFIRM) scripts/demo.sh reset
+
+## vuln lab scale layer (docs/vuln-lab.md §5): N hosts in 10.77.64.0/18, e.g. make vlab-scale-up N=1024
+.PHONY: vlab-scale-up vlab-scale-down
+vlab-scale-up:
+	scripts/vlab-scale.sh up $(N)
+
+## vlab-scale-down: remove the scale layer (run it before vlab-down)
+vlab-scale-down:
+	scripts/vlab-scale.sh down
