@@ -1,5 +1,6 @@
 -- name: InsertBatch :one
-INSERT INTO batches (run_id, seq, ips) VALUES ($1, $2, $3) RETURNING id;
+INSERT INTO batches (run_id, seq, ips, hostnames)
+VALUES ($1, $2, $3, COALESCE(sqlc.narg(hostnames)::jsonb, '{}'::jsonb)) RETURNING id;
 
 -- name: SetBatchJob :exec
 UPDATE batches SET job_id = $2 WHERE id = $1;
@@ -42,3 +43,10 @@ WHERE r.profile_id = $1
   AND cardinality(b.ips) > 0
 ORDER BY b.finished_at DESC, b.id DESC
 LIMIT $2;
+
+-- name: ResetWindowBatches :exec
+UPDATE batches SET status = 'pending', job_id = NULL, started_at = NULL
+WHERE run_id = $1 AND status IN ('pending', 'running');
+
+-- name: ListPendingBatches :many
+SELECT id, hostnames FROM batches WHERE run_id = $1 AND status = 'pending' ORDER BY seq;

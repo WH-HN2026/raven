@@ -3,14 +3,14 @@ SELECT * FROM profiles WHERE id = $1;
 
 -- name: LockProfile :one
 -- Serializes run starts of one profile (one active run per profile).
-SELECT * FROM profiles WHERE id = $1 FOR UPDATE;
+SELECT * FROM profiles WHERE id = $1 FOR NO KEY UPDATE;
 
 -- name: CountActiveRuns :one
 SELECT count(*) FROM runs WHERE profile_id = $1 AND status IN ('pending', 'running');
 
 -- name: InsertRun :one
-INSERT INTO runs (profile_id, status, created_by, started_at, finished_at, hosts_total, stats)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO runs (profile_id, status, created_by, started_at, finished_at, hosts_total, stats, schedule_id, schedule_window_end)
+VALUES ($1, $2, $3, $4, $5, $6, $7, sqlc.narg(schedule_id), sqlc.narg(schedule_window_end))
 RETURNING *;
 
 -- name: LockRun :one

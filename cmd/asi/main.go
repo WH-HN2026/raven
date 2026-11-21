@@ -24,6 +24,7 @@ import (
 	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner/httpx"
 	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner/nmap"
 	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner/nuclei"
+	"github.com/WH-HN2026/zadanie-agh-asi/internal/scheduler"
 	"github.com/WH-HN2026/zadanie-agh-asi/internal/signatures"
 )
 
@@ -129,6 +130,7 @@ func run() error {
 		return err
 	}
 	defer shutdown("pipeline", pipe.Shutdown)
+	go (scheduler.Scheduler{Queries: q, Runs: pipe}).Run(ctx, 30*time.Second)
 
 	srv := &http.Server{
 		Addr: cfg.HTTPAddr,

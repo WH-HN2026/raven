@@ -521,7 +521,7 @@ export interface paths {
         /** @description All scan profiles, ordered by name (read). Used by the Runs page to pick a profile. */
         get: operations["listProfiles"];
         put?: never;
-        /** @description stub */
+        /** @description Create a profile with allowlisted ports and template tags. Omitted settings use the profile defaults. */
         post: operations["createProfile"];
         delete?: never;
         options?: never;
@@ -539,10 +539,10 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** @description stub */
+        /** @description Update a profile. Omitted optional settings retain their current values. */
         put: operations["updateProfile"];
         post?: never;
-        /** @description stub */
+        /** @description Delete a profile. Profiles referenced by schedules or runs return 409. */
         delete: operations["deleteProfile"];
         options?: never;
         head?: never;
@@ -556,10 +556,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description stub */
+        /** @description List UI and Dojo schedules, ordered by ID. */
         get: operations["listSchedules"];
         put?: never;
-        /** @description stub */
+        /** @description Create a recurring UI schedule. */
         post: operations["createSchedule"];
         delete?: never;
         options?: never;
@@ -577,10 +577,10 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** @description stub. Dojo-sourced schedules are read-only (409). */
+        /** @description Update a UI schedule. Dojo schedules and changing the profile of an unfinished run return 409. */
         put: operations["updateSchedule"];
         post?: never;
-        /** @description stub */
+        /** @description Delete an idle UI schedule. Dojo schedules and schedules with unfinished runs return 409. */
         delete: operations["deleteSchedule"];
         options?: never;
         head?: never;
@@ -1328,6 +1328,7 @@ export interface components {
             ports: string;
             nmap_max_rate?: number;
             nuclei_rate?: number;
+            /** @description Allowed tags are tech, panel, ssl, waf and favicon. */
             nuclei_tags?: string[];
             miss_threshold?: number;
             target_batch_seconds?: number;
@@ -1346,10 +1347,17 @@ export interface components {
         ScheduleInput: {
             /** Format: int64 */
             profile_id: number;
+            /** @description Required for UI writes. Supported forms are * * * * *, *\/N * * * *, 0 *\/N * * *, M * * * *, and M H * * *, where N is a positive step, M is 0–59, and H is 0–23. Evaluated in timezone. Null for Dojo. */
             cron?: string | null;
-            /** Format: date-time */
+            /**
+             * Format: date-time
+             * @description Inclusive. The local clock time in timezone recurs daily for UI schedules. Dojo uses the absolute timestamp.
+             */
             window_start?: string | null;
-            /** Format: date-time */
+            /**
+             * Format: date-time
+             * @description Exclusive. UI schedules require both bounds or neither. Use a next-day timestamp for the end of an overnight window. Dojo uses the absolute timestamp.
+             */
             window_end?: string | null;
             /** @default Europe/Warsaw */
             timezone: string;
