@@ -19,10 +19,10 @@ Read before working:
 
 ## Workflow (Orca worktrees, no human review)
 
-Repo: https://github.com/WH-HN2026/zadanie-agh-asi. One roadmap task = one worktree = one branch = one PR, and **you merge your own PR**; there are no human reviews. `main` is protected:
-- the CI check `check` (`.github/workflows/check.yml`, which runs `make check`) must be green;
-- squash merge only, and the branch is deleted after merge;
-- never push to `main` directly.
+Repo: https://github.com/WH-HN2026/zadanie-agh-asi. One roadmap task = one worktree = one branch = one PR, and **you merge your own PR**; there are no human reviews. Rules (by convention: the org is on GitHub Free, so branch protection isn't available on this private repo):
+- the CI check `check` (`.github/workflows/check.yml`, which runs `make check`) must be green before merging; the merge command below waits for it;
+- squash merge only (repo setting), and the remote branch is deleted automatically after merge (repo setting);
+- **never push to `main` directly.**
 
 1. **Pick a task** in `docs/roadmap.md` whose dependencies are `[x]`. Run `gh pr list --state open` first; an open PR titled `<ID>: …` means the task is taken.
 2. **Create the worktree** from up-to-date `origin/main`. Branch name: `t/<id>-<slug>`, e.g. `t/s2-nmap`.
@@ -37,11 +37,12 @@ Repo: https://github.com/WH-HN2026/zadanie-agh-asi. One roadmap task = one workt
    git fetch origin && git rebase origin/main   # resolve conflicts (table below)
    make check                                   # must pass locally too
    git push --force-with-lease
-   gh pr ready && gh pr merge --squash --auto --delete-branch
+   gh pr ready
+   gh pr checks --watch --fail-fast && gh pr merge --squash   # remote branch auto-deleted by repo setting
    ```
-   Fill in the PR body: what changed, how it was verified (test / browser / real scan), and any follow-ups. `--auto` merges once CI is green. **If CI fails, fix it on the same branch**; don't leave a PR red and walk away. Check with `gh pr checks --watch`.
+   Fill in the PR body: what changed, how it was verified (test / browser / real scan), and any follow-ups. `gh pr checks --watch` exits non-zero if CI fails, so the merge only runs on green. **If CI fails, fix it on the same branch and run the last line again**; never merge red, and never leave a PR red and walk away. If `gh pr merge` reports a conflict because `main` moved, rebase again and repeat.
 7. If a task grows too big, merge what works (behind a disabled button or an unused code path if needed) and add a new roadmap line for the rest. **Merge at least once per day.**
-8. After the merge, remove the worktree. The next task starts from a fresh `origin/main`.
+8. After the merge, remove the worktree and its local branch (`git worktree remove …`, `git branch -D t/…`). The next task starts from a fresh `origin/main`.
 
 ### Avoiding / resolving conflicts
 
