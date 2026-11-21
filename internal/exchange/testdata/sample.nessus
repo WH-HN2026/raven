@@ -1,0 +1,40 @@
+<?xml version="1.0" ?>
+<NessusClientData_v2>
+<Policy>
+  <policyName>ASI Lab Policy</policyName>
+</Policy>
+<Report name="ASI Lab Nessus Scan">
+  <ReportHost name="172.30.0.10">
+    <HostProperties>
+      <tag name="host-ip">172.30.0.10</tag>
+      <tag name="host-fqdn">web.lab</tag>
+    </HostProperties>
+    <ReportItem port="80" svc_name="www" protocol="tcp" severity="2" pluginID="10107" pluginName="HTTP Server Type and Version">
+      <synopsis>A web server is running on the remote host.</synopsis>
+      <description>This plugin attempts to determine the type and version of the remote web server.</description>
+      <solution>Disable detailed Server header disclosure if not required.</solution>
+      <plugin_output>The remote web server type is: nginx/1.24.0</plugin_output>
+    </ReportItem>
+    <ReportItem port="443" svc_name="https" protocol="tcp" severity="3" pluginID="51192" pluginName="SSL Certificate Cannot Be Trusted">
+      <synopsis>The SSL certificate for this service cannot be trusted.</synopsis>
+      <description>The server's X.509 certificate cannot be verified against a known root CA.</description>
+      <solution>Install a certificate signed by a trusted Certificate Authority.</solution>
+      <cvss3_base_score>7.5</cvss3_base_score>
+      <cvss3_vector>CVSS:3.0/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N</cvss3_vector>
+      <plugin_output>Self-signed certificate detected for CN=web.lab</plugin_output>
+    </ReportItem>
+  </ReportHost>
+  <ReportHost name="ssh.lab">
+    <HostProperties>
+      <tag name="host-ip">172.30.0.11</tag>
+      <tag name="host-fqdn">ssh.lab</tag>
+    </HostProperties>
+    <ReportItem port="22" svc_name="ssh" protocol="tcp" severity="1" pluginID="10267" pluginName="SSH Server Type and Version Information">
+      <synopsis>An SSH server is listening on this port.</synopsis>
+      <description>It is possible to obtain information about the remote SSH server.</description>
+      <solution>Keep OpenSSH up to date.</solution>
+      <plugin_output>SSH version : SSH-2.0-OpenSSH_9.6</plugin_output>
+    </ReportItem>
+  </ReportHost>
+</Report>
+</NessusClientData_v2>

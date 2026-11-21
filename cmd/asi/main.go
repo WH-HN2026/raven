@@ -71,6 +71,7 @@ func run() error {
 	// Dojo bootstrap must never block the HTTP server (Dojo's first boot takes minutes).
 	// Push jobs (D2) are enqueued from the start and wait until it's done.
 	var hook pipeline.BatchHook
+	var dojoPush *dojo.PushService
 	cveMatcher, err := cve.Default() // offline CVE data (C3), embedded
 	if err != nil {
 		return err
@@ -88,6 +89,7 @@ func run() error {
 		}
 		defer shutdown("dojo push", push.Shutdown)
 		hook = push // enqueues one push job per finished batch
+		dojoPush = push
 		go func() {
 			res, err := dojo.Bootstrap(ctx, dojo.BootstrapConfig{
 				URL: cfg.DojoURL, Token: cfg.DojoToken,
@@ -135,6 +137,7 @@ func run() error {
 			DojoPublicURL: cfg.DojoPublicURL,
 			Pipeline:      pipe,
 			Dojo:          dojoWrite,
+			DojoPush:      dojoPush,
 		}),
 		ReadHeaderTimeout: 10 * time.Second,
 	}

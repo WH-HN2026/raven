@@ -85,7 +85,7 @@ M0 is sequential and blocking. Do it in **one** worktree, as fast as possible, t
 **Track P — Platform**
 - [ ] **P1 Scheduler & time windows.** Schedules (frequency + window + timezone) from both sources; start runs in-window; `ctx` deadline at window end → kill, set the batch back to pending, mark the run `suspended`; resume in the next window.
 - [x] **P2 RBAC hardening + users admin API.** The four roles enforced on every route (table-driven test that walks all routes × roles); user CRUD; audit log on every mutation.
-- [ ] **P3 Import/export.** Our JSON/CSV formats for targets and **scan results** (results go through the same ingest + push path as scanner output; use the sample format from the organizers once we have it); import of raw nmap XML / nuclei JSONL and **Nessus `.nessus` files** (pushed to Dojo with the "Tenable Scan" parser into the matching IP's Asset); export of hosts/services/findings/changes to JSON/CSV with the current filters.
+- [x] **P3 Import/export.** Our JSON/CSV formats for targets and **scan results** (results go through the same ingest + push path as scanner output; use the sample format from the organizers once we have it); import of raw nmap XML / nuclei JSONL and **Nessus `.nessus` files** (pushed to Dojo with the "Tenable Scan" parser into the matching IP's Asset); export of hosts/services/findings/changes to JSON/CSV with the current filters.
 - [x] **P4 Encryption audit.** Every sensitive field uses `_enc` + helpers; a test proves the ciphertext in the DB is not plaintext; docs section.
 
 **Track C — Changes & fingerprinting**
