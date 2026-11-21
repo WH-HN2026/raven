@@ -18,7 +18,7 @@ import (
 
 // Scanner runs ProjectDiscovery httpx. Its zero value uses httpx from PATH.
 type Scanner struct {
-	Binary string
+	Binary string // executable name or absolute path
 }
 
 var _ scanner.Scanner = (*Scanner)(nil)
@@ -29,7 +29,7 @@ func (*Scanner) DojoScanType() string { return "httpx Scan" }
 // BuildArgs is the complete flag allowlist. Targets go over stdin. Restrict
 // redirects to the original hostname and every dial to the eligible batch IPs,
 // including dials for favicons linked in response bodies.
-func BuildArgs(ips []netip.Addr, opt scanner.Options) ([]string, error) {
+func BuildArgs(ips, resolvers []netip.Addr, opt scanner.Options) ([]string, error) {
 	if opt.RateLimit < 1 {
 		return nil, errors.New("httpx: rate limit must be positive")
 	}
@@ -43,15 +43,30 @@ func BuildArgs(ips []netip.Addr, opt scanner.Options) ([]string, error) {
 		}
 		addresses = append(addresses, ip.Unmap().String())
 	}
+	var nameservers []string
+	for _, ip := range resolvers {
+		if !ip.IsValid() {
+			return nil, errors.New("httpx: invalid resolver address")
+		}
+		nameservers = append(nameservers, net.JoinHostPort(ip.String(), "53"))
+	}
+	if len(nameservers) == 0 {
+		return nil, errors.New("httpx: no system resolvers configured")
+	}
 	return []string{
 		"-silent", "-json", "-title", "-sc", "-irh", "-tls-grab", "-favicon", "-td",
 		"-fhr", "-include-chain", "-nfs", "-disable-update-check", "-auth=false", "-cdn=false",
 		"-rl", strconv.Itoa(opt.RateLimit), "-allow", strings.Join(addresses, ","),
+		"-r", strings.Join(nameservers, ","),
 	}, nil
 }
 
 func (s *Scanner) Run(ctx context.Context, in scanner.Input, opt scanner.Options) (*scanner.Result, error) {
-	args, err := BuildArgs(in.IPs, opt)
+	resolvers, err := systemResolvers()
+	if err != nil {
+		return nil, err
+	}
+	args, err := BuildArgs(in.IPs, resolvers, opt)
 	if err != nil {
 		return nil, err
 	}
@@ -67,12 +82,6 @@ func (s *Scanner) Run(ctx context.Context, in scanner.Input, opt scanner.Options
 	if len(scoped) == 0 {
 		return nil, errors.New("httpx: no URLs")
 	}
-
-	resolvers, err := systemResolvers()
-	if err != nil {
-		return nil, err
-	}
-	args = append(args, "-r", resolvers)
 
 	binary := s.Binary
 	if binary == "" {
@@ -117,23 +126,20 @@ func (s *Scanner) Run(ctx context.Context, in scanner.Input, opt scanner.Options
 
 // httpx adds public fallback resolvers unless its resolver list is explicit.
 // Use the local resolver configuration already used to expand the targets.
-func systemResolvers() (string, error) {
+func systemResolvers() ([]netip.Addr, error) {
 	data, err := os.ReadFile("/etc/resolv.conf")
 	if err != nil {
-		return "", fmt.Errorf("httpx: read system resolvers: %w", err)
+		return nil, fmt.Errorf("httpx: read system resolvers: %w", err)
 	}
-	var resolvers []string
+	var resolvers []netip.Addr
 	for line := range strings.SplitSeq(string(data), "\n") {
 		fields := strings.Fields(line)
 		if len(fields) < 2 || fields[0] != "nameserver" {
 			continue
 		}
 		if ip, err := netip.ParseAddr(fields[1]); err == nil {
-			resolvers = append(resolvers, net.JoinHostPort(ip.String(), "53"))
+			resolvers = append(resolvers, ip)
 		}
 	}
-	if len(resolvers) == 0 {
-		return "", errors.New("httpx: no system resolvers configured")
-	}
-	return strings.Join(resolvers, ","), nil
+	return resolvers, nil
 }

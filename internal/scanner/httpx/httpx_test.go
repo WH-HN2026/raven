@@ -12,6 +12,7 @@ import (
 )
 
 func TestBuildArgs(t *testing.T) {
+	localDNS := []netip.Addr{netip.MustParseAddr("127.0.0.11")}
 	for _, tt := range []struct {
 		name string
 		ips  []netip.Addr
@@ -26,6 +27,7 @@ func TestBuildArgs(t *testing.T) {
 				"-silent", "-json", "-title", "-sc", "-irh", "-tls-grab", "-favicon", "-td",
 				"-fhr", "-include-chain", "-nfs", "-disable-update-check", "-auth=false", "-cdn=false",
 				"-rl", "17", "-allow", "192.0.2.1,192.0.2.2",
+				"-r", "127.0.0.11:53",
 			},
 		},
 		{name: "missing rate", ips: []netip.Addr{netip.MustParseAddr("192.0.2.1")}},
@@ -34,7 +36,7 @@ func TestBuildArgs(t *testing.T) {
 		{name: "invalid address", ips: []netip.Addr{{}}, rate: 5},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := BuildArgs(tt.ips, scanner.Options{RateLimit: tt.rate})
+			got, err := BuildArgs(tt.ips, localDNS, scanner.Options{RateLimit: tt.rate})
 			if (err != nil) != (tt.want == nil) || !slices.Equal(got, tt.want) {
 				t.Fatalf("BuildArgs = %v, %v, want %v", got, err, tt.want)
 			}
