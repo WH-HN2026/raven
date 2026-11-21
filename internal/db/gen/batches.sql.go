@@ -115,6 +115,49 @@ func (q *Queries) ListBatches(ctx context.Context, runID int64) ([]Batch, error)
 	return items, nil
 }
 
+const listProfileBatchSamples = `-- name: ListProfileBatchSamples :many
+SELECT cardinality(b.ips)::integer AS host_count, b.duration_ms
+FROM batches b
+JOIN runs r ON r.id = b.run_id
+WHERE r.profile_id = $1
+  AND b.status = 'done'
+  AND b.duration_ms IS NOT NULL
+  AND b.duration_ms > 0
+  AND cardinality(b.ips) > 0
+ORDER BY b.finished_at DESC, b.id DESC
+LIMIT $2
+`
+
+type ListProfileBatchSamplesParams struct {
+	ProfileID int64 `json:"profile_id"`
+	Limit     int32 `json:"limit"`
+}
+
+type ListProfileBatchSamplesRow struct {
+	HostCount  int32  `json:"host_count"`
+	DurationMs *int64 `json:"duration_ms"`
+}
+
+func (q *Queries) ListProfileBatchSamples(ctx context.Context, arg ListProfileBatchSamplesParams) ([]ListProfileBatchSamplesRow, error) {
+	rows, err := q.db.Query(ctx, listProfileBatchSamples, arg.ProfileID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListProfileBatchSamplesRow{}
+	for rows.Next() {
+		var i ListProfileBatchSamplesRow
+		if err := rows.Scan(&i.HostCount, &i.DurationMs); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const retryBatch = `-- name: RetryBatch :exec
 UPDATE batches SET status = 'pending', error = $2 WHERE id = $1 AND status = 'running'
 `

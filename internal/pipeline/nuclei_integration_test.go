@@ -27,7 +27,7 @@ type replayNuclei struct {
 func (f *replayNuclei) Run(_ context.Context, in scanner.Input, opt scanner.Options) (*scanner.Result, error) {
 	if !slices.Equal(in.URLs, []string{"http://172.30.0.17:80"}) ||
 		!slices.Equal(in.IPs, []netip.Addr{netip.MustParseAddr("172.30.0.17")}) ||
-		opt.RateLimit != 50 || !slices.Equal(opt.Tags, []string{"tech"}) {
+		opt.RateLimit != 25 || !slices.Equal(opt.Tags, []string{"tech"}) {
 		return nil, errors.New("unexpected nuclei input or options")
 	}
 	return f.result, f.err

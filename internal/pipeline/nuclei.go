@@ -44,7 +44,7 @@ func (s *Service) scanNuclei(ctx context.Context, b gen.Batch, prof gen.Profile,
 	if len(in.URLs) == 0 {
 		return nil, nil
 	}
-	res, err := s.cfg.Nuclei.Run(ctx, in, scanner.Options{RateLimit: int(prof.NucleiRate), Tags: prof.NucleiTags})
+	res, err := s.cfg.Nuclei.Run(ctx, in, scanner.Options{RateLimit: s.webRate(prof), Tags: prof.NucleiTags})
 	if ctx.Err() != nil {
 		return nil, ctx.Err()
 	}

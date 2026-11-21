@@ -91,11 +91,11 @@ func (s *Service) runBatch(ctx context.Context, a BatchArgs, attempt, maxAttempt
 	}
 	in := scanner.Input{IPs: b.Ips, Hostnames: hostnames}
 	res, err := s.cfg.Scanner.Run(ctx, in,
-		scanner.Options{Ports: prof.Ports, MaxRate: int(prof.NmapMaxRate)})
+		scanner.Options{Ports: prof.Ports, MaxRate: s.nmapRate(prof)})
 	var web *scanner.Result
 	if err == nil {
 		if webIn := httpx.BuildInput(in, res.Observations); len(webIn.URLs) > 0 {
-			web, err = s.cfg.HTTPX.Run(ctx, webIn, scanner.Options{RateLimit: int(prof.NucleiRate)})
+			web, err = s.cfg.HTTPX.Run(ctx, webIn, scanner.Options{RateLimit: s.webRate(prof)})
 		}
 	}
 	var detection *scanner.Result

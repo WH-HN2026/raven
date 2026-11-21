@@ -91,8 +91,8 @@ func (*replayHTTPX) DojoScanType() string { return "httpx Scan" }
 
 func (f *replayHTTPX) Run(_ context.Context, in scanner.Input, opt scanner.Options) (*scanner.Result, error) {
 	f.calls.Add(1)
-	if opt.RateLimit != 50 || len(in.IPs) != 1 {
-		return nil, errors.New("httpx: expected the profile rate and only an HTTP host")
+	if opt.RateLimit != 25 || len(in.IPs) != 1 {
+		return nil, errors.New("httpx: expected the per-worker profile rate and only an HTTP host")
 	}
 	if !slices.Contains(in.URLs, "https://172.31.250.10:443") {
 		return &scanner.Result{}, nil

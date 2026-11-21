@@ -57,7 +57,7 @@ func TestHostLifecycle(t *testing.T) {
 
 	var current atomic.Pointer[lifecycleFixture]
 	fake := lifecycleTestScanner(func(ctx context.Context, in scanner.Input, opt scanner.Options) (*scanner.Result, error) {
-		if opt.MaxRate != 40 || len(in.IPs) != 1 {
+		if opt.MaxRate != 20 || len(in.IPs) != 1 {
 			return nil, fmt.Errorf("unexpected scanner input %v and options %+v", in.IPs, opt)
 		}
 		fixture := current.Load()

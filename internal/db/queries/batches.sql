@@ -30,3 +30,15 @@ UPDATE batches SET status = 'stopped', finished_at = now(),
     duration_ms = (extract(epoch FROM now() - started_at) * 1000)::bigint  -- NULL if it never started
 WHERE run_id = $1 AND status IN ('pending', 'running')
 RETURNING id, job_id;
+
+-- name: ListProfileBatchSamples :many
+SELECT cardinality(b.ips)::integer AS host_count, b.duration_ms
+FROM batches b
+JOIN runs r ON r.id = b.run_id
+WHERE r.profile_id = $1
+  AND b.status = 'done'
+  AND b.duration_ms IS NOT NULL
+  AND b.duration_ms > 0
+  AND cardinality(b.ips) > 0
+ORDER BY b.finished_at DESC, b.id DESC
+LIMIT $2;
