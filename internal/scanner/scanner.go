@@ -50,24 +50,32 @@ const (
 
 // Observation is one normalized fact. Fields not relevant to Kind stay zero.
 type Observation struct {
-	Kind       ObservationKind
-	IP         netip.Addr
-	Hostname   string
-	At         time.Time
-	Up         bool   // ObsHost
-	Port       uint16 // ObsService, ObsHTTP, ObsTech, ObsMatch
-	Proto      string // "tcp" | "udp"
-	Service    string // nmap service name, e.g. "http"
-	Product    string
-	Version    string
-	CPE        string // normalized "vendor:product" or "vendor:product:version" (architecture §11)
-	Banner     string
-	URL        string // ObsHTTP, ObsTech, ObsMatch
-	HTTP       *HTTPInfo
-	Tech       string // ObsTech: e.g. "wordpress"
-	TemplateID string // ObsMatch: nuclei template id
-	Severity   string // ObsMatch
+	Kind     ObservationKind
+	IP       netip.Addr
+	Hostname string
+	At       time.Time
+	Up       bool   // ObsHost
+	Port     uint16 // ObsService, ObsHTTP, ObsTech, ObsMatch
+	Proto    string // "tcp" | "udp"
+	Service  string // nmap service name, e.g. "http"
+	Product  string
+	Version  string
+	CPE      string // normalized "vendor:product" or "vendor:product:version" (architecture §11)
+	Banner   string
+	URL      string // ObsHTTP, ObsTech, ObsMatch
+	HTTP     *HTTPInfo
+	Tech     string     // ObsTech: e.g. "wordpress"
+	Match    *MatchInfo // ObsTech or ObsMatch from nuclei
+}
+
+type MatchInfo struct {
+	TemplateID string
+	Name       string
+	Severity   string
+	Tags       []string
+	Matcher    string
 	Extracted  []string
+	SourceURL  string // httpx-confirmed origin, with an explicit port
 }
 
 type HTTPInfo struct {
