@@ -110,7 +110,7 @@ export function FindingsPage() {
               >
                 <span className="block text-sm text-muted">{s}</span>
                 <span className="block text-[44px] leading-[1.1] font-light tabular-nums">
-                  {counts[i].data?.total ?? '–'}
+                  {counts[i]?.data?.total ?? '–'}
                 </span>
               </button>
             )
