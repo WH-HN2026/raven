@@ -1,0 +1,41 @@
+{
+  "format": "raven-results",
+  "version": 1,
+  "scanned_at": "2026-11-21T12:00:00Z",
+  "hosts": [
+    {
+      "ip": "10.77.9.51",
+      "up": true,
+      "hostnames": ["legacy-erp.vlab"],
+      "services": [
+        {
+          "port": 22,
+          "proto": "tcp",
+          "name": "ssh",
+          "product": "OpenSSH",
+          "version": "7.4",
+          "cpe": "openbsd:openssh:7.4",
+          "banner": "SSH-2.0-OpenSSH_7.4"
+        },
+        {
+          "port": 8080,
+          "proto": "tcp",
+          "name": "http",
+          "product": "Apache Tomcat",
+          "version": "9.0.30",
+          "cpe": "apache:tomcat:9.0.30",
+          "http": [
+            {
+              "url": "http://10.77.9.51:8080",
+              "status": 200,
+              "title": "Legacy ERP",
+              "headers": { "Server": "Apache-Coyote/1.1" },
+              "cookies": ["JSESSIONID=imported; Path=/"],
+              "technologies": ["Apache Tomcat:9.0.30", "Java"]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
