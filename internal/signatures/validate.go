@@ -41,7 +41,6 @@ type Template struct {
 	Name     string
 	Severity string
 	Tags     []string
-	Paths    []string
 }
 
 // Summary joins issues into one message (stored as validation_error).

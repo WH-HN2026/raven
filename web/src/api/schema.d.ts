@@ -540,10 +540,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description stub */
+        /** @description Signatures, built-ins first. */
         get: operations["listSignatures"];
         put?: never;
-        /** @description stub */
+        /** @description Validate and store a template. A template that fails the safe-subset validator is still stored, disabled, with `valid=false` and its `validation_error`; only a template without a usable `id` is rejected (400). */
         post: operations["createSignature"];
         delete?: never;
         options?: never;
@@ -560,7 +560,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description stub. Validate a template against the safe subset without saving. */
+        /** @description Validate a template against the safe subset without saving. */
         post: operations["validateSignature"];
         delete?: never;
         options?: never;
@@ -577,12 +577,31 @@ export interface paths {
             };
             cookie?: never;
         };
-        get?: never;
-        /** @description stub */
+        get: operations["getSignature"];
+        /** @description Partial update. A new template is re-validated (invalid → stored disabled). Enabling an invalid signature is 400; changing a built-in's template is 403. */
         put: operations["updateSignature"];
         post?: never;
-        /** @description stub */
+        /** @description Built-in signatures can't be deleted (403). */
         delete: operations["deleteSignature"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/signatures/{id}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description stub (501) until the nuclei scanner (S4) exposes a single-template run. Will run this signature against one lab URL and return the matches. */
+        post: operations["testSignature"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1156,21 +1175,55 @@ export interface components {
             items: components["schemas"]["Schedule"][];
             total: number;
         };
+        /** @description A nuclei template. Its `id` becomes the signature name and must be unique. */
         SignatureInput: {
-            name: string;
             template_yaml: string;
+            /** @description Default true; an invalid template is always stored disabled. */
             enabled?: boolean;
         };
-        Signature: components["schemas"]["SignatureInput"] & {
+        /** @description Partial update. Built-ins accept only `enabled`. */
+        SignatureUpdate: {
+            template_yaml?: string;
+            enabled?: boolean;
+        };
+        Signature: {
             /** Format: int64 */
             id: number;
+            /** @description The template id. */
+            name: string;
+            template_yaml: string;
+            enabled: boolean;
             valid: boolean;
-            validation_error?: string;
-            builtin?: boolean;
+            validation_error: string;
+            /** @description Shipped in signatures/: can be disabled, not edited or deleted. */
+            builtin: boolean;
+            /** Format: int64 */
+            created_by: number | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        SignatureIssue: {
+            /** @description 1-based line in the YAML; 0 = no position. */
+            line: number;
+            message: string;
         };
         SignatureValidation: {
             valid: boolean;
+            /** @description "line N: message" strings. */
             errors: string[];
+            issues: components["schemas"]["SignatureIssue"][];
+            id: string;
+            name: string;
+            severity: string;
+            tags: string[];
+        };
+        SignatureInvalid: {
+            error: {
+                /** @example invalid_signature */
+                code: string;
+                message: string;
+            };
+            issues: components["schemas"]["SignatureIssue"][];
         };
         SignatureList: {
             items: components["schemas"]["Signature"][];
@@ -2223,6 +2276,16 @@ export interface operations {
                     "application/json": components["schemas"]["Signature"];
                 };
             };
+            /** @description No usable template id. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignatureInvalid"];
+                };
+            };
+            409: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };
@@ -2256,6 +2319,29 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    getSignature: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The signature. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Signature"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     updateSignature: {
         parameters: {
             query?: never;
@@ -2270,7 +2356,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["SignatureInput"];
+                "application/json": components["schemas"]["SignatureUpdate"];
             };
         };
         responses: {
@@ -2283,6 +2369,16 @@ export interface operations {
                     "application/json": components["schemas"]["Signature"];
                 };
             };
+            /** @description Invalid template id, or enabling an invalid signature. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignatureInvalid"];
+                };
+            };
+            403: components["responses"]["Forbidden"];
             default: components["responses"]["Error"];
         };
     };
@@ -2307,6 +2403,31 @@ export interface operations {
                 };
                 content?: never;
             };
+            403: components["responses"]["Forbidden"];
+            default: components["responses"]["Error"];
+        };
+    };
+    testSignature: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Must be "1" on every unsafe request. The client in web/src/api/client.ts sends it. */
+                "X-ASI-CSRF": components["parameters"]["CSRF"];
+            };
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    url: string;
+                };
+            };
+        };
+        responses: {
+            501: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };
