@@ -20,7 +20,9 @@ var (
 )
 
 type ConfigStore struct {
-	Pool *pgxpool.Pool
+	Pool           *pgxpool.Pool
+	ValidateStages func([]string) ([]string, error)
+	DefaultStages  func() []string
 }
 
 func logConfigChange(ctx context.Context, q *gen.Queries, userID int64, action, object string, id int64, diff any) error {

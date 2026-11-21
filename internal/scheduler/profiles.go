@@ -22,9 +22,10 @@ type ProfileInput struct {
 	MissThreshold      *int32    `json:"miss_threshold"`
 	TargetBatchSeconds *int32    `json:"target_batch_seconds"`
 	Enabled            *bool     `json:"enabled"`
+	Stages             *[]string `json:"stages"`
 }
 
-func (in ProfileInput) apply(p gen.Profile) (gen.Profile, error) {
+func (in ProfileInput) apply(p gen.Profile, validateStages func([]string) ([]string, error)) (gen.Profile, error) {
 	name := strings.TrimSpace(in.Name)
 	if name == "" {
 		return gen.Profile{}, fmt.Errorf("%w: name is required", ErrInvalid)
@@ -40,7 +41,18 @@ func (in ProfileInput) apply(p gen.Profile) (gen.Profile, error) {
 			return gen.Profile{}, fmt.Errorf("%w: unsupported nuclei tag %q", ErrInvalid, tag)
 		}
 	}
-	p.Name, p.Ports, p.NucleiTags = name, ports, tags
+	stages := p.Stages
+	if in.Stages != nil {
+		if validateStages == nil {
+			return gen.Profile{}, fmt.Errorf("%w: stage validator is not configured", ErrInvalid)
+		}
+		norm, err := validateStages(*in.Stages)
+		if err != nil {
+			return gen.Profile{}, fmt.Errorf("%w: %v", ErrInvalid, err)
+		}
+		stages = norm
+	}
+	p.Name, p.Ports, p.NucleiTags, p.Stages = name, ports, tags, stages
 	p.NmapMaxRate = defaultTo(in.NmapMaxRate, p.NmapMaxRate)
 	p.NucleiRate = defaultTo(in.NucleiRate, p.NucleiRate)
 	p.MissThreshold = defaultTo(in.MissThreshold, p.MissThreshold)
@@ -55,11 +67,19 @@ func (in ProfileInput) apply(p gen.Profile) (gen.Profile, error) {
 	return p, nil
 }
 
+func (s ConfigStore) defaultStages() []string {
+	if s.DefaultStages != nil {
+		return s.DefaultStages()
+	}
+	return []string{"nmap", "httpx", "nuclei"}
+}
+
 func (s ConfigStore) CreateProfile(ctx context.Context, userID int64, in ProfileInput) (gen.Profile, error) {
 	p, err := in.apply(gen.Profile{
 		NmapMaxRate: 300, NucleiRate: 50, NucleiTags: []string{},
 		MissThreshold: 3, TargetBatchSeconds: 600, Enabled: true,
-	})
+		Stages: s.defaultStages(),
+	}, s.ValidateStages)
 	if err != nil {
 		return gen.Profile{}, err
 	}
@@ -67,7 +87,7 @@ func (s ConfigStore) CreateProfile(ctx context.Context, userID int64, in Profile
 		p, err = q.CreateProfile(ctx, gen.CreateProfileParams{
 			Name: p.Name, Ports: p.Ports, NmapMaxRate: p.NmapMaxRate, NucleiRate: p.NucleiRate,
 			NucleiTags: p.NucleiTags, MissThreshold: p.MissThreshold, TargetBatchSeconds: p.TargetBatchSeconds,
-			Enabled: p.Enabled,
+			Enabled: p.Enabled, Stages: p.Stages,
 		})
 		if dbCode(err, "23505") {
 			return fmt.Errorf("%w: profile name already exists", ErrConflict)
@@ -90,14 +110,17 @@ func (s ConfigStore) UpdateProfile(ctx context.Context, userID, id int64, in Pro
 		if err != nil {
 			return err
 		}
-		p, err = in.apply(p)
+		if len(p.Stages) == 0 {
+			p.Stages = s.defaultStages()
+		}
+		p, err = in.apply(p, s.ValidateStages)
 		if err != nil {
 			return err
 		}
 		updated, err = q.UpdateProfile(ctx, gen.UpdateProfileParams{
 			ID: id, Name: p.Name, Ports: p.Ports, NmapMaxRate: p.NmapMaxRate, NucleiRate: p.NucleiRate,
 			NucleiTags: p.NucleiTags, MissThreshold: p.MissThreshold, TargetBatchSeconds: p.TargetBatchSeconds,
-			Enabled: p.Enabled,
+			Enabled: p.Enabled, Stages: p.Stages,
 		})
 		if dbCode(err, "23505") {
 			return fmt.Errorf("%w: profile name already exists", ErrConflict)
