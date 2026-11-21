@@ -127,9 +127,9 @@ func hostOrderBy(order db.ListOrder) string {
 }
 
 // buildList returns the page query and the count query; the count query
-// uses args without the trailing limit/offset. Paginating in a subquery before
-// computing the correlated service, technology and findings aggregates ensures Postgres only
-// evaluates them for the returned page, not for all offset+limit rows.
+// uses args without the trailing limit/offset. Paginating in the subquery limits
+// display-only aggregates to the returned page. An aggregate used as the sort
+// key must also be evaluated for every matching host before pagination.
 func buildList(f Filter) (list, count string, args []any) {
 	where, args := buildWhere(f)
 	count = "SELECT count(*) FROM hosts h" + where

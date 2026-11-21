@@ -388,6 +388,32 @@ func runScaleScenario(t *testing.T, cidr string, wantHosts int32, assertAPI bool
 		t.Errorf("Run 2 lifecycle did not exercise re-probe/unstable: %+v", r2Stats)
 	}
 
+	if assertAPI {
+		// The fake scanner only discovers some of the target range. Fill in the
+		// rest as inactive inventory and seed the mirror so these sorts cover
+		// 65k hosts with both empty and populated aggregates.
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO hosts (ip, state)
+			SELECT set_masklen(network($1::inet)::inet, 32) + n::bigint, 'inactive'
+			FROM generate_series(0, $2::int - 1) AS g(n)
+			ON CONFLICT (ip) DO NOTHING`, cidr, wantHosts); err != nil {
+			t.Fatalf("seed inactive inventory: %v", err)
+		}
+		var inventory int32
+		if err := pool.QueryRow(ctx, "SELECT count(*) FROM hosts").Scan(&inventory); err != nil || inventory != wantHosts {
+			t.Fatalf("API fixture has %d hosts, want %d: %v", inventory, wantHosts, err)
+		}
+		tag, err := pool.Exec(ctx, `
+			WITH numbered AS (SELECT ip, row_number() OVER (ORDER BY ip) AS n FROM hosts)
+			INSERT INTO dojo_findings (id, ip, title, severity, active)
+			SELECT (n - 1) * 2 + i, ip, 'Synthetic scale finding', 'Info', i <= n % 3
+			FROM numbered CROSS JOIN generate_series(1, 2) AS g(i)`)
+		if err != nil {
+			t.Fatalf("seed mirrored findings: %v", err)
+		}
+		t.Logf("API fixture: %d hosts, %d mirrored findings", inventory, tag.RowsAffected())
+	}
+
 	// ANALYZE so Postgres planner stats reflect the newly populated tables
 	// (autovacuum may not have finished immediately after a bulk test run).
 	if _, err := pool.Exec(ctx, "ANALYZE"); err != nil {
@@ -440,6 +466,14 @@ func runScaleScenario(t *testing.T, cidr string, wantHosts int32, assertAPI bool
 		{"dashboard", "/api/dashboard", budget},
 		{"changes default", "/api/changes", budget},
 		{"changes host timeline", "/api/changes/hosts/" + sampleIP, budget},
+	}
+
+	if assertAPI {
+		checks = append(checks,
+			apiCheck{"hosts sort=open_ports", "/api/hosts?sort=open_ports&dir=desc", 0},
+			apiCheck{"hosts sort=technologies", "/api/hosts?sort=technologies&dir=desc", 0},
+			apiCheck{"hosts sort=active_finding_count", "/api/hosts?sort=active_finding_count&dir=desc", 0},
+		)
 	}
 
 	t.Logf("=== %s: API latencies ===", cidr)
