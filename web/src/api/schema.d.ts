@@ -788,6 +788,43 @@ export interface paths {
         patch: operations["updateUser"];
         trace?: never;
     };
+    "/tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Requires tokens:admin. Returns token metadata only (never token or hash). */
+        get: operations["listApiTokens"];
+        put?: never;
+        /** @description Requires tokens:admin. Issues a bearer token for MCP; the plaintext token is returned once. */
+        post: operations["createApiToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/tokens/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** @description Requires tokens:admin. Revokes an API token. */
+        delete: operations["deleteApiToken"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -864,6 +901,35 @@ export interface components {
         Me: {
             user: components["schemas"]["User"];
             permissions: components["schemas"]["Permission"][];
+        };
+        ApiToken: {
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            user_id: number;
+            username: string;
+            role: components["schemas"]["Role"];
+            name: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            last_used_at?: string | null;
+        };
+        ApiTokenCreate: {
+            name: string;
+            /**
+             * Format: int64
+             * @description Target user id (defaults to current admin).
+             */
+            user_id?: number | null;
+        };
+        ApiTokenCreated: components["schemas"]["ApiToken"] & {
+            /** @description Plaintext bearer token, returned once on creation. */
+            token: string;
+        };
+        ApiTokenList: {
+            items: components["schemas"]["ApiToken"][];
+            total: number;
         };
         TargetInput: {
             /**
@@ -3098,6 +3164,82 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["User"];
                 };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listApiTokens: {
+        parameters: {
+            query?: {
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description API tokens. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiTokenList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createApiToken: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Must be "1" on every unsafe request. The client in web/src/api/client.ts sends it. */
+                "X-RAVEN-CSRF": components["parameters"]["CSRF"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApiTokenCreate"];
+            };
+        };
+        responses: {
+            /** @description Created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiTokenCreated"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteApiToken: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Must be "1" on every unsafe request. The client in web/src/api/client.ts sends it. */
+                "X-RAVEN-CSRF": components["parameters"]["CSRF"];
+            };
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Revoked. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             default: components["responses"]["Error"];
         };

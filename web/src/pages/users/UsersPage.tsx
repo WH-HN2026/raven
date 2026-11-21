@@ -2,7 +2,7 @@ import { SortTh, useTableSort, useListOffset } from '../../components/SortTh'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Fragment, useState, type FormEvent } from 'react'
 import { api, type Schemas } from '../../api/client'
-import { useAuth } from '../../auth/hooks'
+import { useAuth, useCan } from '../../auth/hooks'
 import type { Role } from '../../auth/permissions'
 import { PageHeader } from '../../components/PageHeader'
 import {
@@ -24,13 +24,17 @@ import {
 } from '../../components/ui'
 
 type User = Schemas['User']
+type ApiToken = Schemas['ApiToken']
+type ApiTokenCreated = Schemas['ApiTokenCreated']
 
 export const ROLE_OPTIONS: Role[] = ['admin', 'editor', 'operator', 'viewer']
 export const MIN_PASSWORD = 12
 const PAGE = 50
 const usersKey = ['users'] as const
+const tokensKey = ['api-tokens'] as const
 
 export function UsersPage() {
+  const canTokens = useCan('tokens:admin')
   const [offset, setOffset] = useListOffset()
   const sort = useTableSort(['username', 'role', 'status', 'created_at'], { offset: 'offset', initial: 'username' })
   const q = useQuery({
@@ -44,7 +48,7 @@ export function UsersPage() {
       <Section>
         <CreateUserForm />
       </Section>
-      <Section band className="pb-16">
+      <Section band className={canTokens ? '' : 'pb-16'}>
         <div className="flex flex-col gap-5">
           <SectionHeading>Accounts</SectionHeading>
           {q.error && <ErrorText>Cannot load users: {q.error.message}</ErrorText>}
@@ -67,6 +71,11 @@ export function UsersPage() {
           <Pagination offset={offset} pageSize={PAGE} total={total ?? 0} onChange={setOffset} />
         </div>
       </Section>
+      {canTokens && (
+        <Section className="pb-16">
+          <ApiTokensSection users={q.data?.items ?? []} />
+        </Section>
+      )}
     </>
   )
 }
@@ -145,11 +154,15 @@ function UserRow({ user }: { user: User }) {
       setPanel(null)
       setPassword('')
       void qc.invalidateQueries({ queryKey: usersKey })
+      void qc.invalidateQueries({ queryKey: tokensKey })
     },
   })
   const del = useMutation({
     mutationFn: () => api.delete('/users/{id}', { params: { id: user.id } }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: usersKey }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: usersKey })
+      void qc.invalidateQueries({ queryKey: tokensKey })
+    },
   })
   const busy = patch.isPending || del.isPending
   const error = patch.error ?? del.error
@@ -251,6 +264,183 @@ function UserRow({ user }: { user: User }) {
               )}
               {error && <Alert>{error.message}</Alert>}
               {done && <Alert tone="ok">{done}</Alert>}
+            </div>
+          </td>
+        </tr>
+      )}
+    </Fragment>
+  )
+}
+
+function ApiTokensSection({ users }: { users: User[] }) {
+  const qc = useQueryClient()
+  const { me } = useAuth()
+  const [offset, setOffset] = useState(0)
+  const [name, setName] = useState('')
+  const [userId, setUserId] = useState('')
+  const [issued, setIssued] = useState<ApiTokenCreated | null>(null)
+  const [copied, setCopied] = useState(false)
+
+  const q = useQuery({
+    queryKey: [...tokensKey, offset],
+    queryFn: () => api.get('/tokens', { query: { limit: PAGE, offset } }),
+  })
+
+  const create = useMutation({
+    mutationFn: () => {
+      const uid = userId ? Number(userId) : undefined
+      return api.post('/tokens', { body: { name: name.trim(), ...(uid ? { user_id: uid } : {}) } })
+    },
+    onSuccess: (tok) => {
+      setIssued(tok)
+      setCopied(false)
+      setName('')
+      void qc.invalidateQueries({ queryKey: tokensKey })
+    },
+  })
+
+  const onSubmit = (e: FormEvent) => {
+    e.preventDefault()
+    if (name.trim()) create.mutate()
+  }
+
+  const copyToken = async () => {
+    if (!issued) return
+    try {
+      await navigator.clipboard.writeText(issued.token)
+      setCopied(true)
+    } catch {
+      setCopied(false)
+    }
+  }
+
+  const total = q.data?.total ?? 0
+  const selectedUserId = userId || (me?.user.id ? String(me.user.id) : '')
+
+  return (
+    <div className="flex flex-col gap-5">
+      <SectionHeading aside={<span className="font-mono text-muted">/mcp</span>}>API tokens</SectionHeading>
+      <form onSubmit={onSubmit} aria-label="Issue API token" className="flex flex-wrap items-end gap-4">
+        <Field label="Token name" className="flex-[1_1_240px]">
+          <input
+            className={inputClass}
+            value={name}
+            maxLength={100}
+            onChange={(e) => setName(e.target.value)}
+            autoComplete="off"
+          />
+        </Field>
+        <Field label="User" className="flex-[1_1_220px]">
+          <select className={inputClass} value={selectedUserId} onChange={(e) => setUserId(e.target.value)}>
+            {users.length === 0 && me && (
+              <option value={String(me.user.id)}>
+                {me.user.username} ({me.user.role})
+              </option>
+            )}
+            {users.map((u) => (
+              <option key={u.id} value={String(u.id)}>
+                {u.username} ({u.role})
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Button type="submit" variant="primary" size="md" disabled={create.isPending || !name.trim()}>
+          Issue token
+        </Button>
+      </form>
+      {create.error && <Alert>{create.error.message}</Alert>}
+      {issued && (
+        <div role="status" className="flex flex-col gap-3 border border-line-strong bg-band p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge tone="new">Shown once</Badge>
+              <span className="font-medium">{issued.name}</span>
+              <span className="text-muted">
+                {issued.username} ({issued.role})
+              </span>
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" onClick={() => void copyToken()}>
+                {copied ? 'Copied' : 'Copy'}
+              </Button>
+              <Button size="sm" onClick={() => setIssued(null)}>
+                Dismiss
+              </Button>
+            </div>
+          </div>
+          <code data-testid="issued-token" className="block overflow-x-auto border border-line bg-white px-3 py-2 font-mono text-xs">
+            {issued.token}
+          </code>
+        </div>
+      )}
+      {q.error && <ErrorText>Cannot load API tokens: {q.error.message}</ErrorText>}
+      <Table label="API tokens" minWidth={880}>
+        <thead>
+          <THeadRow>
+            <Th>Name</Th>
+            <Th>User</Th>
+            <Th>Role</Th>
+            <Th>Created</Th>
+            <Th>Last used</Th>
+            <Th className="text-right">Actions</Th>
+          </THeadRow>
+        </thead>
+        <tbody>
+          {q.data?.items.map((t) => <TokenRow key={t.id} token={t} />)}
+          {q.isPending && <EmptyRow colSpan={6}>Loading…</EmptyRow>}
+          {q.isSuccess && q.data.items.length === 0 && <EmptyRow colSpan={6}>No API tokens</EmptyRow>}
+        </tbody>
+      </Table>
+      <Pagination offset={offset} pageSize={PAGE} total={total} onChange={setOffset} />
+    </div>
+  )
+}
+
+function TokenRow({ token }: { token: ApiToken }) {
+  const qc = useQueryClient()
+  const [confirming, setConfirming] = useState(false)
+  const revoke = useMutation({
+    mutationFn: () => api.delete('/tokens/{id}', { params: { id: token.id } }),
+    onSuccess: () => {
+      setConfirming(false)
+      void qc.invalidateQueries({ queryKey: tokensKey })
+    },
+  })
+
+  return (
+    <Fragment>
+      <Tr className={confirming || revoke.error ? 'border-b-0' : ''}>
+        <Td className="font-medium">{token.name}</Td>
+        <Td>{token.username}</Td>
+        <Td>
+          <Badge tone="outline">{token.role}</Badge>
+        </Td>
+        <Td className="text-muted">{token.created_at ? new Date(token.created_at).toLocaleString() : '—'}</Td>
+        <Td className="text-muted">{token.last_used_at ? new Date(token.last_used_at).toLocaleString() : 'Never'}</Td>
+        <Td>
+          <div className="flex justify-end">
+            <Button variant="danger" size="sm" disabled={revoke.isPending} onClick={() => setConfirming((v) => !v)}>
+              Revoke
+            </Button>
+          </div>
+        </Td>
+      </Tr>
+      {(confirming || revoke.error) && (
+        <tr className="border-b border-line">
+          <td colSpan={6} className="pb-3">
+            <div className="flex flex-col gap-3">
+              {confirming && (
+                <div className="flex flex-wrap items-center justify-end gap-3">
+                  <span className="font-medium">Revoke {token.name}?</span>
+                  <Button onClick={() => setConfirming(false)} disabled={revoke.isPending}>
+                    Cancel
+                  </Button>
+                  <Button variant="primary" onClick={() => revoke.mutate()} disabled={revoke.isPending}>
+                    Confirm revoke
+                  </Button>
+                </div>
+              )}
+              {revoke.error && <Alert>{revoke.error.message}</Alert>}
             </div>
           </td>
         </tr>
