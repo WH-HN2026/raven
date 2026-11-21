@@ -103,7 +103,7 @@ M0 is sequential and blocking. Do it in **one** worktree, as fast as possible, t
 - [x] **C3 Offline CVE matching.** (needs S8; uses S7/S4 output once merged) Architecture §11:
   - `make cve-db` fetches NVD CVE 2.0 for the curated `internal/cve/products.txt`, plus CISA KEV and EPSS, into committed gzip data;
   - CPE mapping for httpx/nuclei technology names, and a version-range matcher with table tests (`8.9p1`, `2.4.49`, distro suffixes);
-  - confidence and the distro cap; one finding per product instance pushed as "RAVEN CVE match" (Generic Findings Import with `vulnerability_ids`);
+  - confidence and the distro severity cap, with one finding per matched CVE per product instance in the "RAVEN CVE match" Test (Generic Findings Import, one ID in `vulnerability_ids`);
   - feeds the interest score (X2).
 
 **Track W — Web UI**
