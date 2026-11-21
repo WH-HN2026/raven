@@ -939,6 +939,8 @@ export interface components {
             name: string;
             product: string;
             version: string;
+            /** @description normalized vendor:product or vendor:product:version */
+            cpe?: string;
             scan: components["schemas"]["ServiceFields"];
             overridden: ("name" | "product" | "version")[];
             /** @description decrypted */

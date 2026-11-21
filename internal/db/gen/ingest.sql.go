@@ -130,12 +130,13 @@ func (q *Queries) UpsertScannedHost(ctx context.Context, arg UpsertScannedHostPa
 }
 
 const upsertScannedService = `-- name: UpsertScannedService :exec
-INSERT INTO services (ip, port, proto, name, product, version, banner_enc, state, first_seen, last_seen)
-VALUES ($1, $2, $3, $4, $5, $6, asi_enc(NULLIF($7::text, '')), 'open', $8, $8)
+INSERT INTO services (ip, port, proto, name, product, version, cpe, banner_enc, state, first_seen, last_seen)
+VALUES ($1, $2, $3, $4, $5, $6, $7, asi_enc(NULLIF($8::text, '')), 'open', $9, $9)
 ON CONFLICT (ip, port, proto) DO UPDATE SET
     name = EXCLUDED.name,
     product = EXCLUDED.product,
     version = EXCLUDED.version,
+    cpe = EXCLUDED.cpe,
     banner_enc = EXCLUDED.banner_enc,
     state = 'open',
     last_seen = EXCLUDED.last_seen
@@ -148,6 +149,7 @@ type UpsertScannedServiceParams struct {
 	Name    string     `json:"name"`
 	Product string     `json:"product"`
 	Version string     `json:"version"`
+	Cpe     string     `json:"cpe"`
 	Banner  string     `json:"banner"`
 	Seen    time.Time  `json:"seen"`
 }
@@ -160,6 +162,7 @@ func (q *Queries) UpsertScannedService(ctx context.Context, arg UpsertScannedSer
 		arg.Name,
 		arg.Product,
 		arg.Version,
+		arg.Cpe,
 		arg.Banner,
 		arg.Seen,
 	)

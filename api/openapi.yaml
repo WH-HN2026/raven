@@ -1197,6 +1197,7 @@ components:
         name: { type: string }
         product: { type: string }
         version: { type: string }
+        cpe: { type: string, description: "normalized vendor:product or vendor:product:version" }
         scan: { $ref: "#/components/schemas/ServiceFields" }
         overridden: { type: array, items: { type: string, enum: [name, product, version] } }
         banner: { type: string, description: decrypted }

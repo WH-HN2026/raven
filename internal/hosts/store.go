@@ -50,6 +50,7 @@ type Service struct {
 	Name       string          `json:"name"`
 	Product    string          `json:"product"`
 	Version    string          `json:"version"`
+	CPE        string          `json:"cpe,omitempty"`
 	Scan       ServiceFields   `json:"scan"`
 	Overridden []string        `json:"overridden"`
 	Banner     string          `json:"banner"`
@@ -153,7 +154,7 @@ func Get(ctx context.Context, pool *pgxpool.Pool, ip netip.Addr) (*Detail, error
 		eff, over := applyServiceOverrides(scan, s.Overrides)
 		d.Services = append(d.Services, Service{
 			ID: s.ID, IP: s.Ip, Port: s.Port, Proto: s.Proto,
-			Name: eff.Name, Product: eff.Product, Version: eff.Version, Scan: scan, Overridden: over,
+			Name: eff.Name, Product: eff.Product, Version: eff.Version, CPE: s.Cpe, Scan: scan, Overridden: over,
 			Banner: s.Banner, State: s.State, FirstSeen: s.FirstSeen, LastSeen: s.LastSeen,
 			Overrides: objectOrEmpty(s.Overrides),
 		})
