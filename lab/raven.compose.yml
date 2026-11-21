@@ -2,6 +2,11 @@ services:
   raven:
     networks:
       - default
+      - zap-internal
+      - lab
+  zap:
+    networks:
+      - zap-internal
       - lab
 
 networks:

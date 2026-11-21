@@ -172,3 +172,25 @@ func TestWithStageAvailable(t *testing.T) {
 		t.Fatalf("expected nikto restored to unavailable after cleanup, got err=%v", err)
 	}
 }
+
+func TestSetStageAvailable(t *testing.T) {
+	t.Cleanup(func() { SetStageAvailable(StageZAP, false) })
+
+	if _, err := Validate([]string{StageNmap, StageHTTPX, StageZAP}); err == nil || !strings.Contains(err.Error(), "not available") {
+		t.Fatalf("expected zap unavailable initially, got %v", err)
+	}
+	SetStageAvailable(StageZAP, true)
+	got, err := Validate([]string{StageNmap, StageHTTPX, StageZAP})
+	if err != nil {
+		t.Fatalf("Validate with zap available: %v", err)
+	}
+	if !slices.Equal(got, []string{StageNmap, StageHTTPX, StageZAP}) {
+		t.Fatalf("got %v, want [nmap httpx zap]", got)
+	}
+	SetStageAvailable(StageZAP, false)
+	if _, err := Validate([]string{StageNmap, StageHTTPX, StageZAP}); err == nil || !strings.Contains(err.Error(), "not available") {
+		t.Fatalf("expected zap unavailable after disabling, got %v", err)
+	}
+	// Unknown stage names are a safe no-op.
+	SetStageAvailable("nonexistent", true)
+}

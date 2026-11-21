@@ -61,6 +61,25 @@ type testingTB interface {
 	Fatalf(format string, args ...any)
 }
 
+// SetStageAvailable updates a stage's runtime availability (e.g. ZAP when
+// RAVEN_ZAP_URL is configured). Unknown stage names are ignored.
+func SetStageAvailable(name string, available bool) {
+	stageMu.Lock()
+	defer stageMu.Unlock()
+	def, ok := stageByName[name]
+	if !ok {
+		return
+	}
+	def.Available = available
+	stageByName[name] = def
+	for i := range stageRegistry {
+		if stageRegistry[i].Name == name {
+			stageRegistry[i].Available = available
+			break
+		}
+	}
+}
+
 // WithStageAvailable marks the named stages as Available for the duration of a
 // test and restores their prior availability in t.Cleanup.
 // Test helper only; production stage availability is defined in stageRegistry.

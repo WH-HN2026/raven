@@ -4,8 +4,10 @@ package config
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -28,6 +30,9 @@ type Config struct {
 	SessionTTL   time.Duration // RAVEN_SESSION_TTL
 
 	MaxWorkers int // RAVEN_MAX_WORKERS: global cap on concurrent scan batch jobs (default 2)
+
+	ZAPURL    string // RAVEN_ZAP_URL; empty disables the ZAP aggressive stage
+	ZAPAPIKey string // RAVEN_ZAP_API_KEY; required when RAVEN_ZAP_URL is set
 }
 
 func Load() (*Config, error) {
@@ -42,6 +47,8 @@ func Load() (*Config, error) {
 		DojoOrganization: env("RAVEN_DOJO_ORGANIZATION", "RAVEN"),
 		AdminUsername:    env("RAVEN_ADMIN_USERNAME", "admin"),
 		AdminPassword:    os.Getenv("RAVEN_ADMIN_PASSWORD"),
+		ZAPURL:           strings.TrimRight(strings.TrimSpace(os.Getenv("RAVEN_ZAP_URL")), "/"),
+		ZAPAPIKey:        os.Getenv("RAVEN_ZAP_API_KEY"),
 	}
 	c.DojoPublicURL = env("RAVEN_DOJO_PUBLIC_URL", c.DojoURL)
 	var err error
@@ -53,6 +60,15 @@ func Load() (*Config, error) {
 	}
 	if c.MaxWorkers, err = strconv.Atoi(env("RAVEN_MAX_WORKERS", "2")); err != nil || c.MaxWorkers < 1 {
 		return nil, fmt.Errorf("RAVEN_MAX_WORKERS: must be a positive integer")
+	}
+	if c.ZAPURL != "" {
+		u, err := url.Parse(c.ZAPURL)
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+			return nil, errors.New("RAVEN_ZAP_URL must be an http(s) URL with a host")
+		}
+		if c.ZAPAPIKey == "" {
+			return nil, errors.New("RAVEN_ZAP_API_KEY is required when RAVEN_ZAP_URL is set")
+		}
 	}
 	if c.DatabaseURL == "" {
 		return nil, errors.New("RAVEN_DATABASE_URL is required")

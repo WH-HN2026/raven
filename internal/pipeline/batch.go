@@ -135,9 +135,14 @@ func (s *Service) runBatch(ctx context.Context, a BatchArgs, jobID int64, attemp
 	if err == nil && HasStage(stages, StageWPScan) {
 		wp, err = s.scanWPScan(ctx, b, prof, web, detection)
 	}
+	var zapRes zapBatchResult
+	if err == nil && HasStage(stages, StageZAP) {
+		zapRes, err = s.scanZAP(ctx, b, prof, web)
+	}
 	if err == nil {
 		var plan Plan
-		plan, err = s.ingestBatch(ctx, b, prof, hostnames, res, web, detection, wp, start)
+		plan, err = s.ingestBatch(ctx, b, prof, hostnames, res, web, detection, wp, start,
+			func(ctx context.Context, q *gen.Queries) error { return s.ingestZAP(ctx, q, b, zapRes) })
 		if err == nil {
 			s.afterBatch(jobCtx, b, prof, stages, plan, res)
 			return nil
@@ -157,7 +162,8 @@ func (s *Service) runBatch(ctx context.Context, a BatchArgs, jobID int64, attemp
 // ingestBatch writes the batch result, marks the batch done and, if it was
 // the last one, finishes the run, all in one transaction under the run lock.
 func (s *Service) ingestBatch(ctx context.Context, b gen.Batch, prof gen.Profile,
-	hostnames map[netip.Addr][]string, res, web, detection *scanner.Result, wp *wpscanStageResult, start time.Time) (Plan, error) {
+	hostnames map[netip.Addr][]string, res, web, detection *scanner.Result, wp *wpscanStageResult, start time.Time,
+	extraIngest ...func(context.Context, *gen.Queries) error) (Plan, error) {
 	ports, err := ParsePorts(prof.Ports)
 	if err != nil {
 		return Plan{}, err
@@ -214,6 +220,11 @@ func (s *Service) ingestBatch(ctx context.Context, b gen.Batch, prof gen.Profile
 		}
 		if wp != nil {
 			if err := s.ingestWPScan(ctx, q, run, b, wp); err != nil {
+				return err
+			}
+		}
+		for _, fn := range extraIngest {
+			if err := fn(ctx, q); err != nil {
 				return err
 			}
 		}

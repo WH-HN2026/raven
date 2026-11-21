@@ -69,6 +69,7 @@ type Config struct {
 	HTTPX     scanner.Scanner  // nil = ProjectDiscovery httpx from PATH
 	Nuclei    scanner.Scanner  // nil = ProjectDiscovery nuclei from PATH
 	WPScan    scanner.Scanner  // nil = wpscan from PATH
+	ZAP       scanner.Scanner  // nil = ZAP stage unconfigured
 	Resolver  targets.Resolver // net.DefaultResolver in production
 	Hook      BatchHook        // nil = no-op
 	BatchSize int              // 0 = adaptive sizing (S5); > 0 = fixed batch size
