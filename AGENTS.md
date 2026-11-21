@@ -158,6 +158,6 @@ scripts/gen-env.sh && docker compose up -d --build   # full deployment, what the
 ## Don'ts
 
 - Don't call Dojo from request handlers to render pages; read the mirror tables (`dojo_*`). Writes (triage edits) go to Dojo and then update the mirror.
-- Don't reimport a host that didn't respond in this run, because `close_old_findings` would close everything on it (see architecture §3.7).
+- Don't reimport a host that didn't respond in this run, because `close_old_findings` would close everything on it (see architecture §3.8).
 - Don't add Dojo version checks, fallbacks for v1/old Endpoints, or alternative storage backends.
 - Don't modify `../django-DefectDojo`. It's reference material, not part of this repo.
