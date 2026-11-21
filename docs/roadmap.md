@@ -75,7 +75,7 @@ M0 is sequential and blocking. Do it in **one** worktree, as fast as possible, t
 - [ ] **S4 nuclei scanner.** (needs S7) Command builder with the template policy (allowed tags, exclusions, `-no-interactsh`, rate limit), run on the URLs httpx found alive; JSONL parser → matches (technologies, panels, signature hits) attached to the service/URL; wire into the pipeline after httpx.
 - [ ] **S5 Adaptive batching + rate limits.** Batch size from measured throughput, per-profile `--max-rate` / nuclei `-rl`, global concurrency cap.
 - [ ] **S6 Unstable hosts & lifecycle.** End-of-run re-probe of hosts that were up last run and are down now; `miss_count` and the `active → unstable → inactive` state machine; profile `miss_threshold`.
-- [ ] **S8 Keep CPEs.** (needs S2) Add `CPE` to `scanner.Observation` (and a `cpe` column on `services`). The nmap parser keeps `<cpe>` values, normalized to `vendor:product` + version. Fixture tests. httpx/nuclei fill it in S7/S4 via the mapping from C3.
+- [x] **S8 Keep CPEs.** (needs S2) Add `CPE` to `scanner.Observation` (and a `cpe` column on `services`). The nmap parser keeps `<cpe>` values, normalized to `vendor:product` + version. Fixture tests. httpx/nuclei fill it in S7/S4 via the mapping from C3.
 
 **Track D — DefectDojo**
 - [ ] **D4 Push httpx + nuclei + lifecycle findings.** (needs S7, S4, S6) Reimport httpx ("httpx Scan") and nuclei per IP, one Test per scanner; push "Host offline" once the threshold is hit; tags (`tech:*`, `panel:*`, `env:*`, `host:*`) on Assets.
