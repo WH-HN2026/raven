@@ -151,6 +151,17 @@ M0 is sequential and blocking. Do it in **one** worktree, as fast as possible, t
 - [ ] **AG4 wpscan.** (needs AG1) Pinned in the image, WordPress URLs only, enumeration without passwords or API token, "Wpscan" push, versions into offline CVE matching, lab test against the lab WordPress.
 - [ ] **AG5 ZAP.** (needs AG1) ZAP service under compose profile `aggressive`, API-driven spider + capped active scan, "ZAP Scan" push, lab test.
 
+**Track V — vuln_lab (organizers' example lab)** · design and task specs: [`vuln-lab.md`](vuln-lab.md)
+- [x] **V0 vuln_lab design + roadmap track V.** Organizers' files kept verbatim in `lab/vuln/organizers/`; `docs/vuln-lab.md` with topology (`raven_vlab`, 10.77.0.0/16), service inventory, scenarios mapped to the jury test points, scale layer, one-command demo, safety, task specs.
+- [ ] **V1 RAVEN-safe vuln lab.** All four organizers' stacks together on the internal `raven_vlab` network: `compose.vlab.yml` with static IPs, no published ports, pinned images, healthchecks and an init job; `lab/vuln/` attach override, `targets.csv`, `ports.txt`; `scripts/lib/raven-api.sh`; `make vlab-pull/vlab-up/vlab-down/vlab-ps`. (needs V0)
+- [ ] **V2 Scenario driver.** `scripts/vlab-scenario.sh` with every scenario step (service gone/back, upgrade, new device, host off/on, Toxiproxy toxics, signature, edits, import/export, roles, time window, Dojo planned engagement, `walk`), idempotent, printing what to check. (needs V1)
+- [ ] **V3 Fingerprint coverage for the vuln lab.** Built-in signatures with recorded fixtures for NPM, Traefik, Toxiproxy, RabbitMQ, Adminer, phpMyAdmin at `/`, DVWA and the Gitea version; CVE aliases (`vsftpd:vsftpd`, …) and `CPEForTech` synonyms; migration adding the lab ports to the default profile. (needs V1)
+- [ ] **V4 Scale layer + real-scan measurements.** One multi-address container serving up to 4,096 persona hosts in `10.77.64.0/18`, deterministic churn with expected counts, `scripts/vlab-scale.sh`; real two-run scans at 256 and 1,024 hosts measured into `docs/scale.md`. (needs V1)
+- [ ] **V5 One-command demo.** `make demo` / `scripts/demo.sh`: gen-env if missing, RAVEN + Dojo + vuln lab up and attached, wait for Dojo, seed blacklist/targets/profiles/demo users through the API, Run 1; `make demo-down`, `make demo-reset`; README Demo section. (needs V1; uses V4's script when present)
+- [ ] **V6 Acceptance pass on the vuln lab.** Fresh clone, `make demo`, every scenario step as the jury would, expected-vs-actual tables in `docs/vuln-lab.md`, follow-ups. (needs V2, V3, V4, V5)
+- [ ] **V7 Response time and slow hosts.** httpx response time stored per HTTP observation and shown; "slow" and "HTTP unresponsive" services in run stats and Changes (organizers' Toxiproxy scenario). (needs V1; after WF1 if both touch the pipeline)
+- [ ] **V8 Aggressive stages on the vuln lab.** Admin-made aggressive profile limited to WordPress 4.7.5 and DVWA; nuclei-active/nikto/wpscan/ZAP results documented. (needs V2, AG2–AG5)
+
 ## M4 — MCP (last)
 
 - [ ] **MCP1 MCP server.** `internal/mcp` using the official Go MCP SDK, streamable HTTP at `/mcp`, auth by API token (P2), the same RBAC. Read tools: `search_hosts`, `get_host`, `list_findings`, `get_changes`, `list_runs`. Editor tools: `start_scan`, `add_targets`. Admin UI to issue tokens.
@@ -168,6 +179,7 @@ M1:     ├─ S1 ─┬─ S3 ─┬─ D2          W1 (S1)  W2/W3 (S3)
 M2:  S7 (S3) → S4 · S5, S6 (S3) · D4 (S7,S4,S6) · S8 (S2) · D5 (D1) · D6 (D3) · P1..P4 · C1 (S3) · C2 · C3 (S8) · W4..W11 · L1 (anytime)
 M3:  after the relevant M2 parts     M4: after P2
 WF:  WF0 → WF1 → WF2 · AG1 (WF1) → AG2..AG5
+V:   V0 → V1 → { V2 · V3 · V4 · V5 · V7 } (parallel; disjoint files) → V6 · V8 (V2, AG2..AG5)
 ```
 
 L1 (lab) has no dependencies and is a good first task for whoever is free while M0 is being built.
