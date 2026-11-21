@@ -62,10 +62,11 @@ type Asset struct {
 }
 
 type AssetQuery struct {
-	Name   string   // exact (case-insensitive) name
-	Tags   []string // any of (Dojo "tags" filter is OR)
-	Limit  int
-	Offset int
+	Name           string   // exact (case-insensitive) name
+	Tags           []string // any of (Dojo "tags" filter is OR)
+	OrganizationID int64    // only assets of this organization
+	Limit          int
+	Offset         int
 }
 
 // Engagement statuses we use (Dojo ENGAGEMENT_STATUS_CHOICES).
@@ -163,14 +164,43 @@ type Finding struct {
 	Test             int64     `json:"test"`
 	Date             string    `json:"date"`
 	LastStatusUpdate time.Time `json:"last_status_update"`
+	TestTypeName     string    `json:"test_type_name"` // scan type of the test, e.g. "Nmap Scan"
+
+	// RelatedFields is only filled when FindingQuery.Related is set.
+	RelatedFields *FindingRelated `json:"related_fields"`
+}
+
+// FindingRelated is Dojo's related_fields=true block: test → engagement → asset.
+type FindingRelated struct {
+	Test *struct {
+		ID         int64 `json:"id"`
+		Engagement *struct {
+			ID      int64 `json:"id"`
+			Product *struct {
+				ID   int64  `json:"id"`
+				Name string `json:"name"`
+			} `json:"product"`
+		} `json:"engagement"`
+	} `json:"test"`
+}
+
+// Asset returns the finding's asset id and name from RelatedFields (0, "" if absent).
+func (f *Finding) Asset() (int64, string) {
+	r := f.RelatedFields
+	if r == nil || r.Test == nil || r.Test.Engagement == nil || r.Test.Engagement.Product == nil {
+		return 0, ""
+	}
+	return r.Test.Engagement.Product.ID, r.Test.Engagement.Product.Name
 }
 
 type FindingQuery struct {
-	Tags   []string // any of (Dojo "tags" filter is OR)
-	TestID int64
-	Active *bool
-	Limit  int
-	Offset int
+	Tags           []string // any of (Dojo "tags" filter is OR)
+	TestID         int64
+	OrganizationID int64 // only findings of assets in this organization
+	Active         *bool
+	Related        bool // ask for related_fields (test → engagement → asset)
+	Limit          int
+	Offset         int
 }
 
 // FindingPatch holds the triage fields our UI can change (nil = unchanged).

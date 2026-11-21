@@ -417,11 +417,20 @@ paths:
     get:
       tags: [findings]
       operationId: listFindings
-      description: stub. Reads the Dojo mirror (dojo_findings).
+      description: >-
+        Reads only the Dojo mirror (dojo_findings, synced every 5 min from findings tagged "asi");
+        never calls Dojo. Sorted by severity (Critical first), then date (newest first).
       parameters:
-        - { name: severity, in: query, schema: { $ref: "#/components/schemas/Severity" } }
+        - name: severity
+          in: query
+          description: Any of these; repeat the parameter or separate with commas. Case-insensitive.
+          style: form
+          explode: true
+          schema: { type: array, items: { $ref: "#/components/schemas/Severity" } }
         - { name: active, in: query, schema: { type: boolean } }
-        - { name: ip, in: query, schema: { type: string } }
+        - { name: ip, in: query, description: An IP address or a CIDR., schema: { type: string } }
+        - { name: q, in: query, description: Case-insensitive substring of the title., schema: { type: string } }
+        - { name: scanner, in: query, description: "nmap, nuclei, asi (our INFO findings), …", schema: { type: string } }
         - { $ref: "#/components/parameters/Limit" }
         - { $ref: "#/components/parameters/Offset" }
       responses:
@@ -1173,7 +1182,7 @@ components:
         tags: { type: array, items: { type: string } }
         scanner: { type: string }
         date: { type: [string, "null"], format: date }
-        dojo_url: { type: string }
+        dojo_url: { type: string, description: "Link to the finding in the Dojo UI (ASI_DOJO_PUBLIC_URL); empty if Dojo is not configured." }
     FindingPatch:
       type: object
       properties:

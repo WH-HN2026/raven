@@ -24,6 +24,7 @@ services:
       ASI_DATABASE_URL: "postgres://asi:${ASI_DB_PASSWORD:?run scripts/gen-env.sh}@asi-db:5432/asi?sslmode=disable"
       ASI_ENCRYPTION_KEY: "${ASI_ENCRYPTION_KEY:?run scripts/gen-env.sh}"
       ASI_DOJO_URL: "${ASI_DOJO_URL:-http://nginx:8080}"
+      ASI_DOJO_PUBLIC_URL: "${ASI_DOJO_PUBLIC_URL:-http://localhost:${DD_PORT:-8080}}"
       ASI_DOJO_TOKEN: "${ASI_DOJO_TOKEN:-}"
       ASI_DOJO_ORGANIZATION: "${ASI_DOJO_ORGANIZATION:-ASI}"
       DD_ADMIN_USER: "${DD_ADMIN_USER:-admin}"

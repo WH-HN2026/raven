@@ -63,14 +63,19 @@ func run() error {
 	// Dojo bootstrap must never block the HTTP server (Dojo's first boot takes minutes).
 	if cfg.DojoURL != "" {
 		go func() {
-			_, err := dojo.Bootstrap(ctx, dojo.BootstrapConfig{
+			res, err := dojo.Bootstrap(ctx, dojo.BootstrapConfig{
 				URL: cfg.DojoURL, Token: cfg.DojoToken,
 				AdminUser: cfg.DojoAdminUser, AdminPass: cfg.DojoAdminPass,
 				Organization: cfg.DojoOrganization,
 			})
-			if err != nil && !errors.Is(err, context.Canceled) {
-				slog.Error("dojo bootstrap", "err", err)
+			if err != nil {
+				if !errors.Is(err, context.Canceled) {
+					slog.Error("dojo bootstrap", "err", err)
+				}
+				return
 			}
+			// Read-model pull (D3): once now, then every 5 min.
+			(&dojo.Syncer{Client: res.Client, Pool: pool, OrganizationID: res.Organization.ID}).Run(ctx, 5*time.Minute)
 		}()
 	} else {
 		slog.Warn("ASI_DOJO_URL is empty: DefectDojo integration disabled")
@@ -80,6 +85,7 @@ func run() error {
 		Addr: cfg.HTTPAddr,
 		Handler: httpapi.NewRouter(httpapi.Deps{
 			Pool: pool, Queries: q, Auth: authSvc, CookieSecure: cfg.CookieSecure,
+			DojoPublicURL: cfg.DojoPublicURL,
 		}),
 		ReadHeaderTimeout: 10 * time.Second,
 	}

@@ -17,10 +17,11 @@ import (
 
 // Deps are the services handlers call.
 type Deps struct {
-	Pool         *pgxpool.Pool
-	Queries      *gen.Queries
-	Auth         *auth.Service
-	CookieSecure bool
+	Pool          *pgxpool.Pool
+	Queries       *gen.Queries
+	Auth          *auth.Service
+	CookieSecure  bool
+	DojoPublicURL string // browser base URL of Dojo, for finding links
 }
 
 type api struct{ Deps }
