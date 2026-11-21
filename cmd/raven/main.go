@@ -21,10 +21,12 @@ import (
 	"github.com/WH-HN2026/raven/internal/dojo"
 	"github.com/WH-HN2026/raven/internal/httpapi"
 	"github.com/WH-HN2026/raven/internal/pipeline"
+	"github.com/WH-HN2026/raven/internal/scanner"
 	"github.com/WH-HN2026/raven/internal/scanner/httpx"
 	"github.com/WH-HN2026/raven/internal/scanner/nmap"
 	"github.com/WH-HN2026/raven/internal/scanner/nuclei"
 	"github.com/WH-HN2026/raven/internal/scanner/wpscan"
+	"github.com/WH-HN2026/raven/internal/scanner/zap"
 	"github.com/WH-HN2026/raven/internal/scheduler"
 	"github.com/WH-HN2026/raven/internal/signatures"
 )
@@ -81,7 +83,7 @@ func run() error {
 	dojoWrite := &dojo.Lazy{} // write-through edits (D6); set once bootstrap is done
 	if cfg.DojoURL != "" {
 		push, err := dojo.NewPushService(pool, map[string]dojo.ParseFunc{
-			"nmap": nmap.Parse, "httpx": httpx.Parse, "nuclei": nuclei.Parse, "wpscan": wpscan.Parse,
+			"nmap": nmap.Parse, "httpx": httpx.Parse, "nuclei": nuclei.Parse, "wpscan": wpscan.Parse, "zap": zap.Parse,
 		})
 		if err != nil {
 			return err
@@ -120,9 +122,18 @@ func run() error {
 		go (&dojo.CVESync{Pool: pool, Matcher: cveMatcher}).Run(ctx, 5*time.Minute) // match only (C3)
 	}
 
-	// Scan pipeline: River workers running nmap/httpx/nuclei per batch (S3, S5).
+	var zapScanner scanner.Scanner
+	if cfg.ZAPURL != "" {
+		zapScanner = &zap.Scanner{BaseURL: cfg.ZAPURL, APIKey: cfg.ZAPAPIKey}
+		pipeline.SetStageAvailable(pipeline.StageZAP, true)
+		slog.Info("zap stage enabled", "url", cfg.ZAPURL)
+	} else {
+		pipeline.SetStageAvailable(pipeline.StageZAP, false)
+	}
+
+	// Scan pipeline: River workers running nmap/httpx/nuclei (+ aggressive stages) per batch (S3, S5).
 	pipe, err := pipeline.New(pool, pipeline.Config{
-		Scanner: nmap.New(nmap.Config{}), Resolver: net.DefaultResolver, Hook: hook, Workers: cfg.MaxWorkers,
+		Scanner: nmap.New(nmap.Config{}), ZAP: zapScanner, Resolver: net.DefaultResolver, Hook: hook, Workers: cfg.MaxWorkers,
 	})
 	if err != nil {
 		return err

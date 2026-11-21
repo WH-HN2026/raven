@@ -234,6 +234,13 @@ func (s *PushService) load(ctx context.Context, a PushArgs) (PushBatch, error) {
 	}
 	reports, tags := webReports(a.IPs, stages, web, detection)
 	appendWPScanReports(a.IPs, stages, wp, reports, tags)
+	if pipeline.HasStage(stages, pipeline.StageZAP) {
+		zapRes, err := s.loadArtifact(ctx, q, a.BatchID, pipeline.StageZAP)
+		if err != nil {
+			return PushBatch{}, err
+		}
+		appendZAPReports(reports, a.IPs, stages, zapRes)
+	}
 	hosts, err := q.ListPushHosts(ctx, a.IPs)
 	if err != nil {
 		return PushBatch{}, fmt.Errorf("list hosts: %w", err)
