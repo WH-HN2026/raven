@@ -6,10 +6,22 @@ import type { paths } from '../../api/schema'
 
 export type Profile = Schemas['Profile']
 export type Schedule = Schemas['Schedule']
+export type StageName = Schemas['StageName']
+export type StageInfo = Schemas['StageInfo']
+export type StagesResponse = Schemas['StagesResponse']
 
 // Same key as the Runs page uses, so its profile picker refreshes too.
 export const profilesKey = ['profiles'] as const
 export const schedulesKey = ['schedules'] as const
+export const stagesKey = ['stages'] as const
+
+export function useStages() {
+  return useQuery({
+    queryKey: stagesKey,
+    queryFn: () => api.get('/stages'),
+    staleTime: 5 * 60_000,
+  })
+}
 type ProfileOrder = Pick<NonNullable<paths['/profiles']['get']['parameters']['query']>, 'sort' | 'dir'>
 
 /** Profiles fit on one page (a handful per deployment). */
