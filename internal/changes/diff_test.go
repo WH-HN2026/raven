@@ -223,3 +223,28 @@ func TestBuildSnapshotFromNmapFixture(t *testing.T) {
 		t.Fatalf("%d of %d services fingerprinted", n, len(s.Services))
 	}
 }
+
+func TestBuildSnapshotFromPersistedServiceFP(t *testing.T) {
+	obs := []ObsRow{
+		{IP: ipA, Port: -1, Up: true},
+		{IP: ipA, Port: 22, Up: true, FP: &ServiceFP{Proto: "tcp", Name: "ssh", Product: "OpenSSH", Version: "9.6"}},
+		{IP: ipA, Port: 80, Up: true, FP: &ServiceFP{Proto: "tcp", Name: "http", Product: "nginx", Version: "1.24", Title: "nmap title"}},
+	}
+	http := []HTTPRow{
+		{IP: ipA, Port: 80, Title: "httpx title", Technologies: []string{"Nginx"}},
+	}
+	s := BuildSnapshot(obs, nil, http)
+	ssh := s.Services[SvcKey{ipA, 22}]
+	if ssh == nil || !ssh.HasNmap || ssh.FP.Product != "OpenSSH" || ssh.FP.Version != "9.6" {
+		t.Fatalf("ssh from service_fp = %+v", ssh)
+	}
+	web := s.Services[SvcKey{ipA, 80}]
+	if web == nil || !web.HasNmap || !web.HasHTTP || web.FP.Title != "httpx title" || !reflect.DeepEqual(web.FP.Technologies, []string{"Nginx"}) {
+		t.Fatalf("web from service_fp = %+v", web)
+	}
+	// Without httpx rows, nmap title from service_fp is used.
+	sNoHTTP := BuildSnapshot(obs, nil, nil)
+	if got := sNoHTTP.Services[SvcKey{ipA, 80}].FP.Title; got != "nmap title" {
+		t.Fatalf("title without httpx = %q, want nmap title", got)
+	}
+}

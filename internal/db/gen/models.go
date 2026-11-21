@@ -173,6 +173,7 @@ type RunObservation struct {
 	ObservedAt        time.Time       `json:"observed_at"`
 	NucleiMatches     json.RawMessage `json:"nuclei_matches"`
 	NucleiEvidenceEnc []byte          `json:"nuclei_evidence_enc"`
+	ServiceFp         []byte          `json:"service_fp"`
 }
 
 type Schedule struct {

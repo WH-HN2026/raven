@@ -67,10 +67,10 @@ type HostRow struct {
 
 // ServiceRow is an open service to upsert.
 type ServiceRow struct {
-	IP                                  netip.Addr
-	Port                                uint16
-	Proto                               string
-	Name, Product, Version, CPE, Banner string
+	IP                                         netip.Addr
+	Port                                       uint16
+	Proto                                      string
+	Name, Product, Version, CPE, Banner, Title string
 }
 
 func (s ServiceRow) key() svcKey { return svcKey{s.IP, s.Port, s.Proto} }
@@ -132,14 +132,24 @@ func BuildPlan(ips []netip.Addr, hostnames map[netip.Addr][]string, obs []scanne
 		p.Hosts = append(p.Hosts, HostRow{IP: ip, Hostnames: slices.Compact(hn)})
 	}
 
+	httpTitles := map[svcKey]string{}
+	for _, o := range obs {
+		ip := o.IP.Unmap()
+		if o.Kind == scanner.ObsHTTP && up[ip] && o.HTTP != nil && o.HTTP.Title != "" {
+			httpTitles[svcKey{ip, o.Port, cmp.Or(o.Proto, "tcp")}] = o.HTTP.Title
+		}
+	}
+
 	seen := map[svcKey]bool{}
 	for _, o := range obs {
 		ip := o.IP.Unmap()
 		if o.Kind != scanner.ObsService || !up[ip] {
 			continue
 		}
-		s := ServiceRow{IP: ip, Port: o.Port, Proto: cmp.Or(o.Proto, "tcp"),
-			Name: o.Service, Product: o.Product, Version: o.Version, CPE: o.CPE, Banner: o.Banner}
+		proto := cmp.Or(o.Proto, "tcp")
+		s := ServiceRow{IP: ip, Port: o.Port, Proto: proto,
+			Name: o.Service, Product: o.Product, Version: o.Version, CPE: o.CPE, Banner: o.Banner,
+			Title: httpTitles[svcKey{ip, o.Port, proto}]}
 		if seen[s.key()] {
 			continue
 		}

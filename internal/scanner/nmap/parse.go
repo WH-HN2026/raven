@@ -134,7 +134,7 @@ func Parse(raw []byte) (*scanner.Result, error) {
 	return &scanner.Result{
 		Raw:          raw,
 		Observations: obs,
-		PerIP:        func(ip netip.Addr) []byte { return perIP(raw, spans, ip) },
+		PerIP:        newPerIPIndex(raw, spans).perIP,
 	}, nil
 }
 
@@ -354,46 +354,99 @@ func firstNonZero(vs ...int64) int64 {
 	return 0
 }
 
+type xmlGap struct {
+	afterSpan int // -1 = before spans[0], i = after spans[i]
+	data      []byte
+}
+
+// perIPIndex precomputes the O(1) IP → span lookup and the non-host XML
+// envelope slices once per batch, avoiding O(N²) span scans and O(len(raw))
+// buffer allocations for every responding IP in large batches.
+type perIPIndex struct {
+	raw         []byte
+	spans       []hostSpan
+	byIP        map[netip.Addr]int
+	gaps        []xmlGap
+	totalGapLen int
+}
+
+func newPerIPIndex(raw []byte, spans []hostSpan) *perIPIndex {
+	byIP := make(map[netip.Addr]int)
+	var gaps []xmlGap
+	totalGapLen := 0
+	last := int64(0)
+	for i, s := range spans {
+		if s.isHost && s.ip.IsValid() {
+			if _, exists := byIP[s.ip]; !exists {
+				byIP[s.ip] = i
+			}
+		}
+		if s.start > last {
+			g := raw[last:s.start]
+			gaps = append(gaps, xmlGap{afterSpan: i - 1, data: g})
+			totalGapLen += len(g)
+		}
+		last = s.end
+		if last < int64(len(raw)) && raw[last] == '\n' {
+			last++
+		}
+	}
+	if last < int64(len(raw)) {
+		g := raw[last:]
+		gaps = append(gaps, xmlGap{afterSpan: len(spans) - 1, data: g})
+		totalGapLen += len(g)
+	}
+	return &perIPIndex{raw: raw, spans: spans, byIP: byIP, gaps: gaps, totalGapLen: totalGapLen}
+}
+
 // perIP returns raw with every <host>/<hosthint> removed except the <host>
 // of ip, or nil if ip has no <host> in this output. The rest of the
 // document (header, scaninfo, runstats) is kept byte for byte, so Dojo's
 // Nmap parser reads it like any -oX file. A down host has no <hostnames>,
 // which Dojo's parser iterates unconditionally, so an empty one is added.
-func perIP(raw []byte, spans []hostSpan, ip netip.Addr) []byte {
-	ip = ip.Unmap()
-	found := false
-	var b bytes.Buffer
-	b.Grow(len(raw))
-	last := int64(0)
-	for _, s := range spans {
-		if s.isHost && s.ip == ip && !found {
-			found = true
-			b.Write(raw[last:s.start])
-			el := raw[s.start:s.end]
-			if !bytes.Contains(el, []byte("<hostnames")) {
-				i := bytes.LastIndex(el, []byte("</host>"))
-				if i >= 0 {
-					b.Write(el[:i])
-					b.WriteString("<hostnames>\n</hostnames>\n")
-					b.Write(el[i:])
-					last = s.end
-					continue
-				}
-			}
-			b.Write(el)
-			last = s.end
-			continue
-		}
-		b.Write(raw[last:s.start])
-		last = s.end
-		// drop the newline nmap writes after each element, to keep it tidy
-		if last < int64(len(raw)) && raw[last] == '\n' {
-			last++
-		}
-	}
-	if !found {
+func (idx *perIPIndex) perIP(ip netip.Addr) []byte {
+	spanIdx, ok := idx.byIP[ip.Unmap()]
+	if !ok {
 		return nil
 	}
-	b.Write(raw[last:])
+	s := idx.spans[spanIdx]
+	el := idx.raw[s.start:s.end]
+	trailingNL := s.end < int64(len(idx.raw)) && idx.raw[s.end] == '\n'
+
+	extra := 0
+	insertHostnames := !bytes.Contains(el, []byte("<hostnames"))
+	hostEnd := -1
+	if insertHostnames {
+		hostEnd = bytes.LastIndex(el, []byte("</host>"))
+		if hostEnd >= 0 {
+			extra = len("<hostnames>\n</hostnames>\n")
+		}
+	}
+	if trailingNL {
+		extra++
+	}
+
+	var b bytes.Buffer
+	b.Grow(idx.totalGapLen + len(el) + extra)
+	for _, g := range idx.gaps {
+		if g.afterSpan < spanIdx {
+			b.Write(g.data)
+		}
+	}
+	if hostEnd >= 0 {
+		b.Write(el[:hostEnd])
+		b.WriteString("<hostnames>\n</hostnames>\n")
+		b.Write(el[hostEnd:])
+	} else {
+		b.Write(el)
+	}
+	if trailingNL {
+		b.WriteByte('\n')
+	}
+	for _, g := range idx.gaps {
+		if g.afterSpan >= spanIdx {
+			b.Write(g.data)
+		}
+	}
 	return b.Bytes()
 }

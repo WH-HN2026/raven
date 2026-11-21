@@ -56,11 +56,23 @@ type Snapshot struct {
 	Services map[SvcKey]*Service // open ports of up hosts
 }
 
+// ServiceFP is the persisted per-run service fingerprint stored on
+// run_observations.service_fp so diffs don't have to decrypt and XML-parse
+// every nmap artifact on every request.
+type ServiceFP struct {
+	Proto   string `json:"proto,omitempty"`
+	Name    string `json:"name,omitempty"`
+	Product string `json:"product,omitempty"`
+	Version string `json:"version,omitempty"`
+	Title   string `json:"title,omitempty"`
+}
+
 // ObsRow is a run_observations row; Port -1 = host-level.
 type ObsRow struct {
 	IP   netip.Addr
 	Port int32
 	Up   bool
+	FP   *ServiceFP // non-nil when run_observations.service_fp was recorded
 }
 
 // HTTPRow is one http_observation of the run (rows of a service ordered by URL).
@@ -83,7 +95,16 @@ func BuildSnapshot(obs []ObsRow, nmapObs []scanner.Observation, http []HTTPRow) 
 	for _, o := range obs {
 		ip := o.IP.Unmap()
 		if o.Port >= 0 && o.Up && s.Hosts[ip] {
-			s.Services[SvcKey{ip, uint16(o.Port)}] = &Service{Proto: "tcp"}
+			sv := &Service{Proto: "tcp"}
+			if o.FP != nil {
+				sv.Proto = cmp.Or(o.FP.Proto, "tcp")
+				sv.FP.Name = o.FP.Name
+				sv.FP.Product = o.FP.Product
+				sv.FP.Version = o.FP.Version
+				sv.nmapTitle = o.FP.Title
+				sv.HasNmap = true
+			}
+			s.Services[SvcKey{ip, uint16(o.Port)}] = sv
 		}
 	}
 	for _, o := range nmapObs {
@@ -167,6 +188,7 @@ func Diff(a, b Snapshot) Result {
 		HostsNew: []HostChange{}, HostsGone: []HostChange{},
 		ServicesNew: []ServiceChange{}, ServicesGone: []ServiceChange{}, ServicesChanged: []ServiceChange{},
 	}
+	newIPs := map[netip.Addr]bool{}
 	for ip, up := range b.Hosts {
 		if !up || a.Hosts[ip] {
 			continue
@@ -175,12 +197,31 @@ func Diff(a, b Snapshot) Result {
 		if _, seen := a.Hosts[ip]; !seen {
 			other = "not_scanned"
 		}
-		r.HostsNew = append(r.HostsNew, HostChange{IP: ip, OtherRun: other, Ports: b.ports(ip)})
+		newIPs[ip] = true
+		r.HostsNew = append(r.HostsNew, HostChange{IP: ip, OtherRun: other, Ports: []uint16{}})
 	}
+	if len(newIPs) > 0 {
+		ports := b.portsFor(newIPs)
+		for i := range r.HostsNew {
+			if ps := ports[r.HostsNew[i].IP]; len(ps) > 0 {
+				r.HostsNew[i].Ports = ps
+			}
+		}
+	}
+	goneIPs := map[netip.Addr]bool{}
 	for ip, up := range a.Hosts {
 		if up && !b.Hosts[ip] {
 			if _, seen := b.Hosts[ip]; seen {
-				r.HostsGone = append(r.HostsGone, HostChange{IP: ip, OtherRun: "down", Ports: a.ports(ip)})
+				goneIPs[ip] = true
+				r.HostsGone = append(r.HostsGone, HostChange{IP: ip, OtherRun: "down", Ports: []uint16{}})
+			}
+		}
+	}
+	if len(goneIPs) > 0 {
+		ports := a.portsFor(goneIPs)
+		for i := range r.HostsGone {
+			if ps := ports[r.HostsGone[i].IP]; len(ps) > 0 {
+				r.HostsGone[i].Ports = ps
 			}
 		}
 	}
@@ -217,14 +258,18 @@ func Diff(a, b Snapshot) Result {
 	return r
 }
 
-func (s Snapshot) ports(ip netip.Addr) []uint16 {
-	out := []uint16{}
+// portsFor collects sorted open ports for each IP in want in a single pass
+// over s.Services, avoiding O(changed_hosts * total_services) scans at scale.
+func (s Snapshot) portsFor(want map[netip.Addr]bool) map[netip.Addr][]uint16 {
+	out := make(map[netip.Addr][]uint16, len(want))
 	for k := range s.Services {
-		if k.IP == ip {
-			out = append(out, k.Port)
+		if want[k.IP] {
+			out[k.IP] = append(out[k.IP], k.Port)
 		}
 	}
-	slices.Sort(out)
+	for _, ps := range out {
+		slices.Sort(ps)
+	}
 	return out
 }
 

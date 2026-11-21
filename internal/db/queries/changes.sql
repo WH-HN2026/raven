@@ -18,7 +18,7 @@ ORDER BY id DESC LIMIT 1;
 
 -- name: ListRunObservations :many
 -- port -1 = host-level row.
-SELECT ip, COALESCE(port, -1)::int AS port, up FROM run_observations WHERE run_id = $1;
+SELECT ip, COALESCE(port, -1)::int AS port, up, service_fp FROM run_observations WHERE run_id = $1;
 
 -- name: ListRunNmapArtifacts :many
 SELECT raven_dec(content_enc)::text AS content FROM artifacts

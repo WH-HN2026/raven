@@ -63,3 +63,68 @@ func (q *Queries) InsertHTTPObservation(ctx context.Context, arg InsertHTTPObser
 	}
 	return result.RowsAffected(), nil
 }
+
+const insertHTTPObservations = `-- name: InsertHTTPObservations :execrows
+INSERT INTO http_observations (
+    service_id, url, status, title, headers_enc, cookies_enc, tls_cert_enc,
+    redirects, technologies, favicon_hash, run_id, observed_at
+)
+SELECT s.id, o.url, o.status, o.title,
+       raven_enc(o.headers), raven_enc(o.cookies), raven_enc(NULLIF(o.tls_cert, '')),
+       o.redirects::jsonb,
+       COALESCE(ARRAY(SELECT jsonb_array_elements_text(o.technologies::jsonb)), '{}'::text[]),
+       o.favicon_hash, $1, o.observed_at
+FROM (
+    SELECT unnest($2::inet[]) AS ip,
+           unnest($3::int[]) AS port,
+           unnest($4::text[]) AS url,
+           unnest($5::int[]) AS status,
+           unnest($6::text[]) AS title,
+           unnest($7::text[]) AS headers,
+           unnest($8::text[]) AS cookies,
+           unnest($9::text[]) AS tls_cert,
+           unnest($10::text[]) AS redirects,
+           unnest($11::text[]) AS technologies,
+           unnest($12::text[]) AS favicon_hash,
+           unnest($13::timestamptz[]) AS observed_at
+) AS o
+JOIN services s ON s.ip = o.ip AND s.port = o.port AND s.proto = 'tcp'
+`
+
+type InsertHTTPObservationsParams struct {
+	RunID            *int64       `json:"run_id"`
+	Ips              []netip.Addr `json:"ips"`
+	Ports            []int32      `json:"ports"`
+	Urls             []string     `json:"urls"`
+	Statuses         []int32      `json:"statuses"`
+	Titles           []string     `json:"titles"`
+	Headers          []string     `json:"headers"`
+	Cookies          []string     `json:"cookies"`
+	TlsCerts         []string     `json:"tls_certs"`
+	Redirects        []string     `json:"redirects"`
+	TechnologiesJson []string     `json:"technologies_json"`
+	FaviconHashes    []string     `json:"favicon_hashes"`
+	ObservedAts      []time.Time  `json:"observed_ats"`
+}
+
+func (q *Queries) InsertHTTPObservations(ctx context.Context, arg InsertHTTPObservationsParams) (int64, error) {
+	result, err := q.db.Exec(ctx, insertHTTPObservations,
+		arg.RunID,
+		arg.Ips,
+		arg.Ports,
+		arg.Urls,
+		arg.Statuses,
+		arg.Titles,
+		arg.Headers,
+		arg.Cookies,
+		arg.TlsCerts,
+		arg.Redirects,
+		arg.TechnologiesJson,
+		arg.FaviconHashes,
+		arg.ObservedAts,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}

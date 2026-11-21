@@ -110,7 +110,7 @@ func (l *lifecycleStats) apply(ctx context.Context, q *gen.Queries, run gen.Run,
 			ports[i], ups[i] = -1, true
 		}
 		if err := q.InsertRunObservations(ctx, gen.InsertRunObservationsParams{
-			RunID: run.ID, Ips: l.recovered, Ports: ports, Ups: ups, ObservedAt: seen,
+			RunID: run.ID, Ips: l.recovered, Ports: ports, Ups: ups, ServiceFps: make([]string, n), ObservedAt: seen,
 		}); err != nil {
 			return fmt.Errorf("record re-probe recoveries of run %d: %w", run.ID, err)
 		}

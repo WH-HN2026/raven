@@ -85,12 +85,15 @@ const listColumns = `h.ip, h.hostnames, h.state, h.first_seen, h.last_seen, h.mi
 		unnest(o.technologies) AS t WHERE s.ip = h.ip ORDER BY t) AS technologies`
 
 // buildList returns the page query and the count query; the count query
-// uses args without the trailing limit/offset.
+// uses args without the trailing limit/offset. Paginating in a subquery before
+// computing the correlated service/technology aggregates ensures Postgres only
+// evaluates them for the returned page, not for all offset+limit rows.
 func buildList(f Filter) (list, count string, args []any) {
 	where, args := buildWhere(f)
 	count = "SELECT count(*) FROM hosts h" + where
 	n := len(args)
-	list = "SELECT " + listColumns + " FROM hosts h" + where +
-		" ORDER BY h.ip LIMIT $" + strconv.Itoa(n+1) + " OFFSET $" + strconv.Itoa(n+2)
+	list = "SELECT " + listColumns + " FROM (SELECT h.* FROM hosts h" + where +
+		" ORDER BY h.ip LIMIT $" + strconv.Itoa(n+1) + " OFFSET $" + strconv.Itoa(n+2) +
+		") h ORDER BY h.ip"
 	return list, count, append(args, f.Limit, f.Offset)
 }

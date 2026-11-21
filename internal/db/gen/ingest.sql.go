@@ -34,10 +34,18 @@ func (q *Queries) InsertArtifact(ctx context.Context, arg InsertArtifactParams) 
 }
 
 const insertRunObservations = `-- name: InsertRunObservations :exec
-INSERT INTO run_observations (run_id, ip, port, up, observed_at)
-SELECT $1, o.ip, NULLIF(o.port, -1), o.up, $2
-FROM (SELECT unnest($3::inet[]) AS ip, unnest($4::int[]) AS port, unnest($5::boolean[]) AS up) AS o
-ON CONFLICT (run_id, ip, COALESCE(port, -1)) DO UPDATE SET up = EXCLUDED.up, observed_at = EXCLUDED.observed_at
+INSERT INTO run_observations (run_id, ip, port, up, observed_at, service_fp)
+SELECT $1, o.ip, NULLIF(o.port, -1), o.up, $2, NULLIF(o.service_fp, '')::jsonb
+FROM (
+    SELECT unnest($3::inet[]) AS ip,
+           unnest($4::int[]) AS port,
+           unnest($5::boolean[]) AS up,
+           unnest($6::text[]) AS service_fp
+) AS o
+ON CONFLICT (run_id, ip, COALESCE(port, -1)) DO UPDATE SET
+    up = EXCLUDED.up,
+    observed_at = EXCLUDED.observed_at,
+    service_fp = COALESCE(EXCLUDED.service_fp, run_observations.service_fp)
 `
 
 type InsertRunObservationsParams struct {
@@ -46,9 +54,10 @@ type InsertRunObservationsParams struct {
 	Ips        []netip.Addr `json:"ips"`
 	Ports      []int32      `json:"ports"`
 	Ups        []bool       `json:"ups"`
+	ServiceFps []string     `json:"service_fps"`
 }
 
-// ports: -1 = host-level row (port NULL).
+// ports: -1 = host-level row (port NULL). service_fps: ” = NULL (host-level or un-fingerprinted).
 func (q *Queries) InsertRunObservations(ctx context.Context, arg InsertRunObservationsParams) error {
 	_, err := q.db.Exec(ctx, insertRunObservations,
 		arg.RunID,
@@ -56,6 +65,7 @@ func (q *Queries) InsertRunObservations(ctx context.Context, arg InsertRunObserv
 		arg.Ips,
 		arg.Ports,
 		arg.Ups,
+		arg.ServiceFps,
 	)
 	return err
 }
@@ -106,10 +116,16 @@ func (q *Queries) MarkServicesGone(ctx context.Context, ids []int64) error {
 	return err
 }
 
-const upsertScannedHost = `-- name: UpsertScannedHost :exec
+const upsertScannedHosts = `-- name: UpsertScannedHosts :exec
 
 INSERT INTO hosts (ip, hostnames, state, first_seen, last_seen)
-VALUES ($1, $2::text[], 'active', $3, $3)
+SELECT x.ip,
+       COALESCE(ARRAY(SELECT jsonb_array_elements_text(x.hostnames::jsonb)), '{}'::text[]),
+       'active', $1, $1
+FROM (
+    SELECT unnest($2::inet[]) AS ip,
+           unnest($3::text[]) AS hostnames
+) AS x
 ON CONFLICT (ip) DO UPDATE SET
     hostnames = ARRAY(SELECT DISTINCT h FROM unnest(hosts.hostnames || EXCLUDED.hostnames) AS h ORDER BY h),
     state = 'active',
@@ -117,22 +133,33 @@ ON CONFLICT (ip) DO UPDATE SET
     last_seen = EXCLUDED.last_seen
 `
 
-type UpsertScannedHostParams struct {
-	Ip        netip.Addr `json:"ip"`
-	Hostnames []string   `json:"hostnames"`
-	Seen      time.Time  `json:"seen"`
+type UpsertScannedHostsParams struct {
+	Seen          time.Time    `json:"seen"`
+	Ips           []netip.Addr `json:"ips"`
+	HostnamesJson []string     `json:"hostnames_json"`
 }
 
 // Ingest of one batch (S3). Only scan-owned columns are written here; owner,
 // criticality, notes_enc, user_tags and overrides belong to user edits.
-func (q *Queries) UpsertScannedHost(ctx context.Context, arg UpsertScannedHostParams) error {
-	_, err := q.db.Exec(ctx, upsertScannedHost, arg.Ip, arg.Hostnames, arg.Seen)
+func (q *Queries) UpsertScannedHosts(ctx context.Context, arg UpsertScannedHostsParams) error {
+	_, err := q.db.Exec(ctx, upsertScannedHosts, arg.Seen, arg.Ips, arg.HostnamesJson)
 	return err
 }
 
-const upsertScannedService = `-- name: UpsertScannedService :exec
+const upsertScannedServices = `-- name: UpsertScannedServices :exec
 INSERT INTO services (ip, port, proto, name, product, version, cpe, banner_enc, state, first_seen, last_seen)
-VALUES ($1, $2, $3, $4, $5, $6, $7, raven_enc(NULLIF($8::text, '')), 'open', $9, $9)
+SELECT s.ip, s.port, s.proto, s.name, s.product, s.version, s.cpe,
+       raven_enc(NULLIF(s.banner, '')), 'open', $1, $1
+FROM (
+    SELECT unnest($2::inet[]) AS ip,
+           unnest($3::int[]) AS port,
+           unnest($4::text[]) AS proto,
+           unnest($5::text[]) AS name,
+           unnest($6::text[]) AS product,
+           unnest($7::text[]) AS version,
+           unnest($8::text[]) AS cpe,
+           unnest($9::text[]) AS banner
+) AS s
 ON CONFLICT (ip, port, proto) DO UPDATE SET
     name = EXCLUDED.name,
     product = EXCLUDED.product,
@@ -143,29 +170,29 @@ ON CONFLICT (ip, port, proto) DO UPDATE SET
     last_seen = EXCLUDED.last_seen
 `
 
-type UpsertScannedServiceParams struct {
-	Ip      netip.Addr `json:"ip"`
-	Port    int32      `json:"port"`
-	Proto   string     `json:"proto"`
-	Name    string     `json:"name"`
-	Product string     `json:"product"`
-	Version string     `json:"version"`
-	Cpe     string     `json:"cpe"`
-	Banner  string     `json:"banner"`
-	Seen    time.Time  `json:"seen"`
+type UpsertScannedServicesParams struct {
+	Seen     time.Time    `json:"seen"`
+	Ips      []netip.Addr `json:"ips"`
+	Ports    []int32      `json:"ports"`
+	Protos   []string     `json:"protos"`
+	Names    []string     `json:"names"`
+	Products []string     `json:"products"`
+	Versions []string     `json:"versions"`
+	Cpes     []string     `json:"cpes"`
+	Banners  []string     `json:"banners"`
 }
 
-func (q *Queries) UpsertScannedService(ctx context.Context, arg UpsertScannedServiceParams) error {
-	_, err := q.db.Exec(ctx, upsertScannedService,
-		arg.Ip,
-		arg.Port,
-		arg.Proto,
-		arg.Name,
-		arg.Product,
-		arg.Version,
-		arg.Cpe,
-		arg.Banner,
+func (q *Queries) UpsertScannedServices(ctx context.Context, arg UpsertScannedServicesParams) error {
+	_, err := q.db.Exec(ctx, upsertScannedServices,
 		arg.Seen,
+		arg.Ips,
+		arg.Ports,
+		arg.Protos,
+		arg.Names,
+		arg.Products,
+		arg.Versions,
+		arg.Cpes,
+		arg.Banners,
 	)
 	return err
 }

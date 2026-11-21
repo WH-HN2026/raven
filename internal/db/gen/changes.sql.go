@@ -225,13 +225,14 @@ func (q *Queries) ListRunNmapArtifacts(ctx context.Context, runID int64) ([]stri
 }
 
 const listRunObservations = `-- name: ListRunObservations :many
-SELECT ip, COALESCE(port, -1)::int AS port, up FROM run_observations WHERE run_id = $1
+SELECT ip, COALESCE(port, -1)::int AS port, up, service_fp FROM run_observations WHERE run_id = $1
 `
 
 type ListRunObservationsRow struct {
-	Ip   netip.Addr `json:"ip"`
-	Port int32      `json:"port"`
-	Up   bool       `json:"up"`
+	Ip        netip.Addr `json:"ip"`
+	Port      int32      `json:"port"`
+	Up        bool       `json:"up"`
+	ServiceFp []byte     `json:"service_fp"`
 }
 
 // port -1 = host-level row.
@@ -244,7 +245,12 @@ func (q *Queries) ListRunObservations(ctx context.Context, runID int64) ([]ListR
 	items := []ListRunObservationsRow{}
 	for rows.Next() {
 		var i ListRunObservationsRow
-		if err := rows.Scan(&i.Ip, &i.Port, &i.Up); err != nil {
+		if err := rows.Scan(
+			&i.Ip,
+			&i.Port,
+			&i.Up,
+			&i.ServiceFp,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
