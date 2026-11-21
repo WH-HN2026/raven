@@ -187,8 +187,8 @@ audit_log(id, user_id, action, object, object_id, diff jsonb, at)
 | `sessions.token_hash`, `api_tokens.token_hash` | S | plaintext (allowlisted) | SHA-256 of a random token; it's the lookup key |
 | `targets.note`, `scope_entries.note` | I | plaintext (allowlisted) | short operator label from the import file, shown in lists like a tag; not meant for secrets |
 | `hosts.ip`, `hostnames`, `services.ip/port/proto`, `run_observations.*`, `batches.ips`, `scope_entries.value`, `targets.value`, `dojo_*.ip` | I | plaintext | filter and join keys (architecture §5) |
-| `services.name/product/version`, `http_observations.url/status/title/technologies/favicon_hash` | I | plaintext | fingerprint: filtered, diffed (C1), CPE-matched (§11) |
-| `http_observations.redirects` | I | plaintext | redirect chain URLs; see follow-up A4 below |
+| `services.name/product/version/cpe`, `http_observations.url/status/title/technologies/favicon_hash` | I | plaintext | fingerprint: filtered, diffed (C1), CPE-matched (§11) |
+| `http_observations.redirects` | I | plaintext | redirect chain URLs (S7 drops userinfo, keeps query strings); see follow-up A4 below |
 | `hosts.owner/criticality/user_tags`, `*.overrides` | I | plaintext | filter fields and corrections of scan-owned fingerprint fields; notes are not in `overrides` |
 | `runs.stats`, `batches.error`, `batches.*` counters | M | plaintext | counters; `error` is a wrapped Go error (nmap's last stderr line, Dojo status), not scan content |
 | `profiles.*`, `schedules.*`, `signatures.*` | M | plaintext | configuration; signature templates are not secret |
@@ -205,8 +205,8 @@ audit_log(id, user_id, action, object, object_id, diff jsonb, at)
 **Known follow-ups (Person A's code, not changed in P4).**
 - A1 `internal/dojo/http.go:200-208`: `HTTPError.Body` keeps up to 512 bytes of Dojo's response. It ends up in logs (`pushjob.go:145,158`) and in `river_job.errors`. A Dojo parser error could echo uploaded scan content. Suggested fix: keep the status and Dojo's `message`/`detail` field only, or cut the body to about 120 chars.
 - A2 `internal/scanner/nmap/nmap.go:64`: the last stderr line goes into `batches.error` (plaintext). Today that's nmap's own diagnostics, so it's acceptable. Keep it that way: never put stdout or the XML into errors.
-- A3 when S7/httpx writes `http_observations`, use `asi_enc` for headers, cookies and the cert (the integration test fails on any new `_enc` column it doesn't cover), and don't log them.
-- A4 `http_observations.redirects`: if httpx stores full redirect URLs, strip query strings (they can carry tokens) or move them to an `_enc` column.
+- A3 S7 (httpx) is done right: `internal/db/queries/http_observations.sql` writes `headers_enc`, `cookies_enc` and `tls_cert_enc` with `asi_enc`, the raw httpx JSON goes to `artifacts.content_enc`, and nothing in `internal/pipeline/http.go` or `internal/scanner/httpx` logs them. The integration test writes through this same query (`gen.InsertHTTPObservation`). Nothing to fix.
+- A4 `internal/scanner/httpx/parse.go:113-123` (`appendRedirect`): it drops userinfo but keeps the query string and fragment of each redirect target, which lands in plaintext `http_observations.redirects`. Redirect URLs often carry tokens (`?code=`, `?session=`, SSO tickets). Suggested fix: also set `to.RawQuery = ""`, `to.Fragment = ""` there (the full URL stays in the encrypted artifact).
 
 ## 6. RBAC
 

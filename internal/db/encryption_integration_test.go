@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/WH-HN2026/zadanie-agh-asi/internal/audit"
 	"github.com/WH-HN2026/zadanie-agh-asi/internal/db/gen"
@@ -94,12 +95,14 @@ func TestEncryptedColumnsAtRest(t *testing.T) {
 	if _, err := pool.Exec(ctx, `UPDATE hosts SET notes_enc = asi_enc($2) WHERE ip = $1`, ip, markers["hosts.notes_enc"]); err != nil {
 		t.Fatal(err)
 	}
-	// HTTP observation: no write path on main yet (S7); same asi_enc call.
-	if _, err := pool.Exec(ctx, `INSERT INTO http_observations (service_id, url, headers_enc, cookies_enc, tls_cert_enc, run_id)
-		SELECT id, 'https://10.66.0.7/', asi_enc($2), asi_enc($3), asi_enc($4), $5 FROM services WHERE ip = $1`,
-		ip, markers["http_observations.headers_enc"], markers["http_observations.cookies_enc"],
-		markers["http_observations.tls_cert_enc"], runID); err != nil {
-		t.Fatal(err)
+	// HTTP observation: the query S7's ingest uses (pipeline.ingestHTTP is unexported).
+	if n, err := q.InsertHTTPObservation(ctx, gen.InsertHTTPObservationParams{
+		Ip: ip, Port: 22, Url: "https://10.66.0.7/", Status: pgtype.Int4{Int32: 200, Valid: true},
+		Headers: markers["http_observations.headers_enc"], Cookies: markers["http_observations.cookies_enc"],
+		TlsCert: markers["http_observations.tls_cert_enc"], Redirects: []byte("[]"),
+		Technologies: []string{}, RunID: &runID, ObservedAt: time.Now(),
+	}); err != nil || n != 1 {
+		t.Fatalf("insert http observation: n=%d err=%v", n, err)
 	}
 
 	// The audit_log never carries the plaintext either.
