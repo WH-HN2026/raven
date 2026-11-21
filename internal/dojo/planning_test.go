@@ -60,8 +60,8 @@ func TestProfileIndex(t *testing.T) {
 	}
 	for _, tc := range tests {
 		got, ok := idx.resolve(tc.name)
-		if got != tc.wantID || ok != tc.wantOK {
-			t.Errorf("resolve(%q) = (%d, %v), want (%d, %v)", tc.name, got, ok, tc.wantID, tc.wantOK)
+		if got.id != tc.wantID || ok != tc.wantOK {
+			t.Errorf("resolve(%q) = (%+v, %v), want (id=%d, %v)", tc.name, got, ok, tc.wantID, tc.wantOK)
 		}
 	}
 }
@@ -205,16 +205,17 @@ func TestNextEngagementStatus(t *testing.T) {
 
 func TestMapPlannedEngagement(t *testing.T) {
 	idx := newProfileIndex([]gen.ListAllProfileNamesRow{
-		{ID: 7, Name: "Default"},
+		{ID: 7, Name: "Default", Stages: []string{"nmap", "httpx", "nuclei"}},
+		{ID: 8, Name: "FullAggressive", Stages: []string{"nmap", "httpx", "nikto"}},
 	})
 	e := Engagement{
 		ID: 99, Name: "Weekend scan", Status: EngagementNotStarted,
 		TargetStart: "2026-12-01", TargetEnd: "2026-12-02",
 		Tags: []string{"raven", "raven-profile:default"},
 	}
-	p, reason := mapPlannedEngagement(e, idx, "UTC", time.UTC)
-	if reason != "" {
-		t.Fatalf("unexpected skip reason: %q", reason)
+	p, reason, agg := mapPlannedEngagement(e, idx, "UTC", time.UTC)
+	if reason != "" || agg != nil {
+		t.Fatalf("unexpected skip: reason=%q agg=%+v", reason, agg)
 	}
 	if p.Name != "Weekend scan" || p.ProfileID != 7 || p.DojoEngagementID == nil || *p.DojoEngagementID != 99 || p.Timezone != "UTC" {
 		t.Fatalf("params = %+v", p)
@@ -225,24 +226,33 @@ func TestMapPlannedEngagement(t *testing.T) {
 		t.Fatalf("window = %v .. %v", p.WindowStart, p.WindowEnd)
 	}
 
+	// Aggressive profile → skipped cleanly and flagged for audit.
+	_, reason, agg = mapPlannedEngagement(Engagement{
+		ID: 103, Name: "Dojo aggressive attempt", TargetStart: "2026-12-01", TargetEnd: "2026-12-02",
+		Tags: []string{"raven-profile:fullaggressive"},
+	}, idx, "UTC", time.UTC)
+	if !strings.Contains(reason, "aggressive") || agg == nil || agg.id != 8 || agg.name != "FullAggressive" {
+		t.Fatalf("aggressive skip = (reason=%q, agg=%+v)", reason, agg)
+	}
+
 	// Unknown profile → skipped cleanly.
-	_, reason = mapPlannedEngagement(Engagement{ID: 100, Tags: []string{"raven-profile:nope"}}, idx, "UTC", time.UTC)
-	if !strings.Contains(reason, "unknown profile") {
-		t.Fatalf("unknown profile reason = %q", reason)
+	_, reason, agg = mapPlannedEngagement(Engagement{ID: 100, Tags: []string{"raven-profile:nope"}}, idx, "UTC", time.UTC)
+	if !strings.Contains(reason, "unknown profile") || agg != nil {
+		t.Fatalf("unknown profile reason = %q agg=%+v", reason, agg)
 	}
 
 	// Missing tag → skipped cleanly.
-	_, reason = mapPlannedEngagement(Engagement{ID: 101, Tags: []string{"other"}}, idx, "UTC", time.UTC)
-	if !strings.Contains(reason, "missing") {
-		t.Fatalf("missing tag reason = %q", reason)
+	_, reason, agg = mapPlannedEngagement(Engagement{ID: 101, Tags: []string{"other"}}, idx, "UTC", time.UTC)
+	if !strings.Contains(reason, "missing") || agg != nil {
+		t.Fatalf("missing tag reason = %q agg=%+v", reason, agg)
 	}
 
 	// Invalid window → skipped cleanly.
-	_, reason = mapPlannedEngagement(Engagement{
+	_, reason, agg = mapPlannedEngagement(Engagement{
 		ID: 102, Tags: []string{"raven-profile:default"}, TargetStart: "2026-12-05", TargetEnd: "2026-12-01",
 	}, idx, "UTC", time.UTC)
-	if !strings.Contains(reason, "not after") {
-		t.Fatalf("invalid window reason = %q", reason)
+	if !strings.Contains(reason, "not after") || agg != nil {
+		t.Fatalf("invalid window reason = %q agg=%+v", reason, agg)
 	}
 }
 

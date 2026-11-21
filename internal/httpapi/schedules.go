@@ -27,6 +27,7 @@ func (a *api) scanConfig() scheduler.ConfigStore {
 		Pool:           a.Pool,
 		ValidateStages: pipeline.Validate,
 		DefaultStages:  pipeline.DefaultStages,
+		IsAggressive:   pipeline.IsAggressive,
 	}
 }
 
@@ -45,6 +46,10 @@ func (a *api) scheduleView(s gen.Schedule) scheduleView {
 
 func scanConfigError(w http.ResponseWriter, op string, err error) {
 	switch {
+	case errors.Is(err, scheduler.ErrConfirmRequired):
+		httpx.Error(w, http.StatusBadRequest, "confirmation_required", err.Error())
+	case errors.Is(err, scheduler.ErrForbidden):
+		httpx.Error(w, http.StatusForbidden, "forbidden", err.Error())
 	case errors.Is(err, scheduler.ErrInvalid):
 		httpx.Error(w, http.StatusBadRequest, "bad_request", err.Error())
 	case errors.Is(err, scheduler.ErrNotFound):
@@ -85,7 +90,7 @@ func (a *api) createSchedule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := r.Context()
-	schedule, err := a.scanConfig().CreateSchedule(ctx, auth.UserFrom(ctx).ID, in)
+	schedule, err := a.scanConfig().CreateSchedule(ctx, auth.UserFrom(ctx), in)
 	if err != nil {
 		scanConfigError(w, "create schedule", err)
 		return
@@ -103,7 +108,7 @@ func (a *api) updateSchedule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := r.Context()
-	schedule, err := a.scanConfig().UpdateSchedule(ctx, auth.UserFrom(ctx).ID, id, in)
+	schedule, err := a.scanConfig().UpdateSchedule(ctx, auth.UserFrom(ctx), id, in)
 	if err != nil {
 		scanConfigError(w, "update schedule", err)
 		return
@@ -117,7 +122,7 @@ func (a *api) deleteSchedule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := r.Context()
-	if err := a.scanConfig().DeleteSchedule(ctx, auth.UserFrom(ctx).ID, id); err != nil {
+	if err := a.scanConfig().DeleteSchedule(ctx, auth.UserFrom(ctx), id); err != nil {
 		scanConfigError(w, "delete schedule", err)
 		return
 	}

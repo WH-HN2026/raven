@@ -30,6 +30,15 @@ func (a *api) listStages(w http.ResponseWriter, _ *http.Request) {
 	})
 }
 
+type profileView struct {
+	gen.Profile
+	Aggressive bool `json:"aggressive"`
+}
+
+func toProfileView(p gen.Profile) profileView {
+	return profileView{Profile: p, Aggressive: pipeline.IsAggressive(p.Stages)}
+}
+
 func (a *api) listProfiles(w http.ResponseWriter, r *http.Request) {
 	order, ok := listOrder(w, r, "name", "ports", "nmap_rate", "nuclei_rate", "nuclei_tags", "miss_threshold", "batch", "enabled")
 	if !ok {
@@ -39,7 +48,7 @@ func (a *api) listProfiles(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	items, err := a.Queries.ListProfiles(r.Context(), gen.ListProfilesParams{SortKey: order.Key(), Lim: limit, Off: offset})
+	rows, err := a.Queries.ListProfiles(r.Context(), gen.ListProfilesParams{SortKey: order.Key(), Lim: limit, Off: offset})
 	if err != nil {
 		scanConfigError(w, "list profiles", err)
 		return
@@ -49,7 +58,11 @@ func (a *api) listProfiles(w http.ResponseWriter, r *http.Request) {
 		scanConfigError(w, "count profiles", err)
 		return
 	}
-	httpx.JSON(w, http.StatusOK, list[gen.Profile]{Items: items, Total: total})
+	items := make([]profileView, len(rows))
+	for i, p := range rows {
+		items[i] = toProfileView(p)
+	}
+	httpx.JSON(w, http.StatusOK, list[profileView]{Items: items, Total: total})
 }
 
 func (a *api) createProfile(w http.ResponseWriter, r *http.Request) {
@@ -58,12 +71,12 @@ func (a *api) createProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := r.Context()
-	profile, err := a.scanConfig().CreateProfile(ctx, auth.UserFrom(ctx).ID, in)
+	profile, err := a.scanConfig().CreateProfile(ctx, auth.UserFrom(ctx), in)
 	if err != nil {
 		scanConfigError(w, "create profile", err)
 		return
 	}
-	httpx.JSON(w, http.StatusCreated, profile)
+	httpx.JSON(w, http.StatusCreated, toProfileView(profile))
 }
 
 func (a *api) updateProfile(w http.ResponseWriter, r *http.Request) {
@@ -76,12 +89,12 @@ func (a *api) updateProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := r.Context()
-	profile, err := a.scanConfig().UpdateProfile(ctx, auth.UserFrom(ctx).ID, id, in)
+	profile, err := a.scanConfig().UpdateProfile(ctx, auth.UserFrom(ctx), id, in)
 	if err != nil {
 		scanConfigError(w, "update profile", err)
 		return
 	}
-	httpx.JSON(w, http.StatusOK, profile)
+	httpx.JSON(w, http.StatusOK, toProfileView(profile))
 }
 
 func (a *api) deleteProfile(w http.ResponseWriter, r *http.Request) {
@@ -90,7 +103,7 @@ func (a *api) deleteProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := r.Context()
-	if err := a.scanConfig().DeleteProfile(ctx, auth.UserFrom(ctx).ID, id); err != nil {
+	if err := a.scanConfig().DeleteProfile(ctx, auth.UserFrom(ctx), id); err != nil {
 		scanConfigError(w, "delete profile", err)
 		return
 	}

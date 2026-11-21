@@ -94,6 +94,7 @@ const runList: Schemas['RunList'] = {
     batches_total: 1,
     batches_done: 1,
     batches_failed: 0,
+    aggressive: false,
     stats: {},
   })),
   total: 4,

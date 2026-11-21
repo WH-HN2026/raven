@@ -24,6 +24,8 @@ func (a *api) mountRuns(r chi.Router) {
 
 func runsError(w http.ResponseWriter, op string, err error) {
 	switch {
+	case errors.Is(err, pipeline.ErrConfirmRequired):
+		httpx.Error(w, http.StatusBadRequest, "confirmation_required", err.Error())
 	case errors.Is(err, pipeline.ErrNotFound):
 		httpx.Error(w, http.StatusNotFound, "not_found", err.Error())
 	case errors.Is(err, pipeline.ErrConflict):
@@ -79,12 +81,13 @@ func (a *api) startRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		ProfileID int64 `json:"profile_id"`
+		ProfileID         int64 `json:"profile_id"`
+		ConfirmAggressive bool  `json:"confirm_aggressive"`
 	}
 	if !httpx.DecodeJSON(w, r, &in) {
 		return
 	}
-	run, err := a.Pipeline.StartRun(r.Context(), auth.UserFrom(r.Context()), in.ProfileID)
+	run, err := a.Pipeline.StartRun(r.Context(), auth.UserFrom(r.Context()), in.ProfileID, pipeline.WithConfirmAggressive(in.ConfirmAggressive))
 	if err != nil {
 		runsError(w, "start run", err)
 		return

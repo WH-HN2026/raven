@@ -2,7 +2,7 @@ import { cleanup, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Role } from '../../auth/permissions'
 import { ROLES, json, renderAs } from '../../test-utils'
-import { route } from './fixture'
+import { aggressiveProfile, route } from './fixture'
 import { ProfileEditorPage } from './ProfileEditor'
 import { ProfilesPage } from './ProfilesPage'
 
@@ -52,5 +52,27 @@ describe('ProfileEditorPage controls per role', () => {
     expect(has('Add exclusion')).toBe(w)
     expect(has('Add to include')).toBe(w)
     expect(has(/Delete 172\.30\.0\.99/)).toBe(w)
+  })
+
+  it.each(ROLES)('aggressive profile as %s', async (role) => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input)
+      if (url.startsWith('/api/profiles')) return json({ items: [aggressiveProfile], total: 1 })
+      return json(route(url))
+    })
+    renderAs(role, <ProfileEditorPage />, { path: '/profiles/4', route: '/profiles/:id' })
+    const header = (await screen.findByRole('heading', { level: 1, name: 'lab-aggressive' })).parentElement!
+    expect(header).toHaveTextContent('Aggressive')
+    expect(await screen.findByText('172.30.0.99')).toBeInTheDocument()
+    const isAdmin = role === 'admin'
+    await waitFor(() => expect(screen.getByLabelText('Ports')).toHaveValue('22,80,443,8000-8100'))
+    if (isAdmin) expect(screen.getByLabelText('Ports')).toBeEnabled()
+    else expect(screen.getByLabelText('Ports')).toBeDisabled()
+    expect(has('Save profile')).toBe(isAdmin)
+    expect(has('Delete profile')).toBe(isAdmin)
+    expect(has('Add exclusion')).toBe(isAdmin)
+    expect(has('Add to include')).toBe(isAdmin)
+    expect(has(/Delete 172\.30\.0\.99/)).toBe(isAdmin)
+    expect(screen.queryByText('Admin only') !== null).toBe(role === 'editor')
   })
 })

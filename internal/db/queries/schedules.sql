@@ -1,7 +1,7 @@
 -- Planned engagements poller (task D5): Dojo-sourced schedules and run status sync.
 
 -- name: ListAllProfileNames :many
-SELECT id, name FROM profiles ORDER BY id;
+SELECT id, name, stages FROM profiles ORDER BY id;
 
 -- name: UpsertDojoSchedule :one
 INSERT INTO schedules (name, profile_id, source, dojo_engagement_id, cron, window_start, window_end, timezone, enabled)

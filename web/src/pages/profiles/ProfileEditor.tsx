@@ -4,7 +4,7 @@ import { useNavigate, useParams } from 'react-router'
 import { ApiError, api, type Schemas } from '../../api/client'
 import { useCan } from '../../auth/hooks'
 import { PageHeader } from '../../components/PageHeader'
-import { Alert, Button, ErrorText, Field, Section, SectionHeading, inputClass } from '../../components/ui'
+import { AdminOnly, Alert, Badge, Button, ErrorText, Field, Section, SectionHeading, inputClass } from '../../components/ui'
 import { ScopeList } from '../targets/ScopeEditor'
 import { NUCLEI_TAGS, PROFILE_DEFAULTS, batchMinutes, checkPorts, profileScopeKey, profilesKey, useProfiles, type Profile, type StageName } from './ui'
 import { WorkflowBuilder } from './WorkflowBuilder'
@@ -24,6 +24,7 @@ export function ProfileEditorPage() {
       <PageHeader
         title={title}
         crumbs={[{ label: 'Profiles', to: '/profiles' }, { label: title }]}
+        badges={profile?.aggressive && <Badge tone="red">Aggressive</Badge>}
       />
       {profiles.error && (
         <Section>
@@ -43,7 +44,7 @@ export function ProfileEditorPage() {
           </div>
           {profile && (
             <div className="flex min-w-0 flex-[1_1_420px] flex-col gap-10">
-              <ProfileScope profileId={profile.id} />
+              <ProfileScope profileId={profile.id} aggressive={profile.aggressive} />
             </div>
           )}
         </Section>
@@ -53,7 +54,10 @@ export function ProfileEditorPage() {
 }
 
 function ProfileForm({ profile }: { profile?: Profile }) {
-  const canWrite = useCan('profiles:write')
+  const canWriteProfiles = useCan('profiles:write')
+  const canAggressive = useCan('scan:aggressive')
+  const canWrite = canWriteProfiles && (!profile?.aggressive || canAggressive)
+  const adminBlocked = !!profile?.aggressive && canWriteProfiles && !canAggressive
   const qc = useQueryClient()
   const navigate = useNavigate()
   const [name, setName] = useState(profile?.name ?? '')
@@ -119,6 +123,7 @@ function ProfileForm({ profile }: { profile?: Profile }) {
 
   return (
     <form aria-label="Profile" onSubmit={onSubmit} className="flex flex-col gap-4">
+      {adminBlocked && <AdminOnly />}
       <fieldset disabled={!canWrite} className="m-0 flex flex-col gap-4 border-0 p-0">
         <Field label="Name">
           <input className={inputClass} value={name} onChange={(e) => setName(e.target.value)} />
@@ -169,7 +174,7 @@ function ProfileForm({ profile }: { profile?: Profile }) {
       </fieldset>
       <div className="flex flex-col gap-3 border-t border-line pt-5">
         <SectionHeading size="sm">Workflow</SectionHeading>
-        <WorkflowBuilder value={stages} onChange={setStages} disabled={!canWrite} />
+        <WorkflowBuilder value={stages} onChange={setStages} disabled={!canWrite} aggressiveAllowed={canAggressive} />
       </div>
       {(clientErr || serverMsg) && <Alert>{clientErr ?? serverMsg}</Alert>}
       {saved && <Alert tone="ok">Saved</Alert>}
@@ -220,9 +225,11 @@ function DeleteProfile({ profile }: { profile: Profile }) {
   )
 }
 
-/** Profile-specific include / exclude entries (scope:write). */
-function ProfileScope({ profileId }: { profileId: number }) {
-  const canEdit = useCan('scope:write')
+/** Profile-specific include / exclude entries (scope:write; scan:aggressive for aggressive profiles). */
+function ProfileScope({ profileId, aggressive = false }: { profileId: number; aggressive?: boolean }) {
+  const canScope = useCan('scope:write')
+  const canAggressive = useCan('scan:aggressive')
+  const canEdit = canScope && (!aggressive || canAggressive)
   const q = useQuery({
     queryKey: profileScopeKey(profileId),
     queryFn: () => api.get('/scope', { query: { profile_id: profileId, limit: 1000 } }),

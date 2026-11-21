@@ -9,9 +9,15 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/WH-HN2026/raven/internal/auth"
 	"github.com/WH-HN2026/raven/internal/db/gen"
 	"github.com/WH-HN2026/raven/internal/scanner/nmap"
 )
+
+type profileAudit struct {
+	gen.Profile
+	Aggressive bool `json:"aggressive,omitempty"`
+}
 
 type ProfileInput struct {
 	Name               string    `json:"name"`
@@ -74,7 +80,7 @@ func (s ConfigStore) defaultStages() []string {
 	return []string{"nmap", "httpx", "nuclei"}
 }
 
-func (s ConfigStore) CreateProfile(ctx context.Context, userID int64, in ProfileInput) (gen.Profile, error) {
+func (s ConfigStore) CreateProfile(ctx context.Context, u *auth.User, in ProfileInput) (gen.Profile, error) {
 	p, err := in.apply(gen.Profile{
 		NmapMaxRate: 300, NucleiRate: 50, NucleiTags: []string{},
 		MissThreshold: 3, TargetBatchSeconds: 600, Enabled: true,
@@ -82,6 +88,10 @@ func (s ConfigStore) CreateProfile(ctx context.Context, userID int64, in Profile
 	}, s.ValidateStages)
 	if err != nil {
 		return gen.Profile{}, err
+	}
+	aggressive := s.isAggressive(p.Stages)
+	if aggressive && !canAggressive(u) {
+		return gen.Profile{}, fmt.Errorf("%w: aggressive profiles need %s", ErrForbidden, auth.PermScanAggressive)
 	}
 	err = s.write(ctx, func(q *gen.Queries) error {
 		p, err = q.CreateProfile(ctx, gen.CreateProfileParams{
@@ -95,27 +105,32 @@ func (s ConfigStore) CreateProfile(ctx context.Context, userID int64, in Profile
 		if err != nil {
 			return err
 		}
-		return logConfigChange(ctx, q, userID, "profiles.create", "profile", p.ID, p)
+		return logConfigChange(ctx, q, u, "profiles.create", "profile", p.ID, profileAudit{Profile: p, Aggressive: aggressive})
 	})
 	return p, err
 }
 
-func (s ConfigStore) UpdateProfile(ctx context.Context, userID, id int64, in ProfileInput) (gen.Profile, error) {
+func (s ConfigStore) UpdateProfile(ctx context.Context, u *auth.User, id int64, in ProfileInput) (gen.Profile, error) {
 	var updated gen.Profile
 	err := s.write(ctx, func(q *gen.Queries) error {
-		p, err := q.LockProfile(ctx, id)
+		prior, err := q.LockProfile(ctx, id)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return fmt.Errorf("%w: profile %d", ErrNotFound, id)
 		}
 		if err != nil {
 			return err
 		}
-		if len(p.Stages) == 0 {
-			p.Stages = s.defaultStages()
+		if len(prior.Stages) == 0 {
+			prior.Stages = s.defaultStages()
 		}
-		p, err = in.apply(p, s.ValidateStages)
+		wasAggressive := s.isAggressive(prior.Stages)
+		p, err := in.apply(prior, s.ValidateStages)
 		if err != nil {
 			return err
+		}
+		nowAggressive := s.isAggressive(p.Stages)
+		if (wasAggressive || nowAggressive) && !canAggressive(u) {
+			return fmt.Errorf("%w: aggressive profiles need %s", ErrForbidden, auth.PermScanAggressive)
 		}
 		updated, err = q.UpdateProfile(ctx, gen.UpdateProfileParams{
 			ID: id, Name: p.Name, Ports: p.Ports, NmapMaxRate: p.NmapMaxRate, NucleiRate: p.NucleiRate,
@@ -128,18 +143,23 @@ func (s ConfigStore) UpdateProfile(ctx context.Context, userID, id int64, in Pro
 		if err != nil {
 			return err
 		}
-		return logConfigChange(ctx, q, userID, "profiles.update", "profile", id, updated)
+		return logConfigChange(ctx, q, u, "profiles.update", "profile", id, profileAudit{Profile: updated, Aggressive: wasAggressive || nowAggressive})
 	})
 	return updated, err
 }
 
-func (s ConfigStore) DeleteProfile(ctx context.Context, userID, id int64) error {
+func (s ConfigStore) DeleteProfile(ctx context.Context, u *auth.User, id int64) error {
 	return s.write(ctx, func(q *gen.Queries) error {
-		if _, err := q.LockProfileForDelete(ctx, id); err != nil {
+		prior, err := q.LockProfile(ctx, id)
+		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return fmt.Errorf("%w: profile %d", ErrNotFound, id)
 			}
 			return err
+		}
+		aggressive := s.isAggressive(prior.Stages)
+		if aggressive && !canAggressive(u) {
+			return fmt.Errorf("%w: aggressive profiles need %s", ErrForbidden, auth.PermScanAggressive)
 		}
 		inUse, err := q.ProfileHasSchedules(ctx, id)
 		if err != nil {
@@ -154,6 +174,10 @@ func (s ConfigStore) DeleteProfile(ctx context.Context, userID, id int64) error 
 			}
 			return err
 		}
-		return logConfigChange(ctx, q, userID, "profiles.delete", "profile", id, nil)
+		var diff any
+		if aggressive {
+			diff = map[string]any{"aggressive": true, "name": prior.Name, "stages": prior.Stages}
+		}
+		return logConfigChange(ctx, q, u, "profiles.delete", "profile", id, diff)
 	})
 }

@@ -26,7 +26,16 @@ var (
 // Store is the DB side of targets and scope. Every mutation writes audit_log
 // in the same transaction. The HTTP handlers and the MCP server call it.
 type Store struct {
-	Pool *pgxpool.Pool
+	Pool         *pgxpool.Pool
+	IsAggressive func([]string) bool
+}
+
+func (s *Store) isAggressive(stages []string) bool {
+	return s.IsAggressive != nil && s.IsAggressive(stages)
+}
+
+func canAggressive(u *auth.User) bool {
+	return u != nil && auth.Can(u.Role, auth.PermScanAggressive)
 }
 
 func (s *Store) tx(ctx context.Context, fn func(q *gen.Queries) error) error {
@@ -149,6 +158,20 @@ func (s *Store) AddScopeEntry(ctx context.Context, u *auth.User, in ScopeInput) 
 	}
 	var e gen.ScopeEntry
 	err = s.tx(ctx, func(q *gen.Queries) error {
+		aggressive := false
+		if in.ProfileID != nil {
+			prof, err := q.GetProfile(ctx, *in.ProfileID)
+			if errors.Is(err, pgx.ErrNoRows) {
+				return fmt.Errorf("%w: profile %d does not exist", ErrInvalid, *in.ProfileID)
+			}
+			if err != nil {
+				return fmt.Errorf("get profile %d: %w", *in.ProfileID, err)
+			}
+			aggressive = s.isAggressive(prof.Stages)
+			if aggressive && !canAggressive(u) {
+				return fmt.Errorf("%w: scope of aggressive profile needs %s", ErrForbidden, auth.PermScanAggressive)
+			}
+		}
 		e, err = q.InsertScopeEntry(ctx, gen.InsertScopeEntryParams{
 			Kind: string(k), Value: v, List: in.List, ProfileID: in.ProfileID, Note: in.Note, CreatedBy: userID(u),
 		})
@@ -161,13 +184,17 @@ func (s *Store) AddScopeEntry(ctx context.Context, u *auth.User, in ScopeInput) 
 		case err != nil:
 			return fmt.Errorf("add scope entry: %w", err)
 		}
-		return audit.Log(ctx, q, userID(u), "scope.add", "scope_entry", strconv.FormatInt(e.ID, 10),
-			map[string]any{"kind": e.Kind, "value": e.Value, "list": e.List, "profile_id": e.ProfileID})
+		diff := map[string]any{"kind": e.Kind, "value": e.Value, "list": e.List, "profile_id": e.ProfileID}
+		if aggressive {
+			diff["aggressive"] = true
+		}
+		return audit.Log(ctx, q, userID(u), "scope.add", "scope_entry", strconv.FormatInt(e.ID, 10), diff)
 	})
 	return e, err
 }
 
-// DeleteScopeEntry removes an entry; global ones need scope:global.
+// DeleteScopeEntry removes an entry; global ones need scope:global and entries
+// of an aggressive profile need scan:aggressive.
 func (s *Store) DeleteScopeEntry(ctx context.Context, u *auth.User, id int64) error {
 	return s.tx(ctx, func(q *gen.Queries) error {
 		e, err := q.GetScopeEntry(ctx, id)
@@ -180,11 +207,27 @@ func (s *Store) DeleteScopeEntry(ctx context.Context, u *auth.User, id int64) er
 		if !canEdit(u, e.ProfileID) {
 			return fmt.Errorf("%w: global scope entries need %s", ErrForbidden, auth.PermGlobalScope)
 		}
+		aggressive := false
+		if e.ProfileID != nil {
+			prof, err := q.GetProfile(ctx, *e.ProfileID)
+			if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+				return fmt.Errorf("get profile %d: %w", *e.ProfileID, err)
+			}
+			if err == nil {
+				aggressive = s.isAggressive(prof.Stages)
+				if aggressive && !canAggressive(u) {
+					return fmt.Errorf("%w: scope of aggressive profile needs %s", ErrForbidden, auth.PermScanAggressive)
+				}
+			}
+		}
 		if err := q.DeleteScopeEntry(ctx, id); err != nil {
 			return fmt.Errorf("delete scope entry %d: %w", id, err)
 		}
-		return audit.Log(ctx, q, userID(u), "scope.delete", "scope_entry", strconv.FormatInt(id, 10),
-			map[string]any{"kind": e.Kind, "value": e.Value, "list": e.List, "profile_id": e.ProfileID})
+		diff := map[string]any{"kind": e.Kind, "value": e.Value, "list": e.List, "profile_id": e.ProfileID}
+		if aggressive {
+			diff["aggressive"] = true
+		}
+		return audit.Log(ctx, q, userID(u), "scope.delete", "scope_entry", strconv.FormatInt(id, 10), diff)
 	})
 }
 

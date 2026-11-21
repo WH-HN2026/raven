@@ -33,7 +33,10 @@ function ProfilesTable() {
           {items.map((p) => (
             <Tr key={p.id}>
               <Td className="font-medium">
-                <Link to={`/profiles/${p.id}`}>{p.name}</Link>
+                <span className="inline-flex flex-wrap items-center gap-2">
+                  <Link to={`/profiles/${p.id}`}>{p.name}</Link>
+                  {p.aggressive && <Badge tone="red">Aggressive</Badge>}
+                </span>
               </Td>
               <Td>
                 <StageChips stages={p.stages} />

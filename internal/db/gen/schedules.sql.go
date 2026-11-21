@@ -177,12 +177,13 @@ func (q *Queries) HasActiveScheduledRun(ctx context.Context, scheduleID *int64) 
 
 const listAllProfileNames = `-- name: ListAllProfileNames :many
 
-SELECT id, name FROM profiles ORDER BY id
+SELECT id, name, stages FROM profiles ORDER BY id
 `
 
 type ListAllProfileNamesRow struct {
-	ID   int64  `json:"id"`
-	Name string `json:"name"`
+	ID     int64    `json:"id"`
+	Name   string   `json:"name"`
+	Stages []string `json:"stages"`
 }
 
 // Planned engagements poller (task D5): Dojo-sourced schedules and run status sync.
@@ -195,7 +196,7 @@ func (q *Queries) ListAllProfileNames(ctx context.Context) ([]ListAllProfileName
 	items := []ListAllProfileNamesRow{}
 	for rows.Next() {
 		var i ListAllProfileNamesRow
-		if err := rows.Scan(&i.ID, &i.Name); err != nil {
+		if err := rows.Scan(&i.ID, &i.Name, &i.Stages); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

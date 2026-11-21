@@ -36,11 +36,12 @@ const (
 	PermRunsControl     Permission = "runs:control" // start / stop scans
 
 	// admin
-	PermUsersAdmin    Permission = "users:admin"    // users, roles
-	PermTokensAdmin   Permission = "tokens:admin"   // API tokens (MCP)
-	PermSettingsAdmin Permission = "settings:admin" // Dojo connection, global rate limits
-	PermGlobalScope   Permission = "scope:global"   // global blacklist
-	PermAuditRead     Permission = "audit:read"
+	PermUsersAdmin     Permission = "users:admin"    // users, roles
+	PermTokensAdmin    Permission = "tokens:admin"   // API tokens (MCP)
+	PermSettingsAdmin  Permission = "settings:admin" // Dojo connection, global rate limits
+	PermGlobalScope    Permission = "scope:global"   // global blacklist
+	PermAuditRead      Permission = "audit:read"
+	PermScanAggressive Permission = "scan:aggressive" // create/edit/delete/schedule aggressive profiles and their scope
 )
 
 var (
@@ -50,7 +51,7 @@ var (
 		PermTargetsWrite, PermScopeWrite, PermProfilesWrite, PermSchedulesWrite,
 		PermSignaturesWrite, PermImport, PermRunsControl)
 	adminPerms = append(slices.Clone(editorPerms),
-		PermUsersAdmin, PermTokensAdmin, PermSettingsAdmin, PermGlobalScope, PermAuditRead)
+		PermUsersAdmin, PermTokensAdmin, PermSettingsAdmin, PermGlobalScope, PermAuditRead, PermScanAggressive)
 )
 
 // rolePerms is the single role → permissions map.

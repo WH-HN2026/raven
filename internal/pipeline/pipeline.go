@@ -30,9 +30,10 @@ import (
 )
 
 var (
-	ErrNotFound = errors.New("not found")
-	ErrConflict = errors.New("conflict")
-	ErrInvalid  = errors.New("invalid input")
+	ErrNotFound        = errors.New("not found")
+	ErrConflict        = errors.New("conflict")
+	ErrInvalid         = errors.New("invalid input")
+	ErrConfirmRequired = errors.New("confirmation required")
 )
 
 const (
@@ -144,15 +145,17 @@ type Run struct {
 	BatchesDone   int64           `json:"batches_done"`
 	BatchesFailed int64           `json:"batches_failed"`
 	Stages        []string        `json:"stages"`
+	Aggressive    bool            `json:"aggressive"`
 	Stats         json.RawMessage `json:"stats"`
 }
 
 func runView(r gen.Run, total, done, failed int64) Run {
+	stages := EffectiveStages(r.Stages)
 	return Run{ID: r.ID, ProfileID: r.ProfileID, ScheduleID: r.ScheduleID, Status: r.Status,
 		CreatedAt: r.CreatedAt, StartedAt: r.StartedAt, FinishedAt: r.FinishedAt,
 		HostsTotal: r.HostsTotal, HostsUp: r.HostsUp,
 		BatchesTotal: total, BatchesDone: done, BatchesFailed: failed,
-		Stages: EffectiveStages(r.Stages), Stats: r.Stats}
+		Stages: stages, Aggressive: IsAggressive(stages), Stats: r.Stats}
 }
 
 // Batch is the API view of a batch.
@@ -218,15 +221,35 @@ func (s *Service) ListBatches(ctx context.Context, runID int64) ([]Batch, error)
 	return out, nil
 }
 
-// StartRun builds the profile's scan list, splits it into batches and
-// enqueues one job per batch, all in one transaction. A profile has at most
-// one pending/running run (ErrConflict). An empty scan list gives a run that
-// is done immediately, with the reason in stats.
-func (s *Service) StartRun(ctx context.Context, u *auth.User, profileID int64) (Run, error) {
-	return s.startRun(ctx, u, profileID, nil)
+// StartOption configures StartRun.
+type StartOption func(*startOptions)
+
+type startOptions struct {
+	confirmAggressive bool
 }
 
-func (s *Service) startRun(ctx context.Context, u *auth.User, profileID int64, scheduleID *int64) (Run, error) {
+// WithConfirmAggressive records explicit operator confirmation to start an
+// aggressive profile (architecture §9). Ignored for non-aggressive profiles.
+func WithConfirmAggressive(confirm bool) StartOption {
+	return func(o *startOptions) { o.confirmAggressive = confirm }
+}
+
+// StartRun builds the profile's scan list, splits it into batches and
+// enqueues one job per batch, all in one transaction. A profile has at most
+// one pending/running run (ErrConflict). Starting an aggressive profile
+// requires WithConfirmAggressive(true) (ErrConfirmRequired). An empty scan
+// list gives a run that is done immediately, with the reason in stats.
+func (s *Service) StartRun(ctx context.Context, u *auth.User, profileID int64, opts ...StartOption) (Run, error) {
+	var o startOptions
+	for _, fn := range opts {
+		if fn != nil {
+			fn(&o)
+		}
+	}
+	return s.startRun(ctx, u, profileID, nil, o.confirmAggressive)
+}
+
+func (s *Service) startRun(ctx context.Context, u *auth.User, profileID int64, scheduleID *int64, confirmAggressive bool) (Run, error) {
 	q := gen.New(s.pool)
 	prof, err := q.GetProfile(ctx, profileID)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -243,6 +266,9 @@ func (s *Service) startRun(ctx context.Context, u *auth.User, profileID int64, s
 			return Run{}, fmt.Errorf("%w: profile %q is disabled", ErrConflict, prof.Name)
 		}
 		return Run{}, fmt.Errorf("%w: profile %q is disabled", ErrInvalid, prof.Name)
+	}
+	if scheduleID == nil && IsAggressive(EffectiveStages(prof.Stages)) && !confirmAggressive {
+		return Run{}, fmt.Errorf("%w: aggressive profile %q requires confirm_aggressive: true", ErrConfirmRequired, prof.Name)
 	}
 	// Resolve outside the transaction: DNS can be slow.
 	sl, err := (&targets.Store{Pool: s.pool}).ScanList(ctx, profileID, s.cfg.Resolver, targets.Limits{})
@@ -282,14 +308,18 @@ func (s *Service) startRun(ctx context.Context, u *auth.User, profileID int64, s
 			return fmt.Errorf("lock profile %d: %w", profileID, err)
 		}
 		var windowEnd *time.Time
+		stages := EffectiveStages(lockedProfile.Stages)
+		aggressive := IsAggressive(stages)
 		if scheduleID != nil {
 			if !lockedProfile.Enabled {
 				return fmt.Errorf("%w: profile %q is disabled", ErrConflict, prof.Name)
 			}
-			now, windowEnd, err = prepareScheduledStart(ctx, q, *scheduleID, profileID)
+			now, windowEnd, err = prepareScheduledStart(ctx, q, *scheduleID, lockedProfile)
 			if err != nil {
 				return err
 			}
+		} else if aggressive && !confirmAggressive {
+			return fmt.Errorf("%w: aggressive profile %q requires confirm_aggressive: true", ErrConfirmRequired, lockedProfile.Name)
 		}
 		n, err := q.CountActiveRuns(ctx, profileID)
 		if err != nil {
@@ -298,7 +328,6 @@ func (s *Service) startRun(ctx context.Context, u *auth.User, profileID int64, s
 		if n > 0 {
 			return fmt.Errorf("%w: profile %q already has a pending or running run", ErrConflict, prof.Name)
 		}
-		stages := EffectiveStages(lockedProfile.Stages)
 		run, err = q.InsertRun(ctx, gen.InsertRunParams{
 			ProfileID: profileID, Status: status, CreatedBy: userID(u),
 			StartedAt: &now, FinishedAt: finished, HostsTotal: int32(len(sl.IPs)), Stats: statsJSON,
@@ -336,6 +365,9 @@ func (s *Service) startRun(ctx context.Context, u *auth.User, profileID int64, s
 			return err
 		}
 		diff := map[string]any{"profile_id": profileID, "hosts_total": len(sl.IPs), "batches": len(batches), "batch_size": plan.Size, "stages": stages}
+		if aggressive {
+			diff["aggressive"] = true
+		}
 		if scheduleID != nil {
 			diff["schedule_id"] = *scheduleID
 		}

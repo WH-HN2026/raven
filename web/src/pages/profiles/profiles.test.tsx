@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { json, renderAs } from '../../test-utils'
-import { profile, route } from './fixture'
+import { aggressiveProfile, dojoSchedule, profile, route, uiSchedule } from './fixture'
 import { ProfileEditorPage } from './ProfileEditor'
 import { ProfilesPage } from './ProfilesPage'
 import {
@@ -14,7 +14,6 @@ import {
   wallTime,
   windowToISO,
 } from './ui'
-import { dojoSchedule, uiSchedule } from './fixture'
 
 afterEach(() => {
   cleanup()
@@ -150,6 +149,34 @@ describe('ProfilesPage', () => {
     fireEvent.click(within(form).getByRole('button', { name: 'Create schedule' }))
     expect(await within(form).findByRole('alert')).toHaveTextContent('Set both window start and end')
     expect(calls.some((c) => c.method === 'POST')).toBe(false)
+  })
+
+  it('shows the Aggressive badge on aggressive profiles', async () => {
+    mockApi((c) => (c.url.startsWith('/api/profiles') ? json({ items: [profile, aggressiveProfile], total: 2 }) : undefined))
+    renderAs('admin', <ProfilesPage />, { path: '/profiles' })
+    const aggLink = await screen.findByRole('link', { name: 'lab-aggressive' })
+    expect(within(aggLink.closest('tr')!).getByText('Aggressive')).toBeInTheDocument()
+    const normalLink = screen.getByRole('link', { name: 'lab-quick' })
+    expect(within(normalLink.closest('tr')!).queryByText('Aggressive')).toBeNull()
+  })
+
+  it('requires confirmation to create an aggressive schedule as admin', async () => {
+    const calls = mockApi((c) => {
+      if (c.url.startsWith('/api/profiles')) return json({ items: [profile, aggressiveProfile], total: 2 })
+      if (c.method === 'POST') return json({ ...(c.body as object), id: 10, source: 'ui', dojo_url: '' }, 201)
+    })
+    renderAs('admin', <ProfilesPage />, { path: '/profiles' })
+    fireEvent.click(await screen.findByRole('button', { name: 'New schedule' }))
+    const form = screen.getByRole('form', { name: 'New schedule' })
+    await within(form).findByRole('option', { name: 'lab-aggressive' })
+    fireEvent.change(within(form).getByLabelText('Profile'), { target: { value: '4' } })
+    fireEvent.click(within(form).getByRole('button', { name: 'Create schedule' }))
+    expect(await within(form).findByRole('alert')).toHaveTextContent('Confirm aggressive schedule')
+    expect(calls.some((c) => c.method === 'POST')).toBe(false)
+    fireEvent.click(within(form).getByLabelText(/Confirm aggressive schedule/))
+    fireEvent.click(within(form).getByRole('button', { name: 'Create schedule' }))
+    await waitFor(() => expect(calls.some((c) => c.method === 'POST')).toBe(true))
+    expect(calls.find((c) => c.method === 'POST')!.body).toMatchObject({ profile_id: 4, confirm_aggressive: true })
   })
 })
 

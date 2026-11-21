@@ -62,14 +62,14 @@ var routePerms = map[string]auth.Permission{
 
 	"GET /api/stages":           auth.PermRead,
 	"GET /api/profiles":         auth.PermRead,
-	"POST /api/profiles":        auth.PermProfilesWrite,
-	"PUT /api/profiles/{id}":    auth.PermProfilesWrite,
-	"DELETE /api/profiles/{id}": auth.PermProfilesWrite,
+	"POST /api/profiles":        auth.PermProfilesWrite, // + auth.PermScanAggressive for aggressive stages
+	"PUT /api/profiles/{id}":    auth.PermProfilesWrite, // + auth.PermScanAggressive for aggressive profiles/stages
+	"DELETE /api/profiles/{id}": auth.PermProfilesWrite, // + auth.PermScanAggressive for aggressive profiles
 
 	"GET /api/schedules":         auth.PermRead,
-	"POST /api/schedules":        auth.PermSchedulesWrite,
-	"PUT /api/schedules/{id}":    auth.PermSchedulesWrite,
-	"DELETE /api/schedules/{id}": auth.PermSchedulesWrite,
+	"POST /api/schedules":        auth.PermSchedulesWrite, // + auth.PermScanAggressive for aggressive profiles
+	"PUT /api/schedules/{id}":    auth.PermSchedulesWrite, // + auth.PermScanAggressive for aggressive profiles
+	"DELETE /api/schedules/{id}": auth.PermSchedulesWrite, // + auth.PermScanAggressive for aggressive profiles
 
 	"GET /api/signatures":            auth.PermRead,
 	"POST /api/signatures":           auth.PermSignaturesWrite,

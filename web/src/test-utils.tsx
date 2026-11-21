@@ -19,7 +19,15 @@ const editor: Permission[] = [
   'import',
   'runs:control',
 ]
-const admin: Permission[] = [...editor, 'users:admin', 'tokens:admin', 'settings:admin', 'scope:global', 'audit:read']
+const admin: Permission[] = [
+  ...editor,
+  'users:admin',
+  'tokens:admin',
+  'settings:admin',
+  'scope:global',
+  'audit:read',
+  'scan:aggressive',
+]
 
 /** Role → permissions, mirroring internal/auth/rbac.go. */
 export const ROLE_PERMS: Record<Role, Permission[]> = { viewer, operator, editor, admin }

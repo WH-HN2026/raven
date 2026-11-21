@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strconv"
 	"time"
 
@@ -16,7 +17,10 @@ import (
 	"github.com/WH-HN2026/raven/internal/scheduler"
 )
 
-var errWindowClosed = errors.New("scan window closed")
+var (
+	errWindowClosed   = errors.New("scan window closed")
+	errDojoAggressive = errors.New("Dojo schedule cannot start aggressive profile")
+)
 
 // DispatchSchedule checks the next action without locks. The transition
 // rechecks it under the profile and schedule locks before changing state.
@@ -48,7 +52,15 @@ func (s *Service) DispatchSchedule(ctx context.Context, id int64) error {
 			err = s.pauseScheduledRun(ctx, latest)
 		}
 	case calendar.Due(now, lastStart(latest)):
-		_, err = s.startRun(ctx, nil, schedule.ProfileID, &id)
+		_, err = s.startRun(ctx, nil, schedule.ProfileID, &id, true)
+		if errors.Is(err, errDojoAggressive) {
+			slog.Warn("scheduler: skipping Dojo schedule for aggressive profile",
+				"schedule_id", id, "profile_id", schedule.ProfileID)
+			_ = audit.Log(ctx, q, nil, "schedules.dojo_skip_aggressive", "schedule", strconv.FormatInt(id, 10), map[string]any{
+				"aggressive": true, "schedule_id": id, "profile_id": schedule.ProfileID, "reason": "aggressive_profile_not_allowed",
+			})
+			return nil
+		}
 	}
 	if errors.Is(err, ErrConflict) {
 		return nil // another dispatcher or an overlapping run won the slot
@@ -84,10 +96,13 @@ func lockScheduleForProfile(ctx context.Context, q *gen.Queries, id, profileID i
 
 // prepareScheduledStart runs after acquiring the profile lock. The schedule
 // lock serializes dispatches with edits and makes the Dojo start one-shot.
-func prepareScheduledStart(ctx context.Context, q *gen.Queries, id, profileID int64) (time.Time, *time.Time, error) {
-	schedule, err := lockScheduleForProfile(ctx, q, id, profileID)
+func prepareScheduledStart(ctx context.Context, q *gen.Queries, id int64, prof gen.Profile) (time.Time, *time.Time, error) {
+	schedule, err := lockScheduleForProfile(ctx, q, id, prof.ID)
 	if err != nil {
 		return time.Time{}, nil, err
+	}
+	if schedule.Source == "dojo" && IsAggressive(EffectiveStages(prof.Stages)) {
+		return time.Time{}, nil, fmt.Errorf("%w: schedule %d profile %q", errDojoAggressive, id, prof.Name)
 	}
 	latest, err := latestScheduledRun(ctx, q, id)
 	if err != nil {
@@ -129,6 +144,11 @@ func (s *Service) resumeScheduledRun(ctx context.Context, schedule gen.Schedule,
 		}
 		if err != nil {
 			return err
+		}
+		if schedule.Source == "dojo" && IsAggressive(EffectiveStages(profile.Stages)) {
+			slog.Warn("scheduler: skipping resume of Dojo schedule for aggressive profile",
+				"schedule_id", schedule.ID, "profile_id", profile.ID, "profile", profile.Name)
+			return nil
 		}
 		run, err := q.LockRun(ctx, runID)
 		if err != nil {
