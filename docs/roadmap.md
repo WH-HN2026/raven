@@ -113,7 +113,7 @@ M0 is sequential and blocking. Do it in **one** worktree, as fast as possible, t
 - [ ] **W7 Profiles & Schedules pages.** Profile editor (ports, rates, nuclei tags, miss threshold), schedule editor; Dojo-sourced schedules shown read-only with a badge.
 - [x] **W8 Signatures page.** YAML editor, validate button with errors, enable/disable, test against one URL in the lab.
 - [x] **W9 Users page + role-aware UI.** User admin; every action button hidden/disabled per role.
-- [ ] **W10 Host edit.** Edit user-owned fields + overrides; show "edited by user" markers; verify edits survive the next run.
+- [x] **W10 Host edit.** Edit user-owned fields + overrides; show "edited by user" markers; verify edits survive the next run.
 - [x] **W11 Restyle to the design.** (best after W2, W3) Bring the shell and existing pages in line with [`docs/design/`](design/README.md):
   - replace the guessed palette in `web/src/theme.css` with the design tokens (red `#C10D14` primary, black frame) and self-host Roboto / Roboto Mono;
   - replace the sidebar with the black top bar, the black page header with the squares band, and the footer (assets in `docs/design/assets/`);

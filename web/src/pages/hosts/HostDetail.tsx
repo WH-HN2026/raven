@@ -1,10 +1,12 @@
 import { useQuery } from '@tanstack/react-query'
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Link, useLocation, useParams } from 'react-router'
 import { ApiError, api, type Schemas } from '../../api/client'
+import { useCan } from '../../auth/hooks'
 import { PageHeader } from '../../components/PageHeader'
 import {
   Badge,
+  Button,
   Chip,
   EmptyRow,
   ErrorText,
@@ -19,7 +21,8 @@ import {
   Tr,
   buttonClass,
 } from '../../components/ui'
-import { fmtTime, hostsKey, stateTone } from './ui'
+import { HostDetailsPanel, ServiceEditCells, detailKey } from './HostEdit'
+import { fmtTime, stateTone } from './ui'
 
 type Service = Schemas['Service']
 type HttpObservation = Schemas['HttpObservation']
@@ -29,7 +32,7 @@ export function HostDetailPage() {
   const location = useLocation()
   const from = (location.state as { from?: string } | null)?.from
   const q = useQuery({
-    queryKey: [...hostsKey, 'detail', ip],
+    queryKey: detailKey(ip),
     queryFn: () => api.get('/hosts/{ip}', { params: { ip } }),
     retry: (n, err) => !(err instanceof ApiError && err.status < 500) && n < 2,
   })
@@ -78,46 +81,14 @@ export function HostDetailPage() {
 
       <div className="mx-auto flex max-w-[1440px] flex-wrap items-start gap-12 px-10 pt-12 pb-16">
         <div className="flex min-w-0 flex-[999_1_640px] flex-col gap-12">
-          <ServicesTable services={h.services} />
+          <ServicesTable ip={h.ip} services={h.services} />
           <HttpSection http={h.http} services={h.services} />
         </div>
         <aside className="flex min-w-0 flex-[1_1_340px] flex-col gap-8">
-          <section className="flex flex-col gap-4 bg-band p-6">
-            <SectionHeading size="sm">Host details</SectionHeading>
-            <dl className="m-0 grid grid-cols-[120px_1fr] gap-x-3 gap-y-2 text-sm">
-              <Field label="Owner">{h.owner || '—'}</Field>
-              <Field label="Criticality">{h.criticality || '—'}</Field>
-              <Field label="Tags">
-                {h.user_tags.length ? (
-                  <span className="flex flex-wrap gap-1.5">
-                    {h.user_tags.map((t) => (
-                      <Chip key={t} variant="filled">
-                        {t}
-                      </Chip>
-                    ))}
-                  </span>
-                ) : (
-                  '—'
-                )}
-              </Field>
-              <Field label="Open services">{h.open_service_count}</Field>
-              <Field label="Missed runs">{h.miss_count}</Field>
-              <Field label="Dojo asset">{h.dojo_asset_id ?? '—'}</Field>
-            </dl>
-            {h.notes && <p className="m-0 border-t border-line pt-3 text-sm whitespace-pre-wrap">{h.notes}</p>}
-          </section>
+          <HostDetailsPanel h={h} />
           <Timeline items={h.timeline} />
         </aside>
       </div>
-    </>
-  )
-}
-
-function Field({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <>
-      <dt className="text-muted">{label}</dt>
-      <dd className="m-0 min-w-0 break-words">{children}</dd>
     </>
   )
 }
@@ -139,7 +110,10 @@ function Eff({ s, field }: { s: Service; field: 'name' | 'product' | 'version' }
   )
 }
 
-function ServicesTable({ services }: { services: Service[] }) {
+function ServicesTable({ ip, services }: { ip: string; services: Service[] }) {
+  const canEdit = useCan('hosts:edit')
+  const [editing, setEditing] = useState<number | null>(null)
+  const cols = canEdit ? 9 : 8
   return (
     <section className="flex flex-col gap-4">
       <SectionHeading>Services</SectionHeading>
@@ -154,6 +128,7 @@ function ServicesTable({ services }: { services: Service[] }) {
             <Th>Banner</Th>
             <Th>First seen</Th>
             <Th>Last seen</Th>
+            {canEdit && <Th aria-label="Actions" />}
           </THeadRow>
         </thead>
         <tbody>
@@ -165,21 +140,39 @@ function ServicesTable({ services }: { services: Service[] }) {
               <Td>
                 <Badge tone={stateTone(s.state)}>{s.state}</Badge>
               </Td>
-              <Td>
-                <Eff s={s} field="name" />
-              </Td>
-              <Td className="font-mono text-[13px]">
-                <Eff s={s} field="product" />
-              </Td>
-              <Td className="font-mono text-[13px]">
-                <Eff s={s} field="version" />
-              </Td>
-              <Td className="max-w-xs font-mono text-xs break-all">{s.banner}</Td>
-              <Td className="whitespace-nowrap text-muted">{fmtTime(s.first_seen)}</Td>
-              <Td className="whitespace-nowrap text-muted">{fmtTime(s.last_seen)}</Td>
+              {editing === s.id ? (
+                <ServiceEditCells s={s} ip={ip} onDone={() => setEditing(null)} />
+              ) : (
+                <>
+                  <Td>
+                    <Eff s={s} field="name" />
+                  </Td>
+                  <Td className="font-mono text-[13px]">
+                    <Eff s={s} field="product" />
+                  </Td>
+                  <Td className="font-mono text-[13px]">
+                    <Eff s={s} field="version" />
+                  </Td>
+                  <Td className="max-w-xs font-mono text-xs break-all">{s.banner}</Td>
+                  <Td className="whitespace-nowrap text-muted">{fmtTime(s.first_seen)}</Td>
+                  <Td className="whitespace-nowrap text-muted">{fmtTime(s.last_seen)}</Td>
+                  {canEdit && (
+                    <Td className="text-right">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        aria-label={`Edit ${s.port}/${s.proto}`}
+                        onClick={() => setEditing(s.id)}
+                      >
+                        Edit
+                      </Button>
+                    </Td>
+                  )}
+                </>
+              )}
             </Tr>
           ))}
-          {services.length === 0 && <EmptyRow colSpan={8}>No services.</EmptyRow>}
+          {services.length === 0 && <EmptyRow colSpan={cols}>No services.</EmptyRow>}
         </tbody>
       </Table>
     </section>

@@ -27,7 +27,7 @@ const host: Schemas['Host'] = {
   overrides: {},
 }
 
-// Hosts pages are read-only so far (host edits come with W5/W8): every role sees only filter controls.
+// The hosts list has only filter controls; host detail edit controls need hosts:edit (operator and up).
 describe('Hosts controls per role', () => {
   it.each(ROLES)('hosts list as %s', async (role) => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(json({ items: [host], total: 1 }))
@@ -39,10 +39,27 @@ describe('Hosts controls per role', () => {
   })
 
   it.each(ROLES)('host detail as %s', async (role) => {
-    const detail: Schemas['HostDetail'] = { ...host, notes: '', services: [], http: [], timeline: [] }
+    const svc: Schemas['Service'] = {
+      id: 7,
+      ip: '10.10.0.2',
+      port: 22,
+      proto: 'tcp',
+      name: 'ssh',
+      product: 'OpenSSH',
+      version: '9.6',
+      scan: { name: 'ssh', product: 'OpenSSH', version: '9.6' },
+      overridden: [],
+      banner: '',
+      state: 'open',
+      first_seen: '2026-11-20T10:00:00Z',
+      last_seen: '2026-11-21T10:00:00Z',
+      overrides: {},
+    }
+    const detail: Schemas['HostDetail'] = { ...host, notes: '', services: [svc], http: [], timeline: [] }
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(json(detail))
     renderAs(role, <HostDetailPage />, { path: '/hosts/10.10.0.2', route: '/hosts/:ip' })
-    expect(await screen.findByRole('heading', { name: '10.10.0.2' })).toBeInTheDocument()
-    expect(screen.queryByRole('button')).toBeNull()
+    expect(await screen.findByText('ssh')).toBeInTheDocument()
+    const buttons = screen.queryAllByRole('button').map((b) => b.getAttribute('aria-label') ?? b.textContent)
+    expect(buttons).toEqual(role === 'viewer' ? [] : ['Edit 22/tcp', 'Edit'])
   })
 })
