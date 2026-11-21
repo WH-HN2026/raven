@@ -60,6 +60,11 @@ func (f *fakeClient) SetAssetTags(_ context.Context, id int64, tags []string) er
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.setTags[id] = tags
+	for _, asset := range f.assets {
+		if asset.ID == id {
+			asset.Tags = tags
+		}
+	}
 	return nil
 }
 
@@ -129,6 +134,27 @@ func (f *fakeClient) importsOf(asset, scanType string) []recordedImport {
 		}
 	}
 	return out
+}
+
+func (f *fakeClient) ListFindings(_ context.Context, q FindingQuery) (*Page[Finding], error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	page := &Page[Finding]{}
+	for _, r := range f.reimports {
+		if r.ScanType != GenericScanType || f.assets[r.Asset].ID != q.AssetID {
+			continue
+		}
+		var doc struct{ Findings []genericFinding }
+		if err := json.Unmarshal([]byte(r.Body), &doc); err != nil {
+			return nil, err
+		}
+		for _, finding := range doc.Findings {
+			if strings.Contains(finding.UniqueIDForTool, q.UniqueIDFromTool) {
+				page.Results = append(page.Results, Finding{UniqueIDFromTool: finding.UniqueIDForTool})
+			}
+		}
+	}
+	return page, nil
 }
 
 func labResult(t *testing.T) *scanner.Result {
@@ -293,12 +319,53 @@ func TestPushKeepsUserAssetTags(t *testing.T) {
 	f := newFake()
 	f.assets[ipWeb.String()] = &Asset{ID: 50, Name: ipWeb.String(), Tags: []string{"asi", "owner:it"}}
 	p := &Pusher{Client: f}
-	out := p.Push(context.Background(), PushBatch{Profile: "lab", Scanner: "nmap", ScanType: "Nmap Scan",
-		Hosts: []PushHost{{IP: ipWeb, Hostnames: []string{"web.lab"}, AssetID: 50, Report: res.PerIP(ipWeb)}}})
+	b := PushBatch{Profile: "lab", Scanner: "nmap", ScanType: "Nmap Scan",
+		Hosts: []PushHost{{IP: ipWeb, Hostnames: []string{"web.lab", "WEB.LAB"}, AssetID: 50, Report: res.PerIP(ipWeb),
+			tags: []string{"tech:nginx", "tech:nginx", "user:team"}}}}
+	out := p.Push(context.Background(), b)
 	if out[0].Err != nil {
 		t.Fatal(out[0].Err)
 	}
-	if got := f.setTags[50]; !slices.Equal(got, []string{"asi", "owner:it", "host:web.lab"}) {
+	if got := f.setTags[50]; !slices.Equal(got, []string{"asi", "owner:it", "host:web.lab", "tech:nginx", "user:team"}) {
 		t.Fatalf("asset tags = %v", got)
+	}
+	delete(f.setTags, 50)
+	if retry := p.Push(context.Background(), b); retry[0].Err != nil || len(f.setTags) != 0 {
+		t.Fatalf("same tags caused a PATCH on retry: %v, %v", retry[0].Err, f.setTags)
+	}
+}
+
+func TestHostOfflineOnceAcrossRetriesAndProfiles(t *testing.T) {
+	ctx := context.Background()
+	f := newFake()
+	p := &Pusher{Client: f, OrganizationID: 1}
+	date := time.Date(2026, 11, 21, 10, 0, 0, 0, time.UTC)
+	host := PushHost{IP: ipWeb, FirstSeen: date, Report: labResult(t).PerIP(ipWeb)}
+	results := p.Push(ctx, PushBatch{Profile: "lab", Scanner: "nmap", ScanType: "Nmap Scan", ScanDate: date, Hosts: []PushHost{host}})
+	if results[0].Err != nil {
+		t.Fatal(results[0].Err)
+	}
+	for i, profile := range []string{"lab", "lab", "other"} {
+		if err := p.pushOffline(ctx, profile, date.Add(time.Duration(i)*time.Hour), host); err != nil {
+			t.Fatal(err)
+		}
+	}
+	lifecycle := f.importsOf(ipWeb.String(), GenericScanType)
+	if len(lifecycle) != 2 || len(f.engs) != 1 || len(f.importsOf(ipWeb.String(), "Nmap Scan")) != 1 {
+		t.Fatalf("got %d lifecycle imports and %d engagements", len(lifecycle), len(f.engs))
+	}
+	offline := lifecycle[1]
+	if offline.TestID != lifecycle[0].TestID || offline.CloseOldFindings || !offline.TagFindings {
+		t.Fatalf("unexpected offline import: %+v", offline.ImportRequest)
+	}
+	var doc struct{ Findings []genericFinding }
+	if err := json.Unmarshal([]byte(offline.Body), &doc); err != nil {
+		t.Fatal(err)
+	}
+	if len(doc.Findings) != 1 {
+		t.Fatalf("offline report contains %d findings", len(doc.Findings))
+	}
+	if g := doc.Findings[0]; g.UniqueIDForTool != "asi-host-offline:172.31.250.10" || g.Title != "Host offline: 172.31.250.10" || g.Severity != "Info" || !g.Active {
+		t.Fatalf("offline finding = %+v", g)
 	}
 }

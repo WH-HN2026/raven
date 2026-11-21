@@ -66,6 +66,7 @@ func NewPushService(pool *pgxpool.Pool, parsers map[string]ParseFunc) (*PushServ
 	s := &PushService{pool: pool, parsers: parsers}
 	workers := river.NewWorkers()
 	river.AddWorker(workers, &pushWorker{s: s})
+	river.AddWorker(workers, &offlineWorker{s: s})
 	rc, err := river.NewClient(riverpgxv5.New(pool), &river.Config{
 		Queues:     map[string]river.QueueConfig{PushQueue: {MaxWorkers: pushWorkers}},
 		Workers:    workers,
@@ -190,26 +191,27 @@ func (s *PushService) recordStats(ctx context.Context, runID int64, ok, failed i
 
 // load gathers the batch's per-IP output and host facts from our DB.
 func (s *PushService) load(ctx context.Context, a PushArgs) (PushBatch, error) {
-	parse := s.parsers[a.Scanner]
-	if parse == nil {
-		return PushBatch{}, fmt.Errorf("no parser for scanner %q", a.Scanner)
-	}
 	q := gen.New(s.pool)
 	prof, err := q.GetProfile(ctx, a.ProfileID)
 	if err != nil {
 		return PushBatch{}, fmt.Errorf("get profile %d: %w", a.ProfileID, err)
 	}
-	raw, err := q.GetBatchArtifact(ctx, gen.GetBatchArtifactParams{BatchID: &a.BatchID, Scanner: a.Scanner})
-	if errors.Is(err, pgx.ErrNoRows) {
+	res, err := s.loadArtifact(ctx, q, a.BatchID, a.Scanner)
+	if err != nil {
+		return PushBatch{}, err
+	}
+	if res == nil {
 		return PushBatch{}, fmt.Errorf("no %s artifact", a.Scanner)
 	}
+	web, err := s.loadArtifact(ctx, q, a.BatchID, "httpx")
 	if err != nil {
-		return PushBatch{}, fmt.Errorf("get artifact: %w", err)
+		return PushBatch{}, err
 	}
-	res, err := parse([]byte(raw))
+	detection, err := s.loadArtifact(ctx, q, a.BatchID, "nuclei")
 	if err != nil {
-		return PushBatch{}, fmt.Errorf("parse %s artifact: %w", a.Scanner, err)
+		return PushBatch{}, err
 	}
+	reports, tags := webReports(a.IPs, web, detection)
 	hosts, err := q.ListPushHosts(ctx, a.IPs)
 	if err != nil {
 		return PushBatch{}, fmt.Errorf("list hosts: %w", err)
@@ -229,9 +231,10 @@ func (s *PushService) load(ctx context.Context, a PushArgs) (PushBatch, error) {
 	b := PushBatch{RunID: a.RunID, BatchID: a.BatchID, Profile: prof.Name, Scanner: a.Scanner,
 		ScanType: a.ScanType, ScanDate: a.ScanDate}
 	for _, ip := range a.IPs {
-		h := PushHost{IP: ip, OpenPorts: ports[ip], Report: res.PerIP(ip), FirstSeen: a.ScanDate}
+		h := PushHost{IP: ip, OpenPorts: ports[ip], Report: res.PerIP(ip), FirstSeen: a.ScanDate, web: reports[ip], tags: tags[ip]}
 		if row, ok := byIP[ip]; ok {
 			h.Hostnames, h.FirstSeen = row.Hostnames, row.FirstSeen
+			h.tags = append(h.tags, MergeAssetTags(nil, row.UserTags)...)
 			if row.DojoAssetID != nil {
 				h.AssetID = *row.DojoAssetID
 			}
@@ -239,4 +242,23 @@ func (s *PushService) load(ctx context.Context, a PushArgs) (PushBatch, error) {
 		b.Hosts = append(b.Hosts, h)
 	}
 	return b, nil
+}
+
+func (s *PushService) loadArtifact(ctx context.Context, q *gen.Queries, batchID int64, name string) (*scanner.Result, error) {
+	raw, err := q.GetBatchArtifact(ctx, gen.GetBatchArtifactParams{BatchID: &batchID, Scanner: name})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get %s artifact: %w", name, err)
+	}
+	parse := s.parsers[name]
+	if parse == nil {
+		return nil, fmt.Errorf("no parser for scanner %q", name)
+	}
+	res, err := parse([]byte(raw))
+	if err != nil {
+		return nil, fmt.Errorf("parse %s artifact: %w", name, err)
+	}
+	return res, nil
 }

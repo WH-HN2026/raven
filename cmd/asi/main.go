@@ -21,7 +21,9 @@ import (
 	"github.com/WH-HN2026/zadanie-agh-asi/internal/dojo"
 	"github.com/WH-HN2026/zadanie-agh-asi/internal/httpapi"
 	"github.com/WH-HN2026/zadanie-agh-asi/internal/pipeline"
+	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner/httpx"
 	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner/nmap"
+	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner/nuclei"
 	"github.com/WH-HN2026/zadanie-agh-asi/internal/signatures"
 )
 
@@ -75,7 +77,9 @@ func run() error {
 	}
 	dojoWrite := &dojo.Lazy{} // write-through edits (D6); set once bootstrap is done
 	if cfg.DojoURL != "" {
-		push, err := dojo.NewPushService(pool, map[string]dojo.ParseFunc{"nmap": nmap.Parse})
+		push, err := dojo.NewPushService(pool, map[string]dojo.ParseFunc{
+			"nmap": nmap.Parse, "httpx": httpx.Parse, "nuclei": nuclei.Parse,
+		})
 		if err != nil {
 			return err
 		}

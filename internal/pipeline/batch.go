@@ -182,7 +182,7 @@ func (s *Service) ingestBatch(ctx context.Context, b gen.Batch, prof gen.Profile
 			extra = lifecycle.runStats()
 		}
 		slog.Info("run finished", "run", run.ID, "status", status)
-		return finishRun(ctx, q, run.ID, status, extra)
+		return s.finishBatchRun(ctx, tx, q, run.ID, status, extra, lifecycle.inactiveIPs)
 	}
 	err = pgx.BeginFunc(ctx, s.pool, commit)
 	if err == nil && len(reprobeIPs) > 0 {

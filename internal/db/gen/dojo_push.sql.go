@@ -53,7 +53,7 @@ func (q *Queries) GetBatchArtifact(ctx context.Context, arg GetBatchArtifactPara
 }
 
 const listPushHosts = `-- name: ListPushHosts :many
-SELECT ip, hostnames, first_seen, dojo_asset_id FROM hosts
+SELECT ip, hostnames, first_seen, dojo_asset_id, user_tags FROM hosts
 WHERE ip = ANY($1::inet[])
 `
 
@@ -62,6 +62,7 @@ type ListPushHostsRow struct {
 	Hostnames   []string   `json:"hostnames"`
 	FirstSeen   time.Time  `json:"first_seen"`
 	DojoAssetID *int64     `json:"dojo_asset_id"`
+	UserTags    []string   `json:"user_tags"`
 }
 
 func (q *Queries) ListPushHosts(ctx context.Context, ips []netip.Addr) ([]ListPushHostsRow, error) {
@@ -78,6 +79,7 @@ func (q *Queries) ListPushHosts(ctx context.Context, ips []netip.Addr) ([]ListPu
 			&i.Hostnames,
 			&i.FirstSeen,
 			&i.DojoAssetID,
+			&i.UserTags,
 		); err != nil {
 			return nil, err
 		}

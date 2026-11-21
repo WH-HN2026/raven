@@ -13,10 +13,11 @@ import (
 	"time"
 )
 
-// Push (architecture §3.6–3.7, §4): per responding IP, the chain
+// Push (architecture §3.7–3.8, §4): per responding IP, the chain
 // Asset "<ip>" → Engagement "ASI: <profile>" → Test per scanner, a reimport of
 // the scanner output filtered to that IP, and on the first push of an IP an
-// INFO "New device found" finding in the "ASI lifecycle" test.
+// INFO "New device found" finding in the "ASI lifecycle" test. The run-finished
+// job records "Host offline" in that test when the miss threshold is reached.
 
 const (
 	TagASI = "asi" // on every asset/engagement/test/finding we push; D3 syncs findings tagged with it
@@ -42,6 +43,13 @@ type PushHost struct {
 	OpenPorts []string // "22/tcp", for the new-device description
 	AssetID   int64    // hosts.dojo_asset_id before this push; 0 = never pushed → new device
 	Report    []byte   // scanner output filtered to this IP (Result.PerIP)
+	tags      []string // additional Asset tags from scanner observations and local user tags
+	web       []scannerReport
+}
+
+type scannerReport struct {
+	name, scanType, extension string
+	content                   []byte
 }
 
 // PushBatch is what one push job sends to Dojo.
@@ -68,6 +76,7 @@ type Pusher struct {
 	Client         Client
 	OrganizationID int64
 	Parallel       int // 0 = 4
+	hostLocks      [64]sync.Mutex
 }
 
 // Push pushes every host of b and returns one result per host, in order.
@@ -101,30 +110,45 @@ func (p *Pusher) Push(ctx context.Context, b PushBatch) []HostResult {
 func AssetTags(hostnames []string) []string {
 	tags := []string{TagASI}
 	for _, h := range hostnames {
-		if h = strings.ToLower(strings.TrimSpace(h)); h != "" {
+		if h = strings.TrimSuffix(strings.ToLower(strings.TrimSpace(h)), "."); h != "" {
 			tags = append(tags, "host:"+h)
 		}
 	}
 	return tags
 }
 
-func (p *Pusher) pushHost(ctx context.Context, b PushBatch, h PushHost) (assetID int64, newDevice bool, err error) {
-	if len(h.Report) == 0 {
-		return 0, false, fmt.Errorf("no %s output for this IP", b.Scanner)
-	}
-	tags := AssetTags(h.Hostnames)
+func (p *Pusher) lockHost(ip netip.Addr) func() {
+	lock := &p.hostLocks[int(ip.As16()[15])%len(p.hostLocks)]
+	lock.Lock()
+	return lock.Unlock
+}
+
+func (p *Pusher) ensureAsset(ctx context.Context, h PushHost) (*Asset, error) {
+	tags := missingTags(nil, append(AssetTags(h.Hostnames), h.tags...))
 	asset, err := p.Client.GetOrCreateAsset(ctx, AssetSpec{
 		Name: h.IP.String(), Description: "Host " + h.IP.String() + " (managed by ASI)",
 		OrganizationID: p.OrganizationID, Tags: tags,
 	})
 	if err != nil {
-		return 0, false, err
+		return nil, err
 	}
 	if missing := missingTags(asset.Tags, tags); len(missing) > 0 {
 		// Keep whatever is there (user tags), add ours.
 		if err := p.Client.SetAssetTags(ctx, asset.ID, append(append([]string{}, asset.Tags...), missing...)); err != nil {
-			return 0, false, err
+			return nil, err
 		}
+	}
+	return asset, nil
+}
+
+func (p *Pusher) pushHost(ctx context.Context, b PushBatch, h PushHost) (assetID int64, newDevice bool, err error) {
+	if len(h.Report) == 0 {
+		return 0, false, fmt.Errorf("no %s output for this IP", b.Scanner)
+	}
+	defer p.lockHost(h.IP)()
+	asset, err := p.ensureAsset(ctx, h)
+	if err != nil {
+		return 0, false, err
 	}
 	eng, err := p.Client.GetOrCreateEngagement(ctx, EngagementSpec{
 		AssetID: asset.ID, Name: EngagementName(b.Profile), Tags: []string{TagASI},
@@ -132,49 +156,54 @@ func (p *Pusher) pushHost(ctx context.Context, b PushBatch, h PushHost) (assetID
 	if err != nil {
 		return 0, false, err
 	}
-	test, err := p.Client.GetOrCreateTest(ctx, TestSpec{
-		EngagementID: eng.ID, ScanType: b.ScanType, Title: TestTitle(b.Scanner),
-	})
-	if err != nil {
+	if err := p.pushReport(ctx, eng.ID, h.IP, b.ScanDate, scannerReport{b.Scanner, b.ScanType, "xml", h.Report}); err != nil {
 		return 0, false, err
 	}
-	// Only responding IPs get here, so close_old_findings is safe (§3.7).
-	if _, err := p.Client.ReimportScan(ctx, ImportRequest{
-		ScanType: b.ScanType, TestID: test.ID,
-		FileName: h.IP.String() + "." + b.Scanner + ".xml", File: bytes.NewReader(h.Report),
-		CloseOldFindings: true, Tags: []string{TagASI}, TagFindings: true, ScanDate: b.ScanDate,
-	}); err != nil {
-		return 0, false, err
+	for _, r := range h.web {
+		if err := p.pushReport(ctx, eng.ID, h.IP, b.ScanDate, r); err != nil {
+			return 0, false, err
+		}
 	}
 	if h.AssetID != 0 {
 		return asset.ID, false, nil
 	}
-	if err := p.pushNewDevice(ctx, eng.ID, b, h); err != nil {
+	doc, err := NewDeviceReport(h)
+	if err != nil {
+		return 0, false, err
+	}
+	if err := p.pushLifecycle(ctx, eng.ID, b.ScanDate, "asi-new-device.json", doc); err != nil {
 		return 0, false, err
 	}
 	return asset.ID, true, nil
 }
 
-// pushNewDevice reimports the one "New device found" finding into the
-// lifecycle test. close_old_findings=false keeps the test's other lifecycle
-// findings (D4), and Dojo matches the finding by unique_id_from_tool
-// (DD_DEDUPLICATION_ALGORITHM_PER_PARSER in deploy/dojo.compose.yml), so a
-// retried push leaves it untouched instead of adding a second one.
-func (p *Pusher) pushNewDevice(ctx context.Context, engagementID int64, b PushBatch, h PushHost) error {
+func (p *Pusher) pushReport(ctx context.Context, engagementID int64, ip netip.Addr, date time.Time, r scannerReport) error {
+	test, err := p.Client.GetOrCreateTest(ctx, TestSpec{
+		EngagementID: engagementID, ScanType: r.scanType, Title: TestTitle(r.name),
+	})
+	if err != nil {
+		return err
+	}
+	_, err = p.Client.ReimportScan(ctx, ImportRequest{
+		ScanType: r.scanType, TestID: test.ID,
+		FileName: ip.String() + "." + r.name + "." + r.extension, File: bytes.NewReader(r.content),
+		CloseOldFindings: true, Tags: []string{TagASI}, TagFindings: true, ScanDate: date,
+	})
+	return err
+}
+
+// Lifecycle findings share one test and keep stable IDs across retries.
+func (p *Pusher) pushLifecycle(ctx context.Context, engagementID int64, date time.Time, filename string, doc []byte) error {
 	test, err := p.Client.GetOrCreateTest(ctx, TestSpec{
 		EngagementID: engagementID, ScanType: GenericScanType, Title: LifecycleTestTitle,
 	})
 	if err != nil {
 		return err
 	}
-	doc, err := NewDeviceReport(h)
-	if err != nil {
-		return err
-	}
 	_, err = p.Client.ReimportScan(ctx, ImportRequest{
 		ScanType: GenericScanType, TestID: test.ID,
-		FileName: "asi-new-device.json", File: bytes.NewReader(doc),
-		CloseOldFindings: false, Tags: []string{TagASI}, TagFindings: true, ScanDate: b.ScanDate,
+		FileName: filename, File: bytes.NewReader(doc),
+		CloseOldFindings: false, Tags: []string{TagASI}, TagFindings: true, ScanDate: date,
 	})
 	return err
 }
@@ -219,7 +248,8 @@ func missingTags(have, want []string) []string {
 	}
 	var out []string
 	for _, t := range want {
-		if !set[strings.ToLower(t)] {
+		if key := strings.ToLower(t); !set[key] {
+			set[key] = true
 			out = append(out, t)
 		}
 	}

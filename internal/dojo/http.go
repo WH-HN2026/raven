@@ -342,6 +342,12 @@ func (c *HTTPClient) ListFindings(ctx context.Context, q FindingQuery) (*Page[Fi
 	if q.TestID != 0 {
 		v.Set("test", itoa(q.TestID))
 	}
+	if q.AssetID != 0 {
+		v.Set("product", itoa(q.AssetID))
+	}
+	if q.UniqueIDFromTool != "" {
+		v.Set("unique_id_from_tool", q.UniqueIDFromTool)
+	}
 	if q.Active != nil {
 		v.Set("active", strconv.FormatBool(*q.Active))
 	}
