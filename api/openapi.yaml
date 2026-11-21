@@ -1050,6 +1050,50 @@ paths:
         "204": { description: Deleted. }
         default: { $ref: "#/components/responses/Error" }
 
+  # ───────────────────────── api tokens (MCP1) ─────────────────────────
+  /tokens:
+    get:
+      tags: [users]
+      operationId: listApiTokens
+      description: "Requires tokens:admin. Returns token metadata only (never token or hash)."
+      parameters:
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Offset" }
+      responses:
+        "200":
+          description: API tokens.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiTokenList" }
+        default: { $ref: "#/components/responses/Error" }
+    post:
+      tags: [users]
+      operationId: createApiToken
+      description: "Requires tokens:admin. Issues a bearer token for MCP; the plaintext token is returned once."
+      parameters: [{ $ref: "#/components/parameters/CSRF" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ApiTokenCreate" }
+      responses:
+        "201":
+          description: Created.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiTokenCreated" }
+        default: { $ref: "#/components/responses/Error" }
+  /tokens/{id}:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    delete:
+      tags: [users]
+      operationId: deleteApiToken
+      description: "Requires tokens:admin. Revokes an API token."
+      parameters: [{ $ref: "#/components/parameters/CSRF" }]
+      responses:
+        "204": { description: Revoked. }
+        default: { $ref: "#/components/responses/Error" }
+
 components:
   securitySchemes:
     session:
@@ -1199,6 +1243,36 @@ components:
       properties:
         user: { $ref: "#/components/schemas/User" }
         permissions: { type: array, items: { $ref: "#/components/schemas/Permission" } }
+    ApiToken:
+      type: object
+      required: [id, user_id, username, role, name, created_at]
+      properties:
+        id: { type: integer, format: int64 }
+        user_id: { type: integer, format: int64 }
+        username: { type: string }
+        role: { $ref: "#/components/schemas/Role" }
+        name: { type: string }
+        created_at: { type: string, format: date-time }
+        last_used_at: { type: [string, "null"], format: date-time }
+    ApiTokenCreate:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        user_id: { type: [integer, "null"], format: int64, description: "Target user id (defaults to current admin)." }
+    ApiTokenCreated:
+      allOf:
+        - $ref: "#/components/schemas/ApiToken"
+        - type: object
+          required: [token]
+          properties:
+            token: { type: string, description: "Plaintext bearer token, returned once on creation." }
+    ApiTokenList:
+      type: object
+      required: [items, total]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/ApiToken" } }
+        total: { type: integer }
 
     # ── targets / scope ──
     TargetInput:

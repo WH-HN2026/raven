@@ -86,6 +86,10 @@ var routePerms = map[string]auth.Permission{
 	"POST /api/users":        auth.PermUsersAdmin,
 	"PATCH /api/users/{id}":  auth.PermUsersAdmin,
 	"DELETE /api/users/{id}": auth.PermUsersAdmin,
+
+	"GET /api/tokens":         auth.PermTokensAdmin,
+	"POST /api/tokens":        auth.PermTokensAdmin,
+	"DELETE /api/tokens/{id}": auth.PermTokensAdmin,
 }
 
 var urlParam = regexp.MustCompile(`\{[^}]*\}`)
