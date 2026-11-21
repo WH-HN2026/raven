@@ -85,7 +85,7 @@ func (s *Store) Test(ctx context.Context, u *auth.User, id int64, rawURL string,
 
 	runCtx, cancel := context.WithTimeout(ctx, defaultTestTimeout)
 	defer cancel()
-	res, err := runner.RunTemplate(runCtx, sig.TemplateYaml, normalizedURL, ips[0], defaultTestRateLimit)
+	res, err := runner.RunTemplate(runCtx, sig.TemplateYAML, normalizedURL, ips[0], defaultTestRateLimit)
 	if err != nil {
 		if errors.Is(err, exec.ErrNotFound) {
 			return TestResult{}, fmt.Errorf("%w: nuclei binary not installed", ErrScannerUnavailable)
