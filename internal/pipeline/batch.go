@@ -98,9 +98,13 @@ func (s *Service) runBatch(ctx context.Context, a BatchArgs, attempt, maxAttempt
 			web, err = s.cfg.HTTPX.Run(ctx, webIn, scanner.Options{RateLimit: int(prof.NucleiRate)})
 		}
 	}
+	var detection *scanner.Result
+	if err == nil {
+		detection, err = s.scanNuclei(ctx, b, prof, web)
+	}
 	if err == nil {
 		var plan Plan
-		plan, err = s.ingestBatch(ctx, b, prof, hostnames, res, web, start)
+		plan, err = s.ingestBatch(ctx, b, prof, hostnames, res, web, detection, start)
 		if err == nil {
 			s.afterBatch(ctx, b, prof, plan, res)
 			return nil
@@ -115,7 +119,7 @@ func (s *Service) runBatch(ctx context.Context, a BatchArgs, attempt, maxAttempt
 // ingestBatch writes the batch result, marks the batch done and, if it was
 // the last one, finishes the run, all in one transaction under the run lock.
 func (s *Service) ingestBatch(ctx context.Context, b gen.Batch, prof gen.Profile,
-	hostnames map[netip.Addr][]string, res, web *scanner.Result, start time.Time) (Plan, error) {
+	hostnames map[netip.Addr][]string, res, web, detection *scanner.Result, start time.Time) (Plan, error) {
 	ports, err := ParsePorts(prof.Ports)
 	if err != nil {
 		return Plan{}, err
@@ -139,6 +143,11 @@ func (s *Service) ingestBatch(ctx context.Context, b gen.Batch, prof gen.Profile
 		}
 		if web != nil {
 			if err := s.ingestHTTP(ctx, q, b, web, now); err != nil {
+				return err
+			}
+		}
+		if detection != nil {
+			if err := s.ingestNuclei(ctx, q, b, detection); err != nil {
 				return err
 			}
 		}
