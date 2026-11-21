@@ -13,38 +13,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const mergeNucleiCPEs = `-- name: MergeNucleiCPEs :execrows
-UPDATE http_observations AS h
-SET cpes = ARRAY(
-    SELECT DISTINCT c FROM unnest(h.cpes || $1::text[]) AS c ORDER BY c
-)
-FROM services AS s
-WHERE h.service_id = s.id AND s.ip = $2 AND s.port = $3 AND s.proto = 'tcp'
-    AND h.run_id = $4 AND h.url = $5
-`
-
-type MergeNucleiCPEsParams struct {
-	Cpes  []string   `json:"cpes"`
-	Ip    netip.Addr `json:"ip"`
-	Port  int32      `json:"port"`
-	RunID *int64     `json:"run_id"`
-	Url   string     `json:"url"`
-}
-
-func (q *Queries) MergeNucleiCPEs(ctx context.Context, arg MergeNucleiCPEsParams) (int64, error) {
-	result, err := q.db.Exec(ctx, mergeNucleiCPEs,
-		arg.Cpes,
-		arg.Ip,
-		arg.Port,
-		arg.RunID,
-		arg.Url,
-	)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
-}
-
 const mergeNucleiCPEsBatch = `-- name: MergeNucleiCPEsBatch :execrows
 UPDATE http_observations AS h
 SET cpes = ARRAY(
