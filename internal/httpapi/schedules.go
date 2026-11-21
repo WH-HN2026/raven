@@ -11,6 +11,7 @@ import (
 	"github.com/WH-HN2026/raven/internal/db/gen"
 	"github.com/WH-HN2026/raven/internal/dojo"
 	"github.com/WH-HN2026/raven/internal/httpx"
+	"github.com/WH-HN2026/raven/internal/pipeline"
 	"github.com/WH-HN2026/raven/internal/scheduler"
 )
 
@@ -21,7 +22,13 @@ func (a *api) mountSchedules(r chi.Router) {
 	r.With(auth.Require(auth.PermSchedulesWrite)).Delete("/schedules/{id}", a.deleteSchedule)
 }
 
-func (a *api) scanConfig() scheduler.ConfigStore { return scheduler.ConfigStore{Pool: a.Pool} }
+func (a *api) scanConfig() scheduler.ConfigStore {
+	return scheduler.ConfigStore{
+		Pool:           a.Pool,
+		ValidateStages: pipeline.Validate,
+		DefaultStages:  pipeline.DefaultStages,
+	}
+}
 
 type scheduleView struct {
 	gen.Schedule

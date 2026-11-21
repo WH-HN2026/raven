@@ -21,9 +21,9 @@ func (q *Queries) CountProfiles(ctx context.Context) (int64, error) {
 }
 
 const createProfile = `-- name: CreateProfile :one
-INSERT INTO profiles (name, ports, nmap_max_rate, nuclei_rate, nuclei_tags, miss_threshold, target_batch_seconds, enabled)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, name, ports, nmap_max_rate, nuclei_rate, nuclei_tags, miss_threshold, target_batch_seconds, enabled, created_at
+INSERT INTO profiles (name, ports, nmap_max_rate, nuclei_rate, nuclei_tags, miss_threshold, target_batch_seconds, enabled, stages)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, name, ports, nmap_max_rate, nuclei_rate, nuclei_tags, miss_threshold, target_batch_seconds, enabled, created_at, stages
 `
 
 type CreateProfileParams struct {
@@ -35,6 +35,7 @@ type CreateProfileParams struct {
 	MissThreshold      int32    `json:"miss_threshold"`
 	TargetBatchSeconds int32    `json:"target_batch_seconds"`
 	Enabled            bool     `json:"enabled"`
+	Stages             []string `json:"stages"`
 }
 
 func (q *Queries) CreateProfile(ctx context.Context, arg CreateProfileParams) (Profile, error) {
@@ -47,6 +48,7 @@ func (q *Queries) CreateProfile(ctx context.Context, arg CreateProfileParams) (P
 		arg.MissThreshold,
 		arg.TargetBatchSeconds,
 		arg.Enabled,
+		arg.Stages,
 	)
 	var i Profile
 	err := row.Scan(
@@ -60,6 +62,7 @@ func (q *Queries) CreateProfile(ctx context.Context, arg CreateProfileParams) (P
 		&i.TargetBatchSeconds,
 		&i.Enabled,
 		&i.CreatedAt,
+		&i.Stages,
 	)
 	return i, err
 }
@@ -74,7 +77,7 @@ func (q *Queries) DeleteProfile(ctx context.Context, id int64) error {
 }
 
 const listProfiles = `-- name: ListProfiles :many
-SELECT id, name, ports, nmap_max_rate, nuclei_rate, nuclei_tags, miss_threshold, target_batch_seconds, enabled, created_at FROM profiles ORDER BY
+SELECT id, name, ports, nmap_max_rate, nuclei_rate, nuclei_tags, miss_threshold, target_batch_seconds, enabled, created_at, stages FROM profiles ORDER BY
     CASE WHEN $1::text = 'name_asc' THEN lower(name) END ASC NULLS LAST,
     CASE WHEN $1::text = 'name_desc' THEN lower(name) END DESC NULLS LAST,
     CASE WHEN $1::text = 'ports_asc' THEN ports END ASC NULLS LAST,
@@ -121,6 +124,7 @@ func (q *Queries) ListProfiles(ctx context.Context, arg ListProfilesParams) ([]P
 			&i.TargetBatchSeconds,
 			&i.Enabled,
 			&i.CreatedAt,
+			&i.Stages,
 		); err != nil {
 			return nil, err
 		}
@@ -156,9 +160,9 @@ func (q *Queries) ProfileHasSchedules(ctx context.Context, profileID int64) (boo
 
 const updateProfile = `-- name: UpdateProfile :one
 UPDATE profiles SET name = $2, ports = $3, nmap_max_rate = $4, nuclei_rate = $5,
-    nuclei_tags = $6, miss_threshold = $7, target_batch_seconds = $8, enabled = $9
+    nuclei_tags = $6, miss_threshold = $7, target_batch_seconds = $8, enabled = $9, stages = $10
 WHERE id = $1
-RETURNING id, name, ports, nmap_max_rate, nuclei_rate, nuclei_tags, miss_threshold, target_batch_seconds, enabled, created_at
+RETURNING id, name, ports, nmap_max_rate, nuclei_rate, nuclei_tags, miss_threshold, target_batch_seconds, enabled, created_at, stages
 `
 
 type UpdateProfileParams struct {
@@ -171,6 +175,7 @@ type UpdateProfileParams struct {
 	MissThreshold      int32    `json:"miss_threshold"`
 	TargetBatchSeconds int32    `json:"target_batch_seconds"`
 	Enabled            bool     `json:"enabled"`
+	Stages             []string `json:"stages"`
 }
 
 func (q *Queries) UpdateProfile(ctx context.Context, arg UpdateProfileParams) (Profile, error) {
@@ -184,6 +189,7 @@ func (q *Queries) UpdateProfile(ctx context.Context, arg UpdateProfileParams) (P
 		arg.MissThreshold,
 		arg.TargetBatchSeconds,
 		arg.Enabled,
+		arg.Stages,
 	)
 	var i Profile
 	err := row.Scan(
@@ -197,6 +203,7 @@ func (q *Queries) UpdateProfile(ctx context.Context, arg UpdateProfileParams) (P
 		&i.TargetBatchSeconds,
 		&i.Enabled,
 		&i.CreatedAt,
+		&i.Stages,
 	)
 	return i, err
 }

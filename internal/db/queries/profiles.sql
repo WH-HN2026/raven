@@ -23,13 +23,13 @@ LIMIT sqlc.arg(lim) OFFSET sqlc.arg(off);
 SELECT count(*) FROM profiles;
 
 -- name: CreateProfile :one
-INSERT INTO profiles (name, ports, nmap_max_rate, nuclei_rate, nuclei_tags, miss_threshold, target_batch_seconds, enabled)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+INSERT INTO profiles (name, ports, nmap_max_rate, nuclei_rate, nuclei_tags, miss_threshold, target_batch_seconds, enabled, stages)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING *;
 
 -- name: UpdateProfile :one
 UPDATE profiles SET name = $2, ports = $3, nmap_max_rate = $4, nuclei_rate = $5,
-    nuclei_tags = $6, miss_threshold = $7, target_batch_seconds = $8, enabled = $9
+    nuclei_tags = $6, miss_threshold = $7, target_batch_seconds = $8, enabled = $9, stages = $10
 WHERE id = $1
 RETURNING *;
 

@@ -122,6 +122,8 @@ func (s *Service) ImportResults(ctx context.Context, u *auth.User, in ImportInpu
 		artifactScanner = in.Source
 	}
 
+	stages := importStages(in, httpRes, nucleiRes)
+
 	var (
 		run     gen.Run
 		batchID int64
@@ -135,6 +137,7 @@ func (s *Service) ImportResults(ctx context.Context, u *auth.User, in ImportInpu
 			StartedAt:  &seen,
 			HostsTotal: int32(len(allowedIPs)),
 			Stats:      initStatsJSON,
+			Stages:     stages,
 		})
 		if err != nil {
 			return fmt.Errorf("insert import run: %w", err)
@@ -211,7 +214,7 @@ func (s *Service) ImportResults(ctx context.Context, u *auth.User, in ImportInpu
 			hookRes = nucleiRes
 		}
 		if err := s.cfg.Hook.AfterBatch(ctx, BatchResult{
-			RunID: run.ID, BatchID: batchID, ProfileID: prof.ID,
+			RunID: run.ID, BatchID: batchID, ProfileID: prof.ID, Stages: stages,
 			Responding: plan.Up, Scanner: in.Scanner, Result: hookRes,
 		}); err != nil {
 			slog.Error("import after-batch hook", "run", run.ID, "batch", batchID, "err", err)
@@ -233,6 +236,20 @@ func (s *Service) ImportResults(ctx context.Context, u *auth.User, in ImportInpu
 		Rejected:    scopeStats.rejected,
 		Warnings:    scopeStats.warnings,
 	}, nil
+}
+
+func importStages(in ImportInput, httpRes, nucleiRes *scanner.Result) []string {
+	if in.Scanner != nil && in.Scanner.Name() == StageNuclei {
+		return []string{StageNuclei}
+	}
+	stages := []string{StageNmap}
+	if httpRes != nil && (len(httpRes.Observations) > 0 || len(httpRes.Raw) > 0) {
+		stages = append(stages, StageHTTPX)
+	}
+	if nucleiRes != nil && (len(nucleiRes.Observations) > 0 || len(nucleiRes.Raw) > 0) {
+		stages = append(stages, StageNuclei)
+	}
+	return stages
 }
 
 type importScopeStats struct {

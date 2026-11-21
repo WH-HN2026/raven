@@ -18,6 +18,7 @@ import (
 	"net/netip"
 	"slices"
 
+	"github.com/WH-HN2026/raven/internal/pipeline"
 	"github.com/WH-HN2026/raven/internal/scanner"
 )
 
@@ -52,6 +53,7 @@ type Service struct {
 
 // Snapshot is the observed state of one run.
 type Snapshot struct {
+	Stages   []string            // stages executed in this run; nil/empty = Default
 	Hosts    map[netip.Addr]bool // observed IPs: true = up
 	Services map[SvcKey]*Service // open ports of up hosts
 }
@@ -184,6 +186,8 @@ type Result struct {
 //   - changed: name / product / version / title / technologies differ;
 //     a field is compared only if both runs have a source for it.
 func Diff(a, b Snapshot) Result {
+	shared := pipeline.SharedStages(a.Stages, b.Stages)
+	compareHTTP := pipeline.HasStage(shared, pipeline.StageHTTPX)
 	r := Result{
 		HostsNew: []HostChange{}, HostsGone: []HostChange{},
 		ServicesNew: []ServiceChange{}, ServicesGone: []ServiceChange{}, ServicesChanged: []ServiceChange{},
@@ -235,7 +239,7 @@ func Diff(a, b Snapshot) Result {
 			r.ServicesNew = append(r.ServicesNew, ServiceChange{IP: k.IP, Port: k.Port, Proto: sb.Proto, After: &fp, Fields: []string{}})
 			continue
 		}
-		if f := changedFields(sa, sb); len(f) > 0 {
+		if f := changedFields(sa, sb, compareHTTP); len(f) > 0 {
 			before, after := sa.FP, sb.FP
 			r.ServicesChanged = append(r.ServicesChanged, ServiceChange{
 				IP: k.IP, Port: k.Port, Proto: sb.Proto, Before: &before, After: &after, Fields: f,
@@ -273,7 +277,7 @@ func (s Snapshot) portsFor(want map[netip.Addr]bool) map[netip.Addr][]uint16 {
 	return out
 }
 
-func changedFields(a, b *Service) []string {
+func changedFields(a, b *Service, compareHTTP bool) []string {
 	var f []string
 	if a.HasNmap && b.HasNmap {
 		if a.FP.Name != b.FP.Name {
@@ -286,10 +290,10 @@ func changedFields(a, b *Service) []string {
 			f = append(f, "version")
 		}
 	}
-	if (a.HasNmap || a.HasHTTP) && (b.HasNmap || b.HasHTTP) && a.FP.Title != b.FP.Title {
+	if compareHTTP && (a.HasNmap || a.HasHTTP) && (b.HasNmap || b.HasHTTP) && a.FP.Title != b.FP.Title {
 		f = append(f, "title")
 	}
-	if a.HasHTTP && b.HasHTTP && !slices.Equal(a.FP.Technologies, b.FP.Technologies) {
+	if compareHTTP && a.HasHTTP && b.HasHTTP && !slices.Equal(a.FP.Technologies, b.FP.Technologies) {
 		f = append(f, "technologies")
 	}
 	return f

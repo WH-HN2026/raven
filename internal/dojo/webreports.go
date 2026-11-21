@@ -6,15 +6,18 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/WH-HN2026/raven/internal/pipeline"
 	"github.com/WH-HN2026/raven/internal/scanner"
 	"github.com/WH-HN2026/raven/internal/scanner/nuclei"
 )
 
-// webReports collects the web scanners' reports and Asset tags for responding IPs.
-func webReports(ips []netip.Addr, httpx, detection *scanner.Result) (map[netip.Addr][]scannerReport, map[netip.Addr][]string) {
+// webReports collects the web scanners' reports and Asset tags for responding IPs,
+// restricted strictly to stages that ran in this run (architecture §3.11).
+func webReports(ips []netip.Addr, stages []string, httpx, detection *scanner.Result) (map[netip.Addr][]scannerReport, map[netip.Addr][]string) {
 	reports := make(map[netip.Addr][]scannerReport)
 	tags := make(map[netip.Addr][]string)
-	if httpx == nil {
+	stages = pipeline.EffectiveStages(stages)
+	if !pipeline.HasStage(stages, pipeline.StageHTTPX) || httpx == nil {
 		return reports, tags
 	}
 	for _, ip := range ips {
@@ -29,7 +32,7 @@ func webReports(ips []netip.Addr, httpx, detection *scanner.Result) (map[netip.A
 			tags[o.IP] = append(tags[o.IP], observationTags(o)...)
 		}
 	}
-	if detection != nil {
+	if pipeline.HasStage(stages, pipeline.StageNuclei) && detection != nil {
 		// Ingest stores an artifact, even an empty one, after a successful
 		// nuclei pass. Coverage is the same set of HTTP origins it was given.
 		covered := make(map[netip.Addr]bool)

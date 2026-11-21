@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/WH-HN2026/raven/internal/pipeline"
 	"github.com/WH-HN2026/raven/internal/scanner"
 	"github.com/WH-HN2026/raven/internal/scanner/nmap"
 )
@@ -128,6 +129,35 @@ func TestDiff(t *testing.T) {
 			name: "no fingerprint source in one run (e.g. imported) is not a change",
 			a:    snap(up, svc{ip: ipA, port: 22, fp: ssh}),
 			b:    snap(up, svc{ip: ipA, port: 22, bare: true}),
+		},
+		{
+			name: "default vs nmap-only ignores HTTP title and technologies but keeps nmap changes",
+			a: func() Snapshot {
+				s := snap(up,
+					svc{ip: ipA, port: 22, fp: ssh},
+					svc{ip: ipA, port: 80, fp: web, http: true},
+				)
+				s.Stages = pipeline.DefaultStages()
+				return s
+			}(),
+			b: func() Snapshot {
+				s := snap(up,
+					svc{ip: ipA, port: 22, fp: Fingerprint{Name: "ssh", Product: "OpenSSH", Version: "9.8"}},
+					svc{ip: ipA, port: 80, fp: Fingerprint{Name: "http", Product: "nginx", Version: "1.24", Title: "nmap title"}},
+				)
+				s.Stages = []string{pipeline.StageNmap}
+				return s
+			}(),
+			want: summary{changed: map[string][]string{"10.0.0.1:22": {"version"}}},
+		},
+		{
+			name: "legacy nil stages vs nmap-only treats nil as Default and suppresses HTTP diff",
+			a:    snap(up, svc{ip: ipA, port: 80, fp: web, http: true}),
+			b: func() Snapshot {
+				s := snap(up, svc{ip: ipA, port: 80, fp: Fingerprint{Name: "http", Product: "nginx", Version: "1.24", Title: "Other"}})
+				s.Stages = []string{pipeline.StageNmap}
+				return s
+			}(),
 		},
 	}
 	for _, tt := range tests {

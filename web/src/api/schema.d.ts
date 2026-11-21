@@ -528,6 +528,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/stages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Workflow stage registry in execution order and named presets (read). */
+        get: operations["listStages"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/profiles": {
         parameters: {
             query?: never;
@@ -952,6 +969,8 @@ export interface components {
             batches_done: number;
             /** @description batches that failed after all retries */
             batches_failed: number;
+            /** @description Workflow stages executed by this run (in registry order). */
+            stages?: components["schemas"]["StageName"][];
             /**
              * @description Scan list stats (candidates, not_included, excluded, rejected, warnings, batch_size) from the start;
              *     when finished also batches, batches_done/failed/stopped, duration_ms_sum, duration_ms_max,
@@ -1224,6 +1243,7 @@ export interface components {
             started_at: string | null;
             /** Format: date-time */
             finished_at: string | null;
+            stages?: components["schemas"]["StageName"][];
         };
         DiffSummary: {
             hosts_new: number;
@@ -1374,6 +1394,22 @@ export interface components {
             /** @description latest done run */
             latest_run: components["schemas"]["DiffRun"] | null;
         };
+        /** @enum {string} */
+        StageName: "nmap" | "httpx" | "nuclei" | "nuclei_active" | "nikto" | "wpscan" | "zap";
+        StageInfo: {
+            name: components["schemas"]["StageName"];
+            needs: components["schemas"]["StageName"][];
+            aggressive: boolean;
+            available: boolean;
+        };
+        StagePresets: {
+            default: components["schemas"]["StageName"][];
+            aggressive: components["schemas"]["StageName"][];
+        };
+        StagesResponse: {
+            stages: components["schemas"]["StageInfo"][];
+            presets: components["schemas"]["StagePresets"];
+        };
         ProfileInput: {
             name: string;
             /** @description port spec from the allowed list */
@@ -1385,6 +1421,8 @@ export interface components {
             miss_threshold?: number;
             target_batch_seconds?: number;
             enabled?: boolean;
+            /** @description Workflow stages to run (ordered by registry; defaults to [nmap, httpx, nuclei]). */
+            stages?: components["schemas"]["StageName"][];
         };
         Profile: components["schemas"]["ProfileInput"] & {
             /** Format: int64 */
@@ -2403,6 +2441,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Dashboard"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listStages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Stage registry and presets. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StagesResponse"];
                 };
             };
             default: components["responses"]["Error"];

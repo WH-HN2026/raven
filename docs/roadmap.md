@@ -143,7 +143,7 @@ M0 is sequential and blocking. Do it in **one** worktree, as fast as possible, t
 
 **Track WF — Workflows & aggressive preset**
 - [x] **WF0 Workflow & aggressive guardrails.** Docs: architecture workflows section and §9 split (always / default / aggressive), AGENTS.md safety rules, roadmap track WF, jury note.
-- [ ] **WF1 Workflow model.** Stage registry with dependencies; `profiles.stages` (migration: existing profiles → Default); API validation (400 on missing dependency); pipeline runs only enabled stages; runs record executed stages; no Dojo reimport for stages that did not run; Changes compares shared stages only.
+- [x] **WF1 Workflow model.** Stage registry with dependencies; `profiles.stages` (migration: existing profiles → Default); API validation (400 on missing dependency); pipeline runs only enabled stages; runs record executed stages; no Dojo reimport for stages that did not run; Changes compares shared stages only.
 - [ ] **WF2 Workflow builder UI.** (needs WF1) Stage cards with toggles in the profile editor, Default/Aggressive presets, dependents auto-disabled with a "needs <stage>" label; stage badges on profiles and runs.
 - [ ] **AG1 Aggressive gating.** (needs WF1) `scan:aggressive` permission (admin), confirmation on start, "Aggressive" badge on profiles/runs, audit_log entries, viewer/editor 403s.
 - [ ] **AG2 nuclei active.** (needs AG1) intrusive/fuzz templates pinned in an aggressive set, dos excluded, no interactsh; own Dojo test.

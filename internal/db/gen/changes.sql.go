@@ -7,13 +7,14 @@ package gen
 
 import (
 	"context"
+	"encoding/json"
 	"net/netip"
 	"time"
 )
 
 const getChangeRun = `-- name: GetChangeRun :one
 
-SELECT id, profile_id, status, started_at, finished_at FROM runs WHERE id = $1
+SELECT id, profile_id, status, started_at, finished_at, stages FROM runs WHERE id = $1
 `
 
 type GetChangeRunRow struct {
@@ -22,6 +23,7 @@ type GetChangeRunRow struct {
 	Status     string     `json:"status"`
 	StartedAt  *time.Time `json:"started_at"`
 	FinishedAt *time.Time `json:"finished_at"`
+	Stages     []string   `json:"stages"`
 }
 
 // Run diff and host timeline (C1). Read-only.
@@ -34,6 +36,7 @@ func (q *Queries) GetChangeRun(ctx context.Context, id int64) (GetChangeRunRow, 
 		&i.Status,
 		&i.StartedAt,
 		&i.FinishedAt,
+		&i.Stages,
 	)
 	return i, err
 }
@@ -76,7 +79,7 @@ func (q *Queries) HostTimelinePorts(ctx context.Context, arg HostTimelinePortsPa
 }
 
 const hostTimelineRuns = `-- name: HostTimelineRuns :many
-SELECT r.id, r.profile_id, r.status, r.started_at, r.finished_at, o.up, o.observed_at
+SELECT r.id, r.profile_id, r.status, r.started_at, r.finished_at, r.stages, o.up, o.observed_at
 FROM run_observations o JOIN runs r ON r.id = o.run_id
 WHERE o.ip = $1 AND o.port IS NULL
 ORDER BY r.id DESC
@@ -94,6 +97,7 @@ type HostTimelineRunsRow struct {
 	Status     string     `json:"status"`
 	StartedAt  *time.Time `json:"started_at"`
 	FinishedAt *time.Time `json:"finished_at"`
+	Stages     []string   `json:"stages"`
 	Up         bool       `json:"up"`
 	ObservedAt time.Time  `json:"observed_at"`
 }
@@ -114,6 +118,7 @@ func (q *Queries) HostTimelineRuns(ctx context.Context, arg HostTimelineRunsPara
 			&i.Status,
 			&i.StartedAt,
 			&i.FinishedAt,
+			&i.Stages,
 			&i.Up,
 			&i.ObservedAt,
 		); err != nil {
@@ -128,7 +133,7 @@ func (q *Queries) HostTimelineRuns(ctx context.Context, arg HostTimelineRunsPara
 }
 
 const latestDoneRun = `-- name: LatestDoneRun :one
-SELECT id, profile_id, status, started_at, finished_at FROM runs
+SELECT id, profile_id, status, started_at, finished_at, stages FROM runs
 WHERE status = 'done'
   AND ($1::bigint IS NULL OR profile_id = $1::bigint)
 ORDER BY started_at DESC NULLS LAST, id DESC LIMIT 1
@@ -140,6 +145,7 @@ type LatestDoneRunRow struct {
 	Status     string     `json:"status"`
 	StartedAt  *time.Time `json:"started_at"`
 	FinishedAt *time.Time `json:"finished_at"`
+	Stages     []string   `json:"stages"`
 }
 
 // The newest finished run, of one profile when profile_id is given.
@@ -152,6 +158,7 @@ func (q *Queries) LatestDoneRun(ctx context.Context, profileID *int64) (LatestDo
 		&i.Status,
 		&i.StartedAt,
 		&i.FinishedAt,
+		&i.Stages,
 	)
 	return i, err
 }
@@ -224,6 +231,38 @@ func (q *Queries) ListRunNmapArtifacts(ctx context.Context, runID int64) ([]stri
 	return items, nil
 }
 
+const listRunNucleiMatches = `-- name: ListRunNucleiMatches :many
+SELECT ip, port::int AS port, nuclei_matches FROM run_observations
+WHERE run_id = $1 AND port IS NOT NULL AND up
+  AND nuclei_matches IS NOT NULL AND nuclei_matches <> '[]'::jsonb
+`
+
+type ListRunNucleiMatchesRow struct {
+	Ip            netip.Addr      `json:"ip"`
+	Port          int32           `json:"port"`
+	NucleiMatches json.RawMessage `json:"nuclei_matches"`
+}
+
+func (q *Queries) ListRunNucleiMatches(ctx context.Context, runID int64) ([]ListRunNucleiMatchesRow, error) {
+	rows, err := q.db.Query(ctx, listRunNucleiMatches, runID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListRunNucleiMatchesRow{}
+	for rows.Next() {
+		var i ListRunNucleiMatchesRow
+		if err := rows.Scan(&i.Ip, &i.Port, &i.NucleiMatches); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listRunObservations = `-- name: ListRunObservations :many
 SELECT ip, COALESCE(port, -1)::int AS port, up, service_fp FROM run_observations WHERE run_id = $1
 `
@@ -262,7 +301,7 @@ func (q *Queries) ListRunObservations(ctx context.Context, runID int64) ([]ListR
 }
 
 const previousDoneRun = `-- name: PreviousDoneRun :one
-SELECT r.id, r.profile_id, r.status, r.started_at, r.finished_at FROM runs r
+SELECT r.id, r.profile_id, r.status, r.started_at, r.finished_at, r.stages FROM runs r
 WHERE r.status = 'done' AND r.profile_id = $1
   AND (COALESCE(r.started_at, '-infinity'::timestamptz), r.id)
       < (SELECT COALESCE(t.started_at, '-infinity'::timestamptz), t.id FROM runs t WHERE t.id = $2)
@@ -280,6 +319,7 @@ type PreviousDoneRunRow struct {
 	Status     string     `json:"status"`
 	StartedAt  *time.Time `json:"started_at"`
 	FinishedAt *time.Time `json:"finished_at"`
+	Stages     []string   `json:"stages"`
 }
 
 // The finished run of the same profile right before run before_id.
@@ -292,6 +332,7 @@ func (q *Queries) PreviousDoneRun(ctx context.Context, arg PreviousDoneRunParams
 		&i.Status,
 		&i.StartedAt,
 		&i.FinishedAt,
+		&i.Stages,
 	)
 	return i, err
 }

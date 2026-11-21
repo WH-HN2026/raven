@@ -16,7 +16,7 @@ import (
 
 const getProfileByName = `-- name: GetProfileByName :one
 
-SELECT id, name, ports, nmap_max_rate, nuclei_rate, nuclei_tags, miss_threshold, target_batch_seconds, enabled, created_at FROM profiles WHERE name = $1
+SELECT id, name, ports, nmap_max_rate, nuclei_rate, nuclei_tags, miss_threshold, target_batch_seconds, enabled, created_at, stages FROM profiles WHERE name = $1
 `
 
 // Import/export queries (task P3).
@@ -34,6 +34,7 @@ func (q *Queries) GetProfileByName(ctx context.Context, name string) (Profile, e
 		&i.TargetBatchSeconds,
 		&i.Enabled,
 		&i.CreatedAt,
+		&i.Stages,
 	)
 	return i, err
 }

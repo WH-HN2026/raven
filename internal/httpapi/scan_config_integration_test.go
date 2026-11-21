@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -15,6 +16,7 @@ import (
 	"github.com/WH-HN2026/raven/internal/auth"
 	"github.com/WH-HN2026/raven/internal/db/gen"
 	"github.com/WH-HN2026/raven/internal/dbtest"
+	"github.com/WH-HN2026/raven/internal/pipeline"
 )
 
 func TestProfilesAndSchedulesAPI(t *testing.T) {
@@ -50,22 +52,65 @@ func TestProfilesAndSchedulesAPI(t *testing.T) {
 		}
 	}
 	admin, viewer := auth.RoleAdmin, auth.RoleViewer
+	var stagesResp struct {
+		Stages  []pipeline.StageDef   `json:"stages"`
+		Presets pipeline.StagePresets `json:"presets"`
+	}
+	parse(request(200, viewer, http.MethodGet, "/stages", ""), &stagesResp)
+	if len(stagesResp.Stages) != 7 || !slices.Equal(stagesResp.Presets.Default, pipeline.DefaultStages()) ||
+		!slices.Equal(stagesResp.Presets.Aggressive, pipeline.AggressiveStages()) {
+		t.Fatalf("GET /stages = %+v", stagesResp)
+	}
+	for _, st := range stagesResp.Stages {
+		if st.Aggressive && st.Available {
+			t.Fatalf("aggressive stage %s should not be available in WF1", st.Name)
+		}
+	}
+
 	profileBody := `{"name":"p1 integration","ports":"22,80,8000-8100","nuclei_tags":["tech","ssl"]}`
 	var profile gen.Profile
 	parse(request(201, admin, http.MethodPost, "/profiles", profileBody), &profile)
 	if profile.ID == 0 || profile.NmapMaxRate != 300 || profile.NucleiRate != 50 ||
-		profile.MissThreshold != 3 || !profile.Enabled || len(profile.NucleiTags) != 2 {
+		profile.MissThreshold != 3 || !profile.Enabled || len(profile.NucleiTags) != 2 ||
+		!slices.Equal(profile.Stages, pipeline.DefaultStages()) {
 		t.Fatalf("created profile = %+v", profile)
 	}
 	path := fmt.Sprintf("/profiles/%d", profile.ID)
 	parse(request(200, admin, http.MethodPut, path,
 		`{"name":"p1 integration updated","ports":"443","nmap_max_rate":25,"enabled":false}`), &profile)
-	if profile.NmapMaxRate != 25 || profile.Enabled || profile.Ports != "443" || len(profile.NucleiTags) != 2 {
+	if profile.NmapMaxRate != 25 || profile.Enabled || profile.Ports != "443" || len(profile.NucleiTags) != 2 ||
+		!slices.Equal(profile.Stages, pipeline.DefaultStages()) {
 		t.Fatalf("updated profile = %+v", profile)
+	}
+	// Explicit stages on update (normalised to registry order).
+	parse(request(200, admin, http.MethodPut, path,
+		`{"name":"p1 integration updated","ports":"443","stages":["httpx","nmap"]}`), &profile)
+	if !slices.Equal(profile.Stages, []string{"nmap", "httpx"}) {
+		t.Fatalf("updated profile stages = %v, want [nmap httpx]", profile.Stages)
+	}
+	// Explicit nmap-only stages on create.
+	var nmapOnly gen.Profile
+	parse(request(201, admin, http.MethodPost, "/profiles",
+		`{"name":"nmap-only-wf1","ports":"22,80","stages":["nmap"]}`), &nmapOnly)
+	if !slices.Equal(nmapOnly.Stages, []string{"nmap"}) {
+		t.Fatalf("nmap-only profile stages = %v, want [nmap]", nmapOnly.Stages)
+	}
+	// Audit log includes stages on create and update.
+	var auditDiff []byte
+	var auditParsed struct {
+		Stages []string `json:"stages"`
+	}
+	if err := pool.QueryRow(ctx, `SELECT diff FROM audit_log WHERE action = 'profiles.create' AND object_id = $1`,
+		fmt.Sprint(nmapOnly.ID)).Scan(&auditDiff); err != nil {
+		t.Fatalf("profiles.create audit diff: %v", err)
+	}
+	parse(auditDiff, &auditParsed)
+	if !slices.Equal(auditParsed.Stages, []string{"nmap"}) {
+		t.Fatalf("profiles.create audit diff stages = %v, want [nmap]", auditParsed.Stages)
 	}
 	var profiles list[gen.Profile]
 	parse(request(200, viewer, http.MethodGet, "/profiles", ""), &profiles)
-	if profiles.Total != 2 {
+	if profiles.Total != 3 {
 		t.Fatalf("profile page = %+v", profiles)
 	}
 	for _, body := range []string{
@@ -76,12 +121,27 @@ func TestProfilesAndSchedulesAPI(t *testing.T) {
 		`{"name":"bad","ports":"80","nuclei_tags":["cve"]}`,
 		`{"name":"bad","ports":"80","miss_threshold":0}`,
 		`{"name":"bad","ports":"80","target_batch_seconds":0}`,
+		`{"name":"bad","ports":"80","stages":[]}`,
+		`{"name":"bad","ports":"80","stages":["httpx"]}`,
+		`{"name":"bad","ports":"80","stages":["nmap","nuclei"]}`,
+		`{"name":"bad","ports":"80","stages":["nmap","nmap"]}`,
+		`{"name":"bad","ports":"80","stages":["nmap","masscan"]}`,
+		`{"name":"bad","ports":"80","stages":["nmap","httpx","nuclei_active"]}`,
+		`{"name":"bad","ports":"80","stages":["nmap","httpx","nikto"]}`,
+		`{"name":"bad","ports":"80","stages":["nmap","httpx","wpscan"]}`,
+		`{"name":"bad","ports":"80","stages":["nmap","httpx","zap"]}`,
 	} {
 		request(400, admin, http.MethodPost, "/profiles", body)
 	}
+	for _, body := range []string{
+		`{"name":"p1 integration updated","ports":"443","stages":["nmap","nuclei"]}`,
+		`{"name":"p1 integration updated","ports":"443","stages":["nmap","httpx","nikto"]}`,
+	} {
+		request(400, admin, http.MethodPut, path, body)
+	}
 	request(409, admin, http.MethodPost, "/profiles", `{"name":"p1 integration updated","ports":"22"}`)
-	request(403, viewer, http.MethodPost, "/profiles", profileBody)
-	request(403, viewer, http.MethodPut, path, profileBody)
+	request(403, viewer, http.MethodPost, "/profiles", `{"name":"viewer-wf1","ports":"80","stages":["nmap"]}`)
+	request(403, viewer, http.MethodPut, path, `{"name":"p1","ports":"80","stages":["nmap"]}`)
 	request(403, viewer, http.MethodDelete, path, "")
 
 	scheduleBody := fmt.Sprintf(`{"name":"Nightly sweep","profile_id":%d,"cron":"0 23 * * *","window_start":"2026-11-21T23:00:00+01:00","window_end":"2026-11-22T01:00:00+01:00"}`, profile.ID)
@@ -138,7 +198,7 @@ func TestProfilesAndSchedulesAPI(t *testing.T) {
 	var events int
 	err = pool.QueryRow(ctx, `SELECT count(*) FROM audit_log WHERE user_id = $1 AND
 		(action LIKE 'profiles.%' OR action LIKE 'schedules.%')`, adminID).Scan(&events)
-	if err != nil || events != 7 {
-		t.Fatalf("configuration audit count = %d, %v, want 7", events, err)
+	if err != nil || events != 9 {
+		t.Fatalf("configuration audit count = %d, %v, want 9", events, err)
 	}
 }

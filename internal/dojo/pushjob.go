@@ -37,9 +37,10 @@ type PushArgs struct {
 	RunID     int64        `json:"run_id"`
 	BatchID   int64        `json:"batch_id"`
 	ProfileID int64        `json:"profile_id"`
-	Scanner   string       `json:"scanner"`   // artifacts.scanner, "nmap"
-	ScanType  string       `json:"scan_type"` // Dojo parser, "Nmap Scan"
-	IPs       []netip.Addr `json:"ips"`       // responding IPs only (§3.7)
+	Stages    []string     `json:"stages,omitempty"` // stages executed in this run (§3.11); empty = legacy Default
+	Scanner   string       `json:"scanner"`          // artifacts.scanner, "nmap"
+	ScanType  string       `json:"scan_type"`        // Dojo parser, "Nmap Scan"
+	IPs       []netip.Addr `json:"ips"`              // responding IPs only (§3.7)
 	ScanDate  time.Time    `json:"scan_date"`
 }
 
@@ -103,6 +104,7 @@ func (s *PushService) AfterBatch(ctx context.Context, b pipeline.BatchResult) er
 func ArgsFromBatch(b pipeline.BatchResult, now time.Time) PushArgs {
 	return PushArgs{
 		RunID: b.RunID, BatchID: b.BatchID, ProfileID: b.ProfileID,
+		Stages:  append([]string(nil), b.Stages...),
 		Scanner: b.Scanner.Name(), ScanType: b.Scanner.DojoScanType(),
 		IPs: append([]netip.Addr(nil), b.Responding...), ScanDate: now,
 	}
@@ -208,15 +210,22 @@ func (s *PushService) load(ctx context.Context, a PushArgs) (PushBatch, error) {
 	if res == nil {
 		return PushBatch{}, fmt.Errorf("no %s artifact", a.Scanner)
 	}
-	web, err := s.loadArtifact(ctx, q, a.BatchID, "httpx")
-	if err != nil {
-		return PushBatch{}, err
+	stages := pipeline.EffectiveStages(a.Stages)
+	var web *scanner.Result
+	if pipeline.HasStage(stages, pipeline.StageHTTPX) {
+		web, err = s.loadArtifact(ctx, q, a.BatchID, pipeline.StageHTTPX)
+		if err != nil {
+			return PushBatch{}, err
+		}
 	}
-	detection, err := s.loadArtifact(ctx, q, a.BatchID, "nuclei")
-	if err != nil {
-		return PushBatch{}, err
+	var detection *scanner.Result
+	if pipeline.HasStage(stages, pipeline.StageNuclei) {
+		detection, err = s.loadArtifact(ctx, q, a.BatchID, pipeline.StageNuclei)
+		if err != nil {
+			return PushBatch{}, err
+		}
 	}
-	reports, tags := webReports(a.IPs, web, detection)
+	reports, tags := webReports(a.IPs, stages, web, detection)
 	hosts, err := q.ListPushHosts(ctx, a.IPs)
 	if err != nil {
 		return PushBatch{}, fmt.Errorf("list hosts: %w", err)
