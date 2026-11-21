@@ -92,7 +92,7 @@ function Eff({ s, field }: { s: Service; field: 'name' | 'product' | 'version' }
       {over && (
         <span
           className="ml-1 rounded bg-accent-light px-1 text-xs text-accent-dark"
-          title={`Edited by a user; the scan saw "${s.scan[field]}"`}
+          title={`Scan value: ${s.scan[field] || '—'}`}
         >
           edited
         </span>
@@ -145,7 +145,7 @@ function ServicesTable({ services }: { services: Service[] }) {
             {services.length === 0 && (
               <tr>
                 <td className={td + ' text-muted'} colSpan={8}>
-                  No services seen on this host.
+                  No services.
                 </td>
               </tr>
             )}
@@ -162,9 +162,7 @@ function HttpSection({ http, services }: { http: HttpObservation[]; services: Se
     <section className={card}>
       <h2 className="mb-3 text-lg font-semibold text-ink">HTTP observations</h2>
       {http.length === 0 ? (
-        <p className="text-sm text-muted">
-          No HTTP observations yet. They appear after a web fingerprinting (nuclei) scan of this host.
-        </p>
+        <p className="text-sm text-muted">No HTTP observations.</p>
       ) : (
         <div className="space-y-4">
           {http.map((o) => (
@@ -255,7 +253,7 @@ function Timeline({ items }: { items: Schemas['HostObservation'][] }) {
     <section className={card}>
       <h2 className="mb-3 text-lg font-semibold text-ink">Recent runs</h2>
       {items.length === 0 ? (
-        <p className="text-sm text-muted">No run observations for this host yet.</p>
+        <p className="text-sm text-muted">No run observations.</p>
       ) : (
         <ul className="space-y-1 text-sm" aria-label="Up/down timeline">
           {items.map((o) => (

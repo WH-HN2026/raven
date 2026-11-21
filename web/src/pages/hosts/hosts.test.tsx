@@ -129,7 +129,7 @@ describe('HostsPage', () => {
   it('blocks a non-numeric port', async () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(async () => json({ items: [], total: 0 }))
     renderAt('/hosts')
-    expect(await screen.findByText('No hosts yet. Run a scan to discover some.')).toBeInTheDocument()
+    expect(await screen.findByText('No hosts yet.')).toBeInTheDocument()
     fireEvent.change(screen.getByLabelText('Open port'), { target: { value: 'http' } })
     expect(screen.getByRole('button', { name: 'Apply' })).toBeDisabled()
   })
@@ -181,11 +181,11 @@ describe('HostDetailPage', () => {
     expect(fetchMock.mock.calls[0]![0]).toBe('/api/hosts/10.10.0.2')
     expect(screen.getByText('decrypted note')).toBeInTheDocument()
     const edited = screen.getByText('edited')
-    expect(edited).toHaveAttribute('title', 'Edited by a user; the scan saw "nginx"')
+    expect(edited).toHaveAttribute('title', 'Scan value: nginx')
     expect(screen.getByText('OpenResty')).toBeInTheDocument()
     expect(screen.getByText('nginx banner')).toBeInTheDocument()
     expect(screen.getByText('21/tcp')).toBeInTheDocument()
-    expect(screen.getByText(/No HTTP observations yet/)).toBeInTheDocument()
+    expect(screen.getByText('No HTTP observations.')).toBeInTheDocument()
     const tl = screen.getByRole('list', { name: 'Up/down timeline' })
     expect(within(tl).getAllByRole('listitem').map((li) => li.textContent)).toEqual([
       expect.stringContaining('downrun #7'),
@@ -227,7 +227,7 @@ describe('HostDetailPage', () => {
     expect(screen.getByText('staging')).toBeInTheDocument()
     expect(screen.getByText('wp_session=abc; HttpOnly')).toBeInTheDocument()
     expect(screen.getByText('-1234')).toBeInTheDocument()
-    expect(screen.getByText('No run observations for this host yet.')).toBeInTheDocument()
+    expect(screen.getByText('No run observations.')).toBeInTheDocument()
   })
 
   it('shows a not-found message for an unknown host', async () => {

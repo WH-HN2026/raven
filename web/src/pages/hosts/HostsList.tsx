@@ -118,7 +118,7 @@ export function HostsPage() {
               {q.isSuccess && items.length === 0 && (
                 <tr>
                   <td className={td + ' text-muted'} colSpan={10}>
-                    {filtered ? 'No hosts match these filters.' : 'No hosts yet. Run a scan to discover some.'}
+                    {filtered ? 'No hosts match these filters.' : 'No hosts yet.'}
                   </td>
                 </tr>
               )}
