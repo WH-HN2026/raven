@@ -1,0 +1,42 @@
+/*
+ * AGH theme tokens: the ONLY place colours are defined (AGENTS.md: no raw hex
+ * in components). Values approximate the AGH University of Krakow visual
+ * identity (Księga Identyfikacji Wizualnej AGH): AGH green, AGH red and
+ * black/graphite. They were taken from the public logo artwork, not from the
+ * official book, so treat them as approximations to verify against the book.
+ */
+@theme {
+  /* Disable Tailwind's default palette: only the tokens below exist. */
+  --color-*: initial;
+
+  --color-white: #ffffff;
+  --color-transparent: transparent;
+  --color-current: currentColor;
+
+  /* AGH green (primary) */
+  --color-brand: #00693c;
+  --color-brand-dark: #004d2c;
+  --color-brand-light: #e3f1ea;
+
+  /* AGH red (accent / danger) */
+  --color-accent: #a71930;
+  --color-accent-dark: #7f1324;
+  --color-accent-light: #f8e5e8;
+
+  /* black / graphite */
+  --color-ink: #1d1d1b;
+  --color-graphite: #3c3c3b;
+  --color-muted: #6f6f6e;
+
+  /* surfaces */
+  --color-surface: #ffffff;
+  --color-canvas: #f4f5f4;
+  --color-line: #d9dcda;
+
+  /* status */
+  --color-ok: #00693c;
+  --color-warn: #b7791f;
+  --color-danger: #a71930;
+
+  --font-sans: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+}

@@ -1,0 +1,1233 @@
+openapi: 3.1.0
+info:
+  title: ASI — Attack Surface Intelligence API
+  version: 0.1.0
+  description: |
+    The HTTP contract between the Go backend and the SPA (architecture §7).
+    Conventions:
+    - JSON everywhere; lists take `?limit=&offset=` and return `{items, total}`.
+    - Errors return `{error: {code, message}}`.
+    - Auth: session cookie `asi_session` (HttpOnly, SameSite=Strict) from POST /api/auth/login.
+    - Every POST/PUT/PATCH/DELETE must send the header `X-ASI-CSRF: 1` (login included).
+    - 401 = no session, 403 = missing permission (or missing CSRF header).
+    - Paths marked "stub" are mounted with their permission but answer 501 until their task lands.
+    Editing rules: add paths/schemas inside your area's section (grouped by tag); run `make gen`.
+servers:
+  - url: /api
+tags:
+  - name: system
+  - name: auth
+  - name: targets
+  - name: scope
+  - name: runs
+  - name: hosts
+  - name: findings
+  - name: changes
+  - name: profiles
+  - name: schedules
+  - name: signatures
+  - name: exchange
+  - name: users
+
+security:
+  - session: []
+
+paths:
+  # ───────────────────────── system ─────────────────────────
+  /healthz:
+    get:
+      tags: [system]
+      operationId: healthz
+      security: []
+      responses:
+        "200":
+          description: Server and database are up.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Health" }
+        "503":
+          description: Database unavailable.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Health" }
+
+  # ───────────────────────── auth ─────────────────────────
+  /auth/login:
+    post:
+      tags: [auth]
+      operationId: login
+      security: []
+      parameters: [{ $ref: "#/components/parameters/CSRF" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoginRequest" }
+      responses:
+        "200":
+          description: Logged in; sets the session cookie.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Me" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /auth/logout:
+    post:
+      tags: [auth]
+      operationId: logout
+      parameters: [{ $ref: "#/components/parameters/CSRF" }]
+      responses:
+        "204": { description: Logged out; clears the session cookie. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /auth/me:
+    get:
+      tags: [auth]
+      operationId: me
+      responses:
+        "200":
+          description: The current user, role and permissions.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Me" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  # ───────────────────────── targets (S1, W1) ─────────────────────────
+  /targets:
+    get:
+      tags: [targets]
+      operationId: listTargets
+      description: stub
+      parameters:
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Offset" }
+      responses:
+        "200":
+          description: Targets.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TargetList" }
+        default: { $ref: "#/components/responses/Error" }
+    post:
+      tags: [targets]
+      operationId: createTargets
+      description: stub. Manual entry of one or more targets (permission targets:write).
+      parameters: [{ $ref: "#/components/parameters/CSRF" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [targets]
+              properties:
+                targets:
+                  type: array
+                  items: { $ref: "#/components/schemas/TargetInput" }
+      responses:
+        "201":
+          description: Created targets.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TargetList" }
+        default: { $ref: "#/components/responses/Error" }
+  /targets/upload:
+    post:
+      tags: [targets]
+      operationId: uploadTargets
+      description: stub. CSV or JSON upload (permission import); `dry_run=true` returns a preview.
+      parameters:
+        - { $ref: "#/components/parameters/CSRF" }
+        - { name: dry_run, in: query, schema: { type: boolean, default: false } }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        "200":
+          description: Parse result.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TargetUploadResult" }
+        default: { $ref: "#/components/responses/Error" }
+  /targets/{id}:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    delete:
+      tags: [targets]
+      operationId: deleteTarget
+      description: stub
+      parameters: [{ $ref: "#/components/parameters/CSRF" }]
+      responses:
+        "204": { description: Deleted. }
+        default: { $ref: "#/components/responses/Error" }
+
+  # ───────────────────────── scope (S1, W1) ─────────────────────────
+  /scope:
+    get:
+      tags: [scope]
+      operationId: listScope
+      description: stub
+      parameters:
+        - { name: profile_id, in: query, schema: { type: integer, format: int64 }, description: "omit = global entries" }
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Offset" }
+      responses:
+        "200":
+          description: Scope entries.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ScopeEntryList" }
+        default: { $ref: "#/components/responses/Error" }
+    post:
+      tags: [scope]
+      operationId: createScopeEntry
+      description: stub. Global entries (profile_id null) need scope:global.
+      parameters: [{ $ref: "#/components/parameters/CSRF" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ScopeEntryInput" }
+      responses:
+        "201":
+          description: Created.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ScopeEntry" }
+        default: { $ref: "#/components/responses/Error" }
+  /scope/{id}:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    delete:
+      tags: [scope]
+      operationId: deleteScopeEntry
+      description: stub
+      parameters: [{ $ref: "#/components/parameters/CSRF" }]
+      responses:
+        "204": { description: Deleted. }
+        default: { $ref: "#/components/responses/Error" }
+
+  # ───────────────────────── runs (S3, W2) ─────────────────────────
+  /runs:
+    get:
+      tags: [runs]
+      operationId: listRuns
+      description: stub
+      parameters:
+        - { name: profile_id, in: query, schema: { type: integer, format: int64 } }
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Offset" }
+      responses:
+        "200":
+          description: Runs, newest first.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RunList" }
+        default: { $ref: "#/components/responses/Error" }
+    post:
+      tags: [runs]
+      operationId: startRun
+      description: stub. Start a run for a profile (runs:control).
+      parameters: [{ $ref: "#/components/parameters/CSRF" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [profile_id]
+              properties:
+                profile_id: { type: integer, format: int64 }
+      responses:
+        "201":
+          description: Created run.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Run" }
+        default: { $ref: "#/components/responses/Error" }
+  /runs/{id}:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    get:
+      tags: [runs]
+      operationId: getRun
+      description: stub
+      responses:
+        "200":
+          description: Run.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Run" }
+        default: { $ref: "#/components/responses/Error" }
+  /runs/{id}/batches:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    get:
+      tags: [runs]
+      operationId: listRunBatches
+      description: stub
+      responses:
+        "200":
+          description: Batches of the run.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BatchList" }
+        default: { $ref: "#/components/responses/Error" }
+  /runs/{id}/stop:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    post:
+      tags: [runs]
+      operationId: stopRun
+      description: stub
+      parameters: [{ $ref: "#/components/parameters/CSRF" }]
+      responses:
+        "200":
+          description: Stopped run.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Run" }
+        default: { $ref: "#/components/responses/Error" }
+
+  # ───────────────────────── hosts (S3, W3, W10) ─────────────────────────
+  /hosts:
+    get:
+      tags: [hosts]
+      operationId: listHosts
+      description: stub
+      parameters:
+        - { name: state, in: query, schema: { $ref: "#/components/schemas/HostState" } }
+        - { name: port, in: query, schema: { type: integer } }
+        - { name: tech, in: query, schema: { type: string } }
+        - { name: tag, in: query, schema: { type: string } }
+        - { name: q, in: query, schema: { type: string }, description: "IP prefix or hostname substring" }
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Offset" }
+      responses:
+        "200":
+          description: Hosts.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HostList" }
+        default: { $ref: "#/components/responses/Error" }
+  /hosts/{ip}:
+    parameters:
+      - { name: ip, in: path, required: true, schema: { type: string } }
+    get:
+      tags: [hosts]
+      operationId: getHost
+      description: stub
+      responses:
+        "200":
+          description: Host with services and HTTP observations.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HostDetail" }
+        default: { $ref: "#/components/responses/Error" }
+    patch:
+      tags: [hosts]
+      operationId: updateHost
+      description: stub. Edits user-owned fields only (hosts:edit).
+      parameters: [{ $ref: "#/components/parameters/CSRF" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/HostPatch" }
+      responses:
+        "200":
+          description: Updated host.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Host" }
+        default: { $ref: "#/components/responses/Error" }
+  /services:
+    get:
+      tags: [hosts]
+      operationId: listServices
+      description: stub
+      parameters:
+        - { name: port, in: query, schema: { type: integer } }
+        - { name: product, in: query, schema: { type: string } }
+        - { name: state, in: query, schema: { type: string, enum: [open, gone] } }
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Offset" }
+      responses:
+        "200":
+          description: Services.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ServiceList" }
+        default: { $ref: "#/components/responses/Error" }
+  /services/{id}:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    patch:
+      tags: [hosts]
+      operationId: updateService
+      description: stub. Writes `overrides` only (hosts:edit).
+      parameters: [{ $ref: "#/components/parameters/CSRF" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                overrides: { type: object, additionalProperties: true }
+      responses:
+        "200":
+          description: Updated service.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Service" }
+        default: { $ref: "#/components/responses/Error" }
+
+  # ───────────────────────── findings (D3, D6, W5) ─────────────────────────
+  /findings:
+    get:
+      tags: [findings]
+      operationId: listFindings
+      description: stub. Reads the Dojo mirror (dojo_findings).
+      parameters:
+        - { name: severity, in: query, schema: { $ref: "#/components/schemas/Severity" } }
+        - { name: active, in: query, schema: { type: boolean } }
+        - { name: ip, in: query, schema: { type: string } }
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Offset" }
+      responses:
+        "200":
+          description: Findings.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FindingList" }
+        default: { $ref: "#/components/responses/Error" }
+  /findings/{id}:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    patch:
+      tags: [findings]
+      operationId: updateFinding
+      description: stub. Write-through to Dojo (findings:edit).
+      parameters: [{ $ref: "#/components/parameters/CSRF" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FindingPatch" }
+      responses:
+        "200":
+          description: Updated finding.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Finding" }
+        default: { $ref: "#/components/responses/Error" }
+  /findings/{id}/notes:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    post:
+      tags: [findings]
+      operationId: addFindingNote
+      description: stub
+      parameters: [{ $ref: "#/components/parameters/CSRF" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text: { type: string }
+      responses:
+        "204": { description: Added. }
+        default: { $ref: "#/components/responses/Error" }
+
+  # ───────────────────────── changes (C1, W6) ─────────────────────────
+  /changes:
+    get:
+      tags: [changes]
+      operationId: listChanges
+      description: stub. Diff between two runs.
+      parameters:
+        - { name: from, in: query, required: true, schema: { type: integer, format: int64 } }
+        - { name: to, in: query, required: true, schema: { type: integer, format: int64 } }
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Offset" }
+      responses:
+        "200":
+          description: Changes.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ChangeList" }
+        default: { $ref: "#/components/responses/Error" }
+
+  # ───────────────────────── profiles (W7) ─────────────────────────
+  /profiles:
+    get:
+      tags: [profiles]
+      operationId: listProfiles
+      description: stub
+      parameters:
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Offset" }
+      responses:
+        "200":
+          description: Profiles.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProfileList" }
+        default: { $ref: "#/components/responses/Error" }
+    post:
+      tags: [profiles]
+      operationId: createProfile
+      description: stub
+      parameters: [{ $ref: "#/components/parameters/CSRF" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProfileInput" }
+      responses:
+        "201":
+          description: Created.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Profile" }
+        default: { $ref: "#/components/responses/Error" }
+  /profiles/{id}:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    put:
+      tags: [profiles]
+      operationId: updateProfile
+      description: stub
+      parameters: [{ $ref: "#/components/parameters/CSRF" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProfileInput" }
+      responses:
+        "200":
+          description: Updated.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Profile" }
+        default: { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [profiles]
+      operationId: deleteProfile
+      description: stub
+      parameters: [{ $ref: "#/components/parameters/CSRF" }]
+      responses:
+        "204": { description: Deleted. }
+        default: { $ref: "#/components/responses/Error" }
+
+  # ───────────────────────── schedules (P1, D5, W7) ─────────────────────────
+  /schedules:
+    get:
+      tags: [schedules]
+      operationId: listSchedules
+      description: stub
+      parameters:
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Offset" }
+      responses:
+        "200":
+          description: Schedules from the UI and Dojo.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ScheduleList" }
+        default: { $ref: "#/components/responses/Error" }
+    post:
+      tags: [schedules]
+      operationId: createSchedule
+      description: stub
+      parameters: [{ $ref: "#/components/parameters/CSRF" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ScheduleInput" }
+      responses:
+        "201":
+          description: Created.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Schedule" }
+        default: { $ref: "#/components/responses/Error" }
+  /schedules/{id}:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    put:
+      tags: [schedules]
+      operationId: updateSchedule
+      description: stub. Dojo-sourced schedules are read-only (409).
+      parameters: [{ $ref: "#/components/parameters/CSRF" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ScheduleInput" }
+      responses:
+        "200":
+          description: Updated.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Schedule" }
+        default: { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [schedules]
+      operationId: deleteSchedule
+      description: stub
+      parameters: [{ $ref: "#/components/parameters/CSRF" }]
+      responses:
+        "204": { description: Deleted. }
+        default: { $ref: "#/components/responses/Error" }
+
+  # ───────────────────────── signatures (C2, W8) ─────────────────────────
+  /signatures:
+    get:
+      tags: [signatures]
+      operationId: listSignatures
+      description: stub
+      parameters:
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Offset" }
+      responses:
+        "200":
+          description: Signatures.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SignatureList" }
+        default: { $ref: "#/components/responses/Error" }
+    post:
+      tags: [signatures]
+      operationId: createSignature
+      description: stub
+      parameters: [{ $ref: "#/components/parameters/CSRF" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SignatureInput" }
+      responses:
+        "201":
+          description: Created (validated).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Signature" }
+        default: { $ref: "#/components/responses/Error" }
+  /signatures/validate:
+    post:
+      tags: [signatures]
+      operationId: validateSignature
+      description: stub. Validate a template against the safe subset without saving.
+      parameters: [{ $ref: "#/components/parameters/CSRF" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [template_yaml]
+              properties:
+                template_yaml: { type: string }
+      responses:
+        "200":
+          description: Validation result.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SignatureValidation" }
+        default: { $ref: "#/components/responses/Error" }
+  /signatures/{id}:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    put:
+      tags: [signatures]
+      operationId: updateSignature
+      description: stub
+      parameters: [{ $ref: "#/components/parameters/CSRF" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SignatureInput" }
+      responses:
+        "200":
+          description: Updated.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Signature" }
+        default: { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [signatures]
+      operationId: deleteSignature
+      description: stub
+      parameters: [{ $ref: "#/components/parameters/CSRF" }]
+      responses:
+        "204": { description: Deleted. }
+        default: { $ref: "#/components/responses/Error" }
+
+  # ───────────────────────── exchange (P3) ─────────────────────────
+  /import/results:
+    post:
+      tags: [exchange]
+      operationId: importResults
+      description: stub. Import scan results (our JSON/CSV format) through the ingest + push path.
+      parameters: [{ $ref: "#/components/parameters/CSRF" }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        "202":
+          description: Accepted; a run was created for the import.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Run" }
+        default: { $ref: "#/components/responses/Error" }
+  /export/{kind}:
+    parameters:
+      - { name: kind, in: path, required: true, schema: { type: string, enum: [hosts, services, findings, changes] } }
+      - { name: format, in: query, schema: { type: string, enum: [json, csv], default: json } }
+    get:
+      tags: [exchange]
+      operationId: exportData
+      description: stub. Accepts the same filters as the matching list endpoint.
+      responses:
+        "200":
+          description: Export file.
+          content:
+            application/json: { schema: {} }
+            text/csv: { schema: { type: string } }
+        default: { $ref: "#/components/responses/Error" }
+
+  # ───────────────────────── users (P2, W9) ─────────────────────────
+  /users:
+    get:
+      tags: [users]
+      operationId: listUsers
+      description: stub (users:admin)
+      parameters:
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Offset" }
+      responses:
+        "200":
+          description: Users.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserList" }
+        default: { $ref: "#/components/responses/Error" }
+    post:
+      tags: [users]
+      operationId: createUser
+      description: stub (users:admin)
+      parameters: [{ $ref: "#/components/parameters/CSRF" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UserInput" }
+      responses:
+        "201":
+          description: Created.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        default: { $ref: "#/components/responses/Error" }
+  /users/{id}:
+    parameters: [{ $ref: "#/components/parameters/Id" }]
+    patch:
+      tags: [users]
+      operationId: updateUser
+      description: stub (users:admin)
+      parameters: [{ $ref: "#/components/parameters/CSRF" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UserPatch" }
+      responses:
+        "200":
+          description: Updated.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        default: { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [users]
+      operationId: deleteUser
+      description: stub (users:admin)
+      parameters: [{ $ref: "#/components/parameters/CSRF" }]
+      responses:
+        "204": { description: Deleted. }
+        default: { $ref: "#/components/responses/Error" }
+
+components:
+  securitySchemes:
+    session:
+      type: apiKey
+      in: cookie
+      name: asi_session
+
+  parameters:
+    CSRF:
+      name: X-ASI-CSRF
+      in: header
+      required: true
+      description: Must be "1" on every unsafe request. The client in web/src/api/client.ts sends it.
+      schema: { type: string, enum: ["1"] }
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 1000, default: 50 }
+    Offset:
+      name: offset
+      in: query
+      schema: { type: integer, minimum: 0, default: 0 }
+    Id:
+      name: id
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+
+  responses:
+    Error:
+      description: Error.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Unauthorized:
+      description: Not logged in, or invalid credentials.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Forbidden:
+      description: Missing permission or CSRF header.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+
+  schemas:
+    # ── common ──
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string, examples: [forbidden, not_found, csrf, invalid_credentials] }
+            message: { type: string }
+    Health:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string }
+    Pagination:
+      description: Every list response is `{items, total}`; see the *List schemas.
+      type: object
+      required: [total]
+      properties:
+        total: { type: integer, description: total matching rows, ignoring limit/offset }
+    Severity:
+      type: string
+      enum: [Info, Low, Medium, High, Critical]
+    HostState:
+      type: string
+      enum: [active, unstable, inactive]
+    TargetKind:
+      type: string
+      enum: [ip, cidr, domain]
+
+    # ── auth / users ──
+    Role:
+      type: string
+      enum: [admin, editor, operator, viewer]
+    Permission:
+      type: string
+      description: See internal/auth/rbac.go.
+      enum:
+        - read
+        - export
+        - findings:edit
+        - hosts:edit
+        - targets:write
+        - scope:write
+        - profiles:write
+        - schedules:write
+        - signatures:write
+        - import
+        - runs:control
+        - users:admin
+        - tokens:admin
+        - settings:admin
+        - scope:global
+        - audit:read
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username: { type: string }
+        password: { type: string, format: password }
+    User:
+      type: object
+      required: [id, username, role]
+      properties:
+        id: { type: integer, format: int64 }
+        username: { type: string }
+        role: { $ref: "#/components/schemas/Role" }
+        disabled: { type: boolean }
+        created_at: { type: string, format: date-time }
+    UserInput:
+      type: object
+      required: [username, password, role]
+      properties:
+        username: { type: string }
+        password: { type: string, format: password }
+        role: { $ref: "#/components/schemas/Role" }
+    UserPatch:
+      type: object
+      properties:
+        password: { type: string, format: password }
+        role: { $ref: "#/components/schemas/Role" }
+        disabled: { type: boolean }
+    UserList:
+      type: object
+      required: [items, total]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/User" } }
+        total: { type: integer }
+    Me:
+      type: object
+      required: [user, permissions]
+      properties:
+        user: { $ref: "#/components/schemas/User" }
+        permissions: { type: array, items: { $ref: "#/components/schemas/Permission" } }
+
+    # ── targets / scope ──
+    TargetInput:
+      type: object
+      required: [value]
+      properties:
+        value: { type: string, description: "IP, CIDR or domain", examples: ["10.0.0.0/24", "example.agh.edu.pl"] }
+        kind: { $ref: "#/components/schemas/TargetKind" }
+        tags: { type: array, items: { type: string } }
+    Target:
+      type: object
+      required: [id, kind, value, source, tags]
+      properties:
+        id: { type: integer, format: int64 }
+        kind: { $ref: "#/components/schemas/TargetKind" }
+        value: { type: string }
+        source: { type: string, enum: [manual, csv, json, dojo] }
+        tags: { type: array, items: { type: string } }
+        created_at: { type: string, format: date-time }
+    TargetList:
+      type: object
+      required: [items, total]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Target" } }
+        total: { type: integer }
+    TargetUploadResult:
+      type: object
+      required: [targets, errors]
+      properties:
+        targets: { type: array, items: { $ref: "#/components/schemas/TargetInput" } }
+        errors:
+          type: array
+          items:
+            type: object
+            required: [line, message]
+            properties:
+              line: { type: integer }
+              message: { type: string }
+    ScopeEntryInput:
+      type: object
+      required: [kind, value, list]
+      properties:
+        kind: { $ref: "#/components/schemas/TargetKind" }
+        value: { type: string }
+        list: { type: string, enum: [include, exclude] }
+        profile_id: { type: [integer, "null"], format: int64, description: "null = global" }
+        note: { type: string }
+    ScopeEntry:
+      allOf:
+        - $ref: "#/components/schemas/ScopeEntryInput"
+        - type: object
+          required: [id]
+          properties:
+            id: { type: integer, format: int64 }
+            created_at: { type: string, format: date-time }
+    ScopeEntryList:
+      type: object
+      required: [items, total]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/ScopeEntry" } }
+        total: { type: integer }
+
+    # ── runs ──
+    RunStatus:
+      type: string
+      enum: [pending, running, suspended, done, failed]
+    Run:
+      type: object
+      required: [id, profile_id, status, hosts_total, hosts_up]
+      properties:
+        id: { type: integer, format: int64 }
+        profile_id: { type: integer, format: int64 }
+        schedule_id: { type: [integer, "null"], format: int64 }
+        status: { $ref: "#/components/schemas/RunStatus" }
+        created_at: { type: string, format: date-time }
+        started_at: { type: [string, "null"], format: date-time }
+        finished_at: { type: [string, "null"], format: date-time }
+        hosts_total: { type: integer }
+        hosts_up: { type: integer }
+        batches_total: { type: integer }
+        batches_done: { type: integer }
+        stats: { type: object, additionalProperties: true }
+    RunList:
+      type: object
+      required: [items, total]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Run" } }
+        total: { type: integer }
+    Batch:
+      type: object
+      required: [id, run_id, seq, status, host_count]
+      properties:
+        id: { type: integer, format: int64 }
+        run_id: { type: integer, format: int64 }
+        seq: { type: integer }
+        host_count: { type: integer }
+        status: { type: string, enum: [pending, running, done, failed] }
+        attempts: { type: integer }
+        started_at: { type: [string, "null"], format: date-time }
+        finished_at: { type: [string, "null"], format: date-time }
+        duration_ms: { type: [integer, "null"] }
+    BatchList:
+      type: object
+      required: [items, total]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Batch" } }
+        total: { type: integer }
+
+    # ── hosts / services ──
+    Host:
+      type: object
+      required: [ip, hostnames, state, first_seen, last_seen, miss_count]
+      properties:
+        ip: { type: string }
+        hostnames: { type: array, items: { type: string } }
+        state: { $ref: "#/components/schemas/HostState" }
+        first_seen: { type: string, format: date-time }
+        last_seen: { type: string, format: date-time }
+        miss_count: { type: integer }
+        dojo_asset_id: { type: [integer, "null"], format: int64 }
+        open_ports: { type: array, items: { type: integer } }
+        technologies: { type: array, items: { type: string } }
+        # user-owned
+        owner: { type: string }
+        criticality: { type: string, enum: ["", low, medium, high, critical] }
+        notes: { type: string }
+        user_tags: { type: array, items: { type: string } }
+        overrides: { type: object, additionalProperties: true }
+    HostPatch:
+      type: object
+      description: User-owned fields only.
+      properties:
+        owner: { type: string }
+        criticality: { type: string, enum: ["", low, medium, high, critical] }
+        notes: { type: string }
+        user_tags: { type: array, items: { type: string } }
+        overrides: { type: object, additionalProperties: true }
+    HostDetail:
+      allOf:
+        - $ref: "#/components/schemas/Host"
+        - type: object
+          required: [services]
+          properties:
+            services: { type: array, items: { $ref: "#/components/schemas/Service" } }
+            http: { type: array, items: { $ref: "#/components/schemas/HttpObservation" } }
+    HostList:
+      type: object
+      required: [items, total]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Host" } }
+        total: { type: integer }
+    Service:
+      type: object
+      required: [id, ip, port, proto, state]
+      properties:
+        id: { type: integer, format: int64 }
+        ip: { type: string }
+        port: { type: integer }
+        proto: { type: string, enum: [tcp, udp] }
+        name: { type: string }
+        product: { type: string }
+        version: { type: string }
+        banner: { type: string }
+        state: { type: string, enum: [open, gone] }
+        first_seen: { type: string, format: date-time }
+        last_seen: { type: string, format: date-time }
+        overrides: { type: object, additionalProperties: true }
+    ServiceList:
+      type: object
+      required: [items, total]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Service" } }
+        total: { type: integer }
+    HttpObservation:
+      type: object
+      required: [id, service_id, url]
+      properties:
+        id: { type: integer, format: int64 }
+        service_id: { type: integer, format: int64 }
+        url: { type: string }
+        status: { type: [integer, "null"] }
+        title: { type: string }
+        headers: { type: object, additionalProperties: { type: string } }
+        cookies: { type: array, items: { type: string } }
+        tls_cert: { type: string }
+        redirects: { type: array, items: { type: string } }
+        technologies: { type: array, items: { type: string } }
+        favicon_hash: { type: string }
+        run_id: { type: [integer, "null"], format: int64 }
+        observed_at: { type: string, format: date-time }
+
+    # ── findings ──
+    Finding:
+      type: object
+      required: [id, title, severity, active]
+      properties:
+        id: { type: integer, format: int64, description: Dojo finding id }
+        asset_id: { type: [integer, "null"], format: int64 }
+        ip: { type: [string, "null"] }
+        title: { type: string }
+        severity: { $ref: "#/components/schemas/Severity" }
+        active: { type: boolean }
+        verified: { type: boolean }
+        false_p: { type: boolean }
+        risk_accepted: { type: boolean }
+        is_mitigated: { type: boolean }
+        tags: { type: array, items: { type: string } }
+        scanner: { type: string }
+        date: { type: [string, "null"], format: date }
+        dojo_url: { type: string }
+    FindingPatch:
+      type: object
+      properties:
+        severity: { $ref: "#/components/schemas/Severity" }
+        active: { type: boolean }
+        verified: { type: boolean }
+        false_p: { type: boolean }
+        risk_accepted: { type: boolean }
+    FindingList:
+      type: object
+      required: [items, total]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Finding" } }
+        total: { type: integer }
+
+    # ── changes ──
+    Change:
+      type: object
+      required: [kind, ip]
+      properties:
+        kind: { type: string, enum: [host_new, host_gone, service_new, service_gone, service_changed, http_changed] }
+        ip: { type: string }
+        port: { type: [integer, "null"] }
+        field: { type: string, description: "changed field, e.g. product, version, title, technologies" }
+        before: {}
+        after: {}
+    ChangeList:
+      type: object
+      required: [items, total]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Change" } }
+        total: { type: integer }
+
+    # ── profiles / schedules ──
+    ProfileInput:
+      type: object
+      required: [name, ports]
+      properties:
+        name: { type: string }
+        ports: { type: string, description: "port spec from the allowed list" }
+        nmap_max_rate: { type: integer, minimum: 1 }
+        nuclei_rate: { type: integer, minimum: 1 }
+        nuclei_tags: { type: array, items: { type: string } }
+        miss_threshold: { type: integer, minimum: 1 }
+        target_batch_seconds: { type: integer, minimum: 1 }
+        enabled: { type: boolean }
+    Profile:
+      allOf:
+        - $ref: "#/components/schemas/ProfileInput"
+        - type: object
+          required: [id]
+          properties:
+            id: { type: integer, format: int64 }
+    ProfileList:
+      type: object
+      required: [items, total]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Profile" } }
+        total: { type: integer }
+    ScheduleInput:
+      type: object
+      required: [profile_id]
+      properties:
+        profile_id: { type: integer, format: int64 }
+        cron: { type: [string, "null"] }
+        window_start: { type: [string, "null"], format: date-time }
+        window_end: { type: [string, "null"], format: date-time }
+        timezone: { type: string, default: Europe/Warsaw }
+        enabled: { type: boolean }
+    Schedule:
+      allOf:
+        - $ref: "#/components/schemas/ScheduleInput"
+        - type: object
+          required: [id, source]
+          properties:
+            id: { type: integer, format: int64 }
+            source: { type: string, enum: [ui, dojo] }
+            dojo_engagement_id: { type: [integer, "null"], format: int64 }
+    ScheduleList:
+      type: object
+      required: [items, total]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Schedule" } }
+        total: { type: integer }
+
+    # ── signatures ──
+    SignatureInput:
+      type: object
+      required: [name, template_yaml]
+      properties:
+        name: { type: string }
+        template_yaml: { type: string }
+        enabled: { type: boolean }
+    Signature:
+      allOf:
+        - $ref: "#/components/schemas/SignatureInput"
+        - type: object
+          required: [id, valid]
+          properties:
+            id: { type: integer, format: int64 }
+            valid: { type: boolean }
+            validation_error: { type: string }
+            builtin: { type: boolean }
+    SignatureValidation:
+      type: object
+      required: [valid, errors]
+      properties:
+        valid: { type: boolean }
+        errors: { type: array, items: { type: string } }
+    SignatureList:
+      type: object
+      required: [items, total]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Signature" } }
+        total: { type: integer }

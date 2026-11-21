@@ -1,0 +1,19 @@
+# secrets / local env
+.env
+.env.local
+.env.*.local
+
+# build output
+/bin/
+/tmp/
+web/node_modules/
+web/dist/*
+!web/dist/.gitkeep
+web/*.tsbuildinfo
+web/tsconfig.*.tsbuildinfo
+
+# editors
+.idea/
+.vscode/
+*.swp
+.DS_Store
