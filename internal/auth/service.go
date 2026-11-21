@@ -139,6 +139,9 @@ func newToken() (token string, hash []byte, err error) {
 	return token, hashToken(token), nil
 }
 
+// TokenHash is the SHA-256 stored in sessions.token_hash for a session token.
+func TokenHash(token string) []byte { return hashToken(token) }
+
 func hashToken(token string) []byte {
 	h := sha256.Sum256([]byte(token))
 	return h[:]

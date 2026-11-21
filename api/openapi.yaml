@@ -90,6 +90,22 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Me" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+  /auth/me/password:
+    patch:
+      tags: [auth]
+      operationId: changeOwnPassword
+      description: >-
+        Any logged-in user. 400 wrong_password if current_password is wrong. Revokes
+        the user's other sessions; the current one stays.
+      parameters: [{ $ref: "#/components/parameters/CSRF" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PasswordChange" }
+      responses:
+        "204": { description: Password changed. }
+        default: { $ref: "#/components/responses/Error" }
 
   # ───────────────────────── targets (S1, W1) ─────────────────────────
   /targets:
@@ -755,7 +771,7 @@ paths:
     get:
       tags: [users]
       operationId: listUsers
-      description: stub (users:admin)
+      description: "Requires users:admin. Ordered by username."
       parameters:
         - { $ref: "#/components/parameters/Limit" }
         - { $ref: "#/components/parameters/Offset" }
@@ -769,7 +785,7 @@ paths:
     post:
       tags: [users]
       operationId: createUser
-      description: stub (users:admin)
+      description: "Requires users:admin. Password: at least 12 characters. 409 if the username exists."
       parameters: [{ $ref: "#/components/parameters/CSRF" }]
       requestBody:
         required: true
@@ -788,7 +804,10 @@ paths:
     patch:
       tags: [users]
       operationId: updateUser
-      description: stub (users:admin)
+      description: >-
+        Requires users:admin. 409 (not_allowed) when changing your own role, disabling
+        yourself, or demoting/disabling the last enabled admin. A role change, disabling
+        or a password reset revokes the user's sessions.
       parameters: [{ $ref: "#/components/parameters/CSRF" }]
       requestBody:
         required: true
@@ -805,7 +824,7 @@ paths:
     delete:
       tags: [users]
       operationId: deleteUser
-      description: stub (users:admin)
+      description: "Requires users:admin. 409 (not_allowed) for yourself or the last enabled admin."
       parameters: [{ $ref: "#/components/parameters/CSRF" }]
       responses:
         "204": { description: Deleted. }
@@ -932,15 +951,21 @@ components:
       type: object
       required: [username, password, role]
       properties:
-        username: { type: string }
-        password: { type: string, format: password }
+        username: { type: string, pattern: "^[A-Za-z0-9][A-Za-z0-9._@-]{0,63}$" }
+        password: { type: string, format: password, minLength: 12 }
         role: { $ref: "#/components/schemas/Role" }
     UserPatch:
       type: object
       properties:
-        password: { type: string, format: password }
+        password: { type: string, format: password, minLength: 12 }
         role: { $ref: "#/components/schemas/Role" }
         disabled: { type: boolean }
+    PasswordChange:
+      type: object
+      required: [current_password, new_password]
+      properties:
+        current_password: { type: string, format: password }
+        new_password: { type: string, format: password, minLength: 12 }
     UserList:
       type: object
       required: [items, total]

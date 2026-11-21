@@ -68,6 +68,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/me/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description Any logged-in user. 400 wrong_password if current_password is wrong. Revokes the user's other sessions; the current one stays. */
+        patch: operations["changeOwnPassword"];
+        trace?: never;
+    };
     "/targets": {
         parameters: {
             query?: never;
@@ -594,10 +611,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description stub (users:admin) */
+        /** @description Requires users:admin. Ordered by username. */
         get: operations["listUsers"];
         put?: never;
-        /** @description stub (users:admin) */
+        /** @description Requires users:admin. Password: at least 12 characters. 409 if the username exists. */
         post: operations["createUser"];
         delete?: never;
         options?: never;
@@ -617,11 +634,11 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** @description stub (users:admin) */
+        /** @description Requires users:admin. 409 (not_allowed) for yourself or the last enabled admin. */
         delete: operations["deleteUser"];
         options?: never;
         head?: never;
-        /** @description stub (users:admin) */
+        /** @description Requires users:admin. 409 (not_allowed) when changing your own role, disabling yourself, or demoting/disabling the last enabled admin. A role change, disabling or a password reset revokes the user's sessions. */
         patch: operations["updateUser"];
         trace?: never;
     };
@@ -687,6 +704,12 @@ export interface components {
             password?: string;
             role?: components["schemas"]["Role"];
             disabled?: boolean;
+        };
+        PasswordChange: {
+            /** Format: password */
+            current_password: string;
+            /** Format: password */
+            new_password: string;
         };
         UserList: {
             items: components["schemas"]["User"][];
@@ -1214,6 +1237,32 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+        };
+    };
+    changeOwnPassword: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Must be "1" on every unsafe request. The client in web/src/api/client.ts sends it. */
+                "X-ASI-CSRF": components["parameters"]["CSRF"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordChange"];
+            };
+        };
+        responses: {
+            /** @description Password changed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
         };
     };
     listTargets: {
