@@ -170,7 +170,7 @@ M0 is sequential and blocking. Do it in **one** worktree, as fast as possible, t
 
 ## M4 — MCP (last)
 
-- [ ] **MCP1 MCP server.** `internal/mcp` using the official Go MCP SDK, streamable HTTP at `/mcp`, auth by API token (P2), the same RBAC. Read tools: `search_hosts`, `get_host`, `list_findings`, `get_changes`, `list_runs`. Editor tools: `start_scan`, `add_targets`. Admin UI to issue tokens.
+- [x] **MCP1 MCP server.** `internal/mcp` using the official Go MCP SDK, streamable HTTP at `/mcp`, auth by API token (P2), the same RBAC. Read tools: `search_hosts`, `get_host`, `list_findings`, `get_changes`, `list_runs`. Editor tools: `start_scan`, `add_targets`. Admin UI to issue tokens.
 
 ---
 

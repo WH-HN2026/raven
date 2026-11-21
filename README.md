@@ -48,6 +48,13 @@ In RAVEN: **Targets** → add `172.30.0.16/28` as a target and as an include →
 
 Add more users with the roles `admin`, `editor`, `operator` and `viewer` on the **Users** page.
 
+## MCP server
+
+RAVEN exposes a Streamable HTTP MCP server at `/mcp`, authenticated with `Authorization: Bearer <token>` (issue tokens on the **Users** page; tokens inherit their user's RBAC role).
+
+- **Read tools** (`read`): `search_hosts`, `get_host`, `list_findings`, `get_changes`, `list_runs`
+- **Editor tools** (`runs:control` / `targets:write`): `start_scan`, `add_targets`
+
 ## Stop
 
 ```sh
