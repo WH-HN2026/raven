@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -20,9 +21,61 @@ import (
 func (a *api) mountHosts(r chi.Router) {
 	r.With(auth.Require(auth.PermRead)).Get("/hosts", a.listHosts)
 	r.With(auth.Require(auth.PermRead)).Get("/hosts/{ip}", a.getHost)
-	stub(r, "PATCH", "/hosts/{ip}", auth.PermHostsEdit)
+	r.With(auth.Require(auth.PermHostsEdit)).Patch("/hosts/{ip}", a.updateHost)
 	stub(r, "GET", "/services", auth.PermRead)
-	stub(r, "PATCH", "/services/{id}", auth.PermHostsEdit)
+	r.With(auth.Require(auth.PermHostsEdit)).Patch("/services/{id}", a.updateService)
+}
+
+func hostsError(w http.ResponseWriter, op string, err error) {
+	switch {
+	case errors.Is(err, hosts.ErrNotFound), errors.Is(err, hosts.ErrServiceNotFound):
+		httpx.Error(w, http.StatusNotFound, "not_found", err.Error())
+	case errors.Is(err, hosts.ErrInvalid):
+		httpx.Error(w, http.StatusBadRequest, "bad_request", err.Error())
+	default:
+		slog.Error(op, "err", err)
+		httpx.Error(w, http.StatusInternalServerError, "internal", op+" failed")
+	}
+}
+
+// updateHost edits user-owned fields, then writes them through to the
+// IP's Dojo asset (D6).
+func (a *api) updateHost(w http.ResponseWriter, r *http.Request) {
+	ip, err := netip.ParseAddr(chi.URLParam(r, "ip"))
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "bad_request", "ip must be an IP address")
+		return
+	}
+	var p hosts.Patch
+	if !httpx.DecodeJSON(w, r, &p) {
+		return
+	}
+	res, err := hosts.Edit(r.Context(), a.Pool, a.Dojo.Get(), actorID(r), ip, p)
+	if err != nil {
+		hostsError(w, "update host", err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, res)
+}
+
+// updateService writes services.overrides only.
+func (a *api) updateService(w http.ResponseWriter, r *http.Request) {
+	id, ok := idParam(w, r)
+	if !ok {
+		return
+	}
+	var in struct {
+		Overrides map[string]json.RawMessage `json:"overrides"`
+	}
+	if !httpx.DecodeJSON(w, r, &in) {
+		return
+	}
+	s, err := hosts.EditServiceOverrides(r.Context(), a.Pool, actorID(r), id, in.Overrides)
+	if err != nil {
+		hostsError(w, "update service", err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, s)
 }
 
 func (a *api) listHosts(w http.ResponseWriter, r *http.Request) {

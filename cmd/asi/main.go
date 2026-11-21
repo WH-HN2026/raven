@@ -68,6 +68,7 @@ func run() error {
 	// Dojo bootstrap must never block the HTTP server (Dojo's first boot takes minutes).
 	// Push jobs (D2) are enqueued from the start and wait until it's done.
 	var hook pipeline.BatchHook
+	dojoWrite := &dojo.Lazy{} // write-through edits (D6); set once bootstrap is done
 	if cfg.DojoURL != "" {
 		push, err := dojo.NewPushService(pool, map[string]dojo.ParseFunc{"nmap": nmap.Parse})
 		if err != nil {
@@ -92,6 +93,7 @@ func run() error {
 			}
 			push.SetPusher(&dojo.Pusher{Client: res.Client, OrganizationID: res.Organization.ID,
 				Parallel: res.Client.Concurrency()})
+			dojoWrite.Set(res.Client)
 			// Read-model pull (D3): once now, then every 5 min.
 			(&dojo.Syncer{Client: res.Client, Pool: pool, OrganizationID: res.Organization.ID}).Run(ctx, 5*time.Minute)
 		}()
@@ -115,6 +117,7 @@ func run() error {
 			Pool: pool, Queries: q, Auth: authSvc, CookieSecure: cfg.CookieSecure,
 			DojoPublicURL: cfg.DojoPublicURL,
 			Pipeline:      pipe,
+			Dojo:          dojoWrite,
 		}),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
