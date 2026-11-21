@@ -19,9 +19,9 @@ const (
 	KindDomain Kind = "domain"
 )
 
-// DefaultMaxHostBits caps how large a target CIDR may be: at most 2^16
-// addresses (a /16 for IPv4). Scope rules are filters and have no cap.
-const DefaultMaxHostBits = 16
+// DefaultMaxHostBits caps how large a target CIDR may be: at most 2^24
+// addresses (a /8 for IPv4). Scope rules are filters and have no cap.
+const DefaultMaxHostBits = 24
 
 // Classify auto-detects the kind of value and returns its canonical form:
 // IPs in netip notation, CIDRs masked to their network address, domains

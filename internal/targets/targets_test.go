@@ -5,8 +5,11 @@ import (
 	"errors"
 	"net/netip"
 	"reflect"
+	"runtime"
+	"slices"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestClassify(t *testing.T) {
@@ -52,8 +55,10 @@ func TestNewEntryTargetRules(t *testing.T) {
 		errorHas string
 	}{
 		{"10.1.0.0/16", "", ""},
-		{"10.0.0.0/15", "", "limit is 2^16"},
-		{"10.0.0.0/8", "", "limit is 2^16"},
+		{"10.0.0.0/15", "", ""},
+		{"10.0.0.0/8", "", ""},
+		{"10.0.0.0/7", "", "limit is 2^24 (a /8)"},
+		{"0.0.0.0/0", "", "limit is 2^24"},
 		{"127.0.0.1", "", ""},
 		{"0.0.0.0", "", ""},
 		{"224.0.0.1", "", ""},
@@ -283,10 +288,10 @@ func TestExpand(t *testing.T) {
 			want:    "127.0.0.1", stats: [4]int{1, 0, 0, 0}, warnHas: "v6only.lab",
 		},
 		{
-			name:    "special IPv4 ranges are plain targets; IPv6 target is dropped",
-			targets: []string{"127.0.0.0/30", "169.254.1.1", "224.0.0.1", "0.0.0.0", "255.255.255.255", "2001:db8::1"},
+			name:    "special IPv4 ranges are plain targets",
+			targets: []string{"127.0.0.0/30", "169.254.1.1", "224.0.0.1", "0.0.0.0", "255.255.255.255"},
 			want:    "0.0.0.0 127.0.0.0 127.0.0.1 127.0.0.2 127.0.0.3 169.254.1.1 224.0.0.1 255.255.255.255",
-			stats:   [4]int{9, 0, 0, 1}, warnHas: "dropped 1 IPv6 addresses",
+			stats:   [4]int{8, 0, 0, 0},
 		},
 		{
 			name:    "blacklist still excludes loopback",
@@ -365,13 +370,55 @@ func TestExpandSlash16(t *testing.T) {
 	}
 }
 
-func TestExpandLimits(t *testing.T) {
-	big := Entry{Kind: KindCIDR, Value: "10.0.0.0/15"} // bypasses NewEntry's check, as a stale DB row would
-	if _, err := Expand(context.Background(), []Entry{big}, Scope{}, nil, Limits{}); err == nil || !strings.Contains(err.Error(), "exceeds the limit") {
-		t.Fatalf("/15 err = %v", err)
+// TestExpandSlash8 expands the largest allowed target (2^24 addresses) with
+// an overlapping /16, a blacklist entry and an IP inside it, and logs the
+// time and heap it takes.
+func TestExpandSlash8(t *testing.T) {
+	if testing.Short() {
+		t.Skip("expands 2^24 addresses")
 	}
-	if _, err := Expand(context.Background(), []Entry{big}, Scope{}, nil, Limits{MaxHostBits: 17}); err != nil {
-		t.Fatalf("/15 with MaxHostBits 17: %v", err)
+	runtime.GC()
+	var before, after runtime.MemStats
+	runtime.ReadMemStats(&before)
+	start := time.Now()
+	sl, err := Expand(context.Background(),
+		[]Entry{ent("10.0.0.0/8"), ent("10.20.0.0/16"), ent("10.255.255.255")},
+		Scope{Exclude: rules("10.20.0.0/16")}, nil, Limits{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	elapsed := time.Since(start)
+	runtime.ReadMemStats(&after)
+	if sl.Stats.Candidates != 1<<24 || sl.Stats.Excluded != 1<<16 || len(sl.IPs) != 1<<24-1<<16 {
+		t.Fatalf("candidates %d excluded %d IPs %d", sl.Stats.Candidates, sl.Stats.Excluded, len(sl.IPs))
+	}
+	if first, last := sl.IPs[0].String(), sl.IPs[len(sl.IPs)-1].String(); first != "10.0.0.0" || last != "10.255.255.255" {
+		t.Fatalf("boundaries %s..%s", first, last)
+	}
+	if !slices.IsSortedFunc(sl.IPs, netip.Addr.Compare) {
+		t.Fatal("IPs not sorted")
+	}
+	t.Logf("/8: %d candidates → %d IPs in %v, %d MiB allocated", sl.Stats.Candidates, len(sl.IPs), elapsed,
+		(after.TotalAlloc-before.TotalAlloc)>>20)
+}
+
+func TestExpandLimits(t *testing.T) {
+	// A stale IPv6 row is dropped, counted as rejected.
+	v6 := Entry{Kind: KindIP, Value: "2001:db8::1"}
+	sl, err := Expand(context.Background(), []Entry{v6, ent("127.0.0.1")}, Scope{}, nil, Limits{})
+	if err != nil || ips(sl) != "127.0.0.1" || sl.Stats.Rejected != 1 || !strings.Contains(strings.Join(sl.Warnings, "\n"), "dropped 1 IPv6 addresses") {
+		t.Fatalf("IPv6 row: %v %+v %v", err, sl, err)
+	}
+	huge := Entry{Kind: KindCIDR, Value: "10.0.0.0/7"} // bypasses NewEntry's check, as a stale DB row would
+	if _, err := Expand(context.Background(), []Entry{huge}, Scope{}, nil, Limits{}); err == nil || !strings.Contains(err.Error(), "exceeds the limit of 2^24") {
+		t.Fatalf("/7 err = %v", err)
+	}
+	big := Entry{Kind: KindCIDR, Value: "10.0.0.0/15"}
+	if _, err := Expand(context.Background(), []Entry{big}, Scope{}, nil, Limits{MaxHostBits: 16}); err == nil || !strings.Contains(err.Error(), "exceeds the limit") {
+		t.Fatalf("/15 with MaxHostBits 16: err = %v", err)
+	}
+	if _, err := Expand(context.Background(), []Entry{big}, Scope{}, nil, Limits{}); err != nil {
+		t.Fatalf("/15 with the default cap: %v", err)
 	}
 	if _, err := Expand(context.Background(), []Entry{ent("10.0.0.0/24"), ent("10.0.1.0/24")}, Scope{}, nil, Limits{MaxIPs: 300}); err == nil {
 		t.Fatal("MaxIPs not enforced")

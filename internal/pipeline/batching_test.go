@@ -1,8 +1,14 @@
 package pipeline
 
 import (
+	"context"
+	"encoding/json"
 	"math"
 	"testing"
+	"time"
+
+	"github.com/WH-HN2026/raven/internal/db/gen"
+	"github.com/WH-HN2026/raven/internal/targets"
 )
 
 func TestPlanBatchSize(t *testing.T) {
@@ -188,6 +194,43 @@ func TestPerWorkerRate(t *testing.T) {
 			if got := PerWorkerRate(tt.profileRate, tt.workers); got != tt.want {
 				t.Fatalf("PerWorkerRate(%d, %d) = %d, want %d", tt.profileRate, tt.workers, got, tt.want)
 			}
+		})
+	}
+}
+
+// TestPlanSlash8 plans a run over a full /8 (2^24 IPs) the way StartRun
+// does, without a DB or any scan, and logs the cost of the plan.
+func TestPlanSlash8(t *testing.T) {
+	if testing.Short() {
+		t.Skip("expands 2^24 addresses")
+	}
+	start := time.Now()
+	sl, err := targets.Expand(context.Background(), []targets.Entry{{Kind: targets.KindCIDR, Value: "10.0.0.0/8"}},
+		targets.Scope{}, nil, targets.Limits{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	expanded := time.Since(start)
+	for _, tc := range []struct {
+		name    string
+		plan    BatchPlan
+		batches int
+	}{
+		{"default size", PlanBatchSize(0, nil), 1 << 24 / DefaultBatchSize},
+		{"max size", BatchPlan{Size: MaxBatchSize}, 1 << 24 / MaxBatchSize},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			start := time.Now()
+			batches := SplitBatches(sl.IPs, tc.plan.Size)
+			stats, err := json.Marshal(tc.plan.statsMap(batches, gen.Profile{}, 2))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(batches) != tc.batches || len(batches[0]) != tc.plan.Size || batches[len(batches)-1][tc.plan.Size-1].String() != "10.255.255.255" {
+				t.Fatalf("%d batches, want %d of %d", len(batches), tc.batches, tc.plan.Size)
+			}
+			t.Logf("/8: expand %v; %d batches of %d planned in %v; run stats JSON %d KiB",
+				expanded, len(batches), tc.plan.Size, time.Since(start), len(stats)>>10)
 		})
 	}
 }
