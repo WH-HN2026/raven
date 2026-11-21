@@ -61,7 +61,7 @@ M0 is sequential and blocking. Do it in **one** worktree, as fast as possible, t
 **Track D — DefectDojo**
 - [x] **D1 Dojo client.** API v2: organization/asset/engagement/test get-or-create, `import-scan`/`reimport-scan` (multipart), findings list/patch, notes, tags; retries + concurrency limit; integration test against the compose Dojo (`-tags integration`).
 - [ ] **D2 Push.** (needs D1, S3) After each batch, for each responding IP: ensure the Asset/Engagement/Test chain and reimport nmap results; "New device found" INFO finding via Generic Findings Import with a stable `unique_id_from_tool`.
-- [ ] **D3 Sync (pull).** (needs D1) Periodic job → `dojo_assets`/`dojo_findings` mirror tables; API `GET /api/findings` reading the mirror.
+- [x] **D3 Sync (pull).** (needs D1) Periodic job → `dojo_assets`/`dojo_findings` mirror tables; API `GET /api/findings` reading the mirror.
 
 **Track W — Web UI**
 - [x] **W1 Targets & Scope pages.** (needs S1 API) Manual form, CSV/JSON upload with a preview of parsed entries + errors, black/whitelist editor.
