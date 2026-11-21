@@ -16,10 +16,12 @@ import {
   SectionHeading,
   Table,
   Td,
+  Th,
   THeadRow,
   Tr,
   inputClass,
 } from '../../components/ui'
+import { StageChips } from '../../components/StageChips'
 import {
   formatDuration,
   formatTime,
@@ -148,6 +150,7 @@ export function RunsTable() {
           <THeadRow>
             <SortTh sort={sort} col="id">Run</SortTh>
             <SortTh sort={sort} col="profile">Profile</SortTh>
+            <Th>Workflow</Th>
             <SortTh sort={sort} col="status">Status</SortTh>
             <SortTh sort={sort} col="progress">Progress</SortTh>
             <SortTh sort={sort} col="hosts_up">Hosts up / total</SortTh>
@@ -163,6 +166,9 @@ export function RunsTable() {
               </Td>
               <Td>{names.get(r.profile_id) ?? `profile ${r.profile_id}`}</Td>
               <Td>
+                <StageChips stages={r.stages} />
+              </Td>
+              <Td>
                 <StatusBadge status={r.status} />
               </Td>
               <Td>
@@ -175,7 +181,7 @@ export function RunsTable() {
               <Td className="text-right whitespace-nowrap">{formatDuration(runDurationMs(r))}</Td>
             </Tr>
           ))}
-          {q.data && items.length === 0 && <EmptyRow colSpan={7}>No runs</EmptyRow>}
+          {q.data && items.length === 0 && <EmptyRow colSpan={8}>No runs</EmptyRow>}
         </tbody>
       </Table>
       <Pagination offset={offset} pageSize={PAGE} total={total} onChange={setOffset} />
