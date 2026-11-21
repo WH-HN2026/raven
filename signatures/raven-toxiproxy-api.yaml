@@ -3,17 +3,23 @@ info:
   name: Toxiproxy API
   author: raven
   severity: low
-  description: The Toxiproxy control API answers without authentication.
+  description: >-
+    The Toxiproxy control API answers without authentication. Toxiproxy refuses
+    browser User-Agents with 403 (still with its request id header), so the
+    request sends a plain one to read the version.
   tags: raven,panel,toxiproxy,version
 http:
   - method: GET
     path:
       - "{{BaseURL}}/version"
+    headers:
+      User-Agent: raven
     matchers-condition: and
     matchers:
       - type: status
         status:
           - 200
+          - 403
       - type: regex
         part: header
         regex:
