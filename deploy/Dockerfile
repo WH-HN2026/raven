@@ -44,16 +44,41 @@ RUN mkdir -p /opt/nuclei-templates \
  && curl -fsSL "https://github.com/projectdiscovery/nuclei-templates/archive/refs/tags/${NUCLEI_TEMPLATES_VERSION}.tar.gz" \
     | tar -xz -C /opt/nuclei-templates --strip-components=1
 
+# ── 3b. wpscan (pinned gem + build-time metadata DB, offline at runtime) ──
+FROM alpine:3.24.4 AS wpscan
+ARG WPSCAN_VERSION=4.2.1
+ARG WPSCAN_SHA256=ae2133545bb1b9fae78cc16b0326f6dc550ac69801e8d90b10242f2c475006a4
+RUN apk add --no-cache ruby ruby-dev build-base libcurl curl-dev libffi-dev zlib-dev sqlite-dev curl
+WORKDIR /tmp/wpscan
+RUN curl -fsSLO "https://rubygems.org/gems/wpscan-${WPSCAN_VERSION}.gem" \
+ && echo "${WPSCAN_SHA256}  wpscan-${WPSCAN_VERSION}.gem" | sha256sum -c - \
+ && gem install --no-document --install-dir /opt/wpscan-gems --bindir /opt/wpscan-gems/bin "wpscan-${WPSCAN_VERSION}.gem" \
+ && rm -rf /opt/wpscan-gems/cache /opt/wpscan-gems/doc \
+ && find /opt/wpscan-gems/extensions -name '*.o' -o -name '*.c' -o -name 'mkmf.log' -o -name 'gem_make.out' | xargs -r rm -f
+# Download the local WPScan metadata DB at build time (verified against upstream
+# .sha512 by wpscan --update) and record its date + SHA-256 manifest. Runtime
+# runs strictly with --no-update and no API token.
+RUN mkdir -p /opt/wpscan-db /tmp/wpscan-home \
+ && GEM_HOME=/opt/wpscan-gems GEM_PATH=/opt/wpscan-gems XDG_CACHE_HOME=/opt/wpscan-db HOME=/tmp/wpscan-home \
+    /opt/wpscan-gems/bin/wpscan --update --verbose \
+ && date -u +%Y-%m-%dT%H:%M:%SZ > /opt/wpscan-db/wpscan/db/DB_DATE \
+ && (cd /opt/wpscan-db/wpscan/db && sha256sum metadata.json wp_fingerprints.json timthumbs-v3.txt config_backups.txt db_exports.txt backup_folders.txt dynamic_finders.yml LICENSE sponsor.txt > CHECKSUMS.sha256)
+
 # ── 4. runtime ──
 FROM alpine:3.24.4
-RUN apk add --no-cache ca-certificates tzdata nmap nmap-scripts
+RUN apk add --no-cache ca-certificates tzdata nmap nmap-scripts ruby libcurl sqlite-libs procps
 COPY --from=scanners /usr/local/bin/httpx /usr/local/bin/httpx
 COPY --from=scanners /usr/local/bin/nuclei /usr/local/bin/nuclei
 COPY --from=scanners /opt/nuclei-templates /opt/nuclei-templates
+COPY --from=wpscan /opt/wpscan-gems /opt/wpscan-gems
+COPY --from=wpscan /opt/wpscan-db /opt/wpscan-db
+RUN printf '#!/bin/sh\nunset WPSCAN_API_TOKEN WPSCAN_ENTERPRISE_DB_TOKEN\nexport GEM_HOME=/opt/wpscan-gems\nexport GEM_PATH=/opt/wpscan-gems\nexec /opt/wpscan-gems/bin/wpscan "$@"\n' > /usr/local/bin/wpscan \
+ && chmod 0755 /usr/local/bin/wpscan
 COPY --from=go /out/raven /usr/local/bin/raven
-# Templates are baked into the image; nuclei must never update itself or the
-# templates at runtime (the scanner also passes -duc / -disable-update-check).
+# Templates and WPScan metadata DB are baked into the image; scanners must never
+# update themselves or call external APIs at runtime.
 ENV RAVEN_NUCLEI_TEMPLATES=/opt/nuclei-templates \
+    RAVEN_WPSCAN_DB=/opt/wpscan-db \
     DISABLE_NUCLEI_TEMPLATES_PUBLIC_DOWNLOAD=true \
     HOME=/var/lib/raven
 RUN mkdir -p /var/lib/raven

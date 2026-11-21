@@ -208,6 +208,8 @@ func ScannerFromScanType(t string) string {
 		return ""
 	case "Generic Findings Import":
 		return "raven"
+	case "Wpscan":
+		return "wpscan"
 	}
 	return strings.ToLower(strings.TrimSuffix(strings.TrimSpace(t), " Scan"))
 }

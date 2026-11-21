@@ -68,6 +68,7 @@ type Config struct {
 	Scanner   scanner.Scanner  // nmap
 	HTTPX     scanner.Scanner  // nil = ProjectDiscovery httpx from PATH
 	Nuclei    scanner.Scanner  // nil = ProjectDiscovery nuclei from PATH
+	WPScan    scanner.Scanner  // nil = wpscan from PATH
 	Resolver  targets.Resolver // net.DefaultResolver in production
 	Hook      BatchHook        // nil = no-op
 	BatchSize int              // 0 = adaptive sizing (S5); > 0 = fixed batch size
@@ -87,6 +88,9 @@ func New(pool *pgxpool.Pool, cfg Config) (*Service, error) {
 	}
 	if cfg.Nuclei == nil {
 		cfg.Nuclei = defaultNuclei(pool)
+	}
+	if cfg.WPScan == nil {
+		cfg.WPScan = defaultWPScan()
 	}
 	if cfg.Hook == nil {
 		cfg.Hook = nopHook{}

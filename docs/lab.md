@@ -63,3 +63,20 @@ docker run --rm --network raven_lab raven-lab-tools:local nc -w 2 172.30.0.26 22
 docker run --rm --network raven_lab raven-lab-tools:local nmap -n -sS -sV \
   --max-rate 100 -p 22,80,443,3306,8080 172.30.0.16/28
 ```
+
+## WPScan
+
+The `wpscan` aggressive stage enumerates WordPress core, plugins, themes, config backups, database exports and passive users without password attacks, login attempts or an external API token (`--no-update`, offline metadata DB baked into the RAVEN image). It runs only on live HTTP(S) URLs of the batch where `httpx` or `nuclei` detected WordPress.
+
+To reproduce against the lab:
+
+1. Start the lab (`make lab-up`) and attach RAVEN to `raven_lab`.
+2. Add `172.30.0.17` (WordPress) and `172.30.0.18` (Joomla) to Targets.
+3. As an `admin` user (`scan:aggressive`), create an aggressive profile with stages `["nmap","httpx","nuclei","wpscan"]`, ports `80`, and include scope `172.30.0.17/32` and `172.30.0.18/32`.
+4. Start a run with `"confirm_aggressive": true` (`POST /api/runs`).
+5. Verify:
+   - Run stats show `"wpscan": "ok"`, `"wpscan_urls": 1`, `"wpscan_errors": 0`.
+   - `artifacts` contains a `wpscan` artifact covering only `172.30.0.17`; `172.30.0.18` (Joomla) is skipped.
+   - DefectDojo creates a `"RAVEN: wpscan"` Test (`Wpscan` scan type) under Asset `172.30.0.17` with the WordPress interesting findings (and no Wpscan Test on `172.30.0.18`).
+   - After sync, the Findings page lists those findings with scanner `wpscan`.
+   - Detected WordPress core/component versions are merged into `http_observations` (`wordpress:wordpress:<version>`) for offline CVE matching.
