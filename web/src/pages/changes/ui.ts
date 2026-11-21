@@ -72,11 +72,13 @@ export function otherRunLabel(s: HostChange['other_run']): string {
   return s === 'not_scanned' ? 'not scanned' : 'down'
 }
 
-export function runTime(r: Pick<DiffRun, 'started_at' | 'finished_at'>): string {
+type RunTimes = { started_at?: string | null; finished_at?: string | null }
+
+export function runTime(r: RunTimes): string {
   const t = r.finished_at ?? r.started_at
   return t ? new Date(t).toLocaleString() : '—'
 }
 
-export function runLabel(r: Pick<DiffRun, 'id' | 'started_at' | 'finished_at'>): string {
+export function runLabel(r: RunTimes & { id: number }): string {
   return `Run #${r.id} · ${runTime(r)}`
 }
