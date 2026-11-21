@@ -112,8 +112,10 @@ func run() error {
 		go (&dojo.CVESync{Pool: pool, Matcher: cveMatcher}).Run(ctx, 5*time.Minute) // match only (C3)
 	}
 
-	// Scan pipeline: River workers running nmap per batch (S3).
-	pipe, err := pipeline.New(pool, pipeline.Config{Scanner: nmap.New(nmap.Config{}), Resolver: net.DefaultResolver, Hook: hook})
+	// Scan pipeline: River workers running nmap/httpx/nuclei per batch (S3, S5).
+	pipe, err := pipeline.New(pool, pipeline.Config{
+		Scanner: nmap.New(nmap.Config{}), Resolver: net.DefaultResolver, Hook: hook, Workers: cfg.MaxWorkers,
+	})
 	if err != nil {
 		return err
 	}

@@ -26,6 +26,8 @@ type Config struct {
 
 	CookieSecure bool          // ASI_COOKIE_SECURE: set the Secure flag on the session cookie (enable behind TLS)
 	SessionTTL   time.Duration // ASI_SESSION_TTL
+
+	MaxWorkers int // ASI_MAX_WORKERS: global cap on concurrent scan batch jobs (default 2)
 }
 
 func Load() (*Config, error) {
@@ -48,6 +50,9 @@ func Load() (*Config, error) {
 	}
 	if c.SessionTTL, err = time.ParseDuration(env("ASI_SESSION_TTL", "12h")); err != nil {
 		return nil, fmt.Errorf("ASI_SESSION_TTL: %w", err)
+	}
+	if c.MaxWorkers, err = strconv.Atoi(env("ASI_MAX_WORKERS", "2")); err != nil || c.MaxWorkers < 1 {
+		return nil, fmt.Errorf("ASI_MAX_WORKERS: must be a positive integer")
 	}
 	if c.DatabaseURL == "" {
 		return nil, errors.New("ASI_DATABASE_URL is required")

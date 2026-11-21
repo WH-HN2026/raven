@@ -33,6 +33,7 @@ services:
       ASI_ADMIN_PASSWORD: "${ASI_ADMIN_PASSWORD:?run scripts/gen-env.sh}"
       ASI_COOKIE_SECURE: "${ASI_COOKIE_SECURE:-false}"
       ASI_SESSION_TTL: "${ASI_SESSION_TTL:-12h}"
+      ASI_MAX_WORKERS: "${ASI_MAX_WORKERS:-2}"
     # For the organizers' lab with L2 discovery (ARP): use `network_mode: host`
     # instead of ports and set ASI_DOJO_URL=http://localhost:8080.
 
