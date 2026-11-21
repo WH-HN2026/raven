@@ -5,7 +5,12 @@
 #     registry.defectdojo.com, which logs pulls; no `build:` sections;
 #   - DD_ADMIN_PASSWORD, DD_SECRET_KEY and DD_CREDENTIAL_AES_256_KEY come from
 #     .env (scripts/gen-env.sh) with no insecure defaults;
-#   - the ./docker/extra_settings bind mounts are dropped (we have no extra settings).
+#   - the ./docker/extra_settings bind mounts are dropped (we have no extra settings);
+#   - uwsgi + celeryworker get ASI's dedup settings (task D2): "Nmap Scan" matches
+#     reimported findings on title + endpoints (upstream: legacy title+severity, so a
+#     severity edit in our UI would close the finding and open a new one), and
+#     "Generic Findings Import" (our INFO lifecycle findings) matches on
+#     unique_id_from_tool first.
 services:
   nginx:
     image: "docker.io/defectdojo/defectdojo-nginx:3.5.202"
@@ -47,6 +52,8 @@ services:
       DD_SECRET_KEY: "${DD_SECRET_KEY:?run scripts/gen-env.sh}"
       DD_CREDENTIAL_AES_256_KEY: "${DD_CREDENTIAL_AES_256_KEY:?run scripts/gen-env.sh}"
       DD_DATABASE_READINESS_TIMEOUT: "${DD_DATABASE_READINESS_TIMEOUT:-30}"
+      DD_HASHCODE_FIELDS_PER_SCANNER: '{"Nmap Scan": ["title", "endpoints"]}'
+      DD_DEDUPLICATION_ALGORITHM_PER_PARSER: '{"Nmap Scan": "hash_code", "Generic Findings Import": "unique_id_from_tool_or_hash_code"}'
     volumes:
       - "defectdojo_media:${DD_MEDIA_ROOT:-/app/media}"
   celerybeat:
@@ -83,6 +90,8 @@ services:
       DD_SECRET_KEY: "${DD_SECRET_KEY:?run scripts/gen-env.sh}"
       DD_CREDENTIAL_AES_256_KEY: "${DD_CREDENTIAL_AES_256_KEY:?run scripts/gen-env.sh}"
       DD_DATABASE_READINESS_TIMEOUT: "${DD_DATABASE_READINESS_TIMEOUT:-30}"
+      DD_HASHCODE_FIELDS_PER_SCANNER: '{"Nmap Scan": ["title", "endpoints"]}'
+      DD_DEDUPLICATION_ALGORITHM_PER_PARSER: '{"Nmap Scan": "hash_code", "Generic Findings Import": "unique_id_from_tool_or_hash_code"}'
     volumes:
       - "defectdojo_media:${DD_MEDIA_ROOT:-/app/media}"
   initializer:

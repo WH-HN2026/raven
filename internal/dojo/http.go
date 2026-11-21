@@ -63,6 +63,9 @@ func NewHTTPClientOpts(baseURL, token string, o Options) *HTTPClient {
 	}
 }
 
+// Concurrency is the client's limit of in-flight requests.
+func (c *HTTPClient) Concurrency() int { return cap(c.sem) }
+
 // HTTPError is a non-2xx answer from Dojo. Body is truncated.
 type HTTPError struct {
 	Method string
