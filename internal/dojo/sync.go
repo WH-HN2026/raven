@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/WH-HN2026/raven/internal/db/gen"
+	"github.com/WH-HN2026/raven/internal/pipeline"
 )
 
 // SyncTag is the tag on every finding RAVEN pushes; the sync pulls only those.
@@ -169,7 +170,7 @@ func mirrorFinding(f Finding, now time.Time) gen.UpsertDojoFindingParams {
 		Duplicate:    f.Duplicate,
 		IsMitigated:  f.IsMitigated,
 		Tags:         nonNil(f.Tags),
-		Scanner:      ScannerFromScanType(f.TestTypeName),
+		Scanner:      ScannerFromTest(f.TestTypeName, f.TestTitle()),
 		SyncedAt:     now,
 	}
 	if id, name := f.Asset(); id != 0 {
@@ -197,6 +198,16 @@ func normSeverity(s string) string {
 		}
 	}
 	return "Info"
+}
+
+// ScannerFromTest maps a Dojo finding's test type and test title to our
+// scanner name. Stages that share a Dojo parser (nuclei vs nuclei_active,
+// both "Nuclei Scan") are disambiguated by their Test title.
+func ScannerFromTest(scanType, testTitle string) string {
+	if scanType == "Nuclei Scan" && testTitle == TestTitle(pipeline.StageNucleiActive) {
+		return pipeline.StageNucleiActive
+	}
+	return ScannerFromScanType(scanType)
 }
 
 // ScannerFromScanType maps a Dojo scan/test type to our scanner name:

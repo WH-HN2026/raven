@@ -11,7 +11,7 @@ export type Severity = Schemas['Severity']
 
 /** Critical first (the list's sort order). */
 export const severities: Severity[] = ['Critical', 'High', 'Medium', 'Low', 'Info']
-export const scanners = ['nmap', 'nuclei', 'raven']
+export const scanners = ['nmap', 'nuclei', 'nuclei_active', 'raven']
 
 export const boolFlagKeys = [
   'active',

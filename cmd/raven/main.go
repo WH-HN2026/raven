@@ -84,6 +84,7 @@ func run() error {
 	if cfg.DojoURL != "" {
 		push, err := dojo.NewPushService(pool, map[string]dojo.ParseFunc{
 			"nmap": nmap.Parse, "httpx": httpx.Parse, "nuclei": nuclei.Parse, "wpscan": wpscan.Parse, "zap": zap.Parse,
+			pipeline.StageNucleiActive: nuclei.Parse,
 		})
 		if err != nil {
 			return err
