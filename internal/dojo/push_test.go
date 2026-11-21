@@ -179,12 +179,15 @@ var (
 func TestArgsFromBatchOnlyResponding(t *testing.T) {
 	now := time.Date(2026, 11, 21, 10, 0, 0, 0, time.UTC)
 	a := ArgsFromBatch(pipeline.BatchResult{
-		RunID: 1, BatchID: 2, ProfileID: 3,
+		RunID: 1, BatchID: 2, ProfileID: 3, Stages: []string{pipeline.StageNmap},
 		Responding: []netip.Addr{ipWeb, ipSSH}, // ipDown was in the batch but didn't respond
 		Scanner:    nmap.New(nmap.Config{}), Result: labResult(t),
 	}, now)
 	if !slices.Equal(a.IPs, []netip.Addr{ipWeb, ipSSH}) {
 		t.Fatalf("IPs = %v, want only the responding ones", a.IPs)
+	}
+	if !slices.Equal(a.Stages, []string{pipeline.StageNmap}) {
+		t.Fatalf("Stages = %v, want [nmap]", a.Stages)
 	}
 	if a.Scanner != "nmap" || a.ScanType != "Nmap Scan" || a.RunID != 1 || a.BatchID != 2 || a.ProfileID != 3 || !a.ScanDate.Equal(now) {
 		t.Fatalf("args = %+v", a)

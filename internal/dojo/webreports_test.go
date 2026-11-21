@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/WH-HN2026/raven/internal/pipeline"
 	"github.com/WH-HN2026/raven/internal/scanner"
 	"github.com/WH-HN2026/raven/internal/scanner/httpx"
 	"github.com/WH-HN2026/raven/internal/scanner/nuclei"
@@ -45,7 +46,7 @@ func TestWebReportsByRespondingIP(t *testing.T) {
 		scanner.Observation{IP: wp, Kind: scanner.ObsHTTP, Port: 80, URL: "http://172.30.0.17:80", HTTP: &scanner.HTTPInfo{Status: 200}},
 		scanner.Observation{IP: tomcat, Kind: scanner.ObsHTTP, Port: 8080, URL: "http://172.30.0.21:8080", HTTP: &scanner.HTTPInfo{Status: 200}},
 	)
-	reports, tags := webReports([]netip.Addr{wp, tomcat, nginx, noWeb}, web, detection)
+	reports, tags := webReports([]netip.Addr{wp, tomcat, nginx, noWeb}, pipeline.DefaultStages(), web, detection)
 	for _, tc := range []struct {
 		ip          netip.Addr
 		want        []string
@@ -83,8 +84,17 @@ func TestWebReportsByRespondingIP(t *testing.T) {
 	if _, ok := reports[netip.MustParseAddr("172.21.0.3")]; ok {
 		t.Error("nonresponding IP got a report")
 	}
-	if got, _ := webReports([]netip.Addr{nginx}, web, nil); len(got[nginx]) != 1 {
+	if got, _ := webReports([]netip.Addr{nginx}, pipeline.DefaultStages(), web, nil); len(got[nginx]) != 1 {
 		t.Error("missing nuclei artifact must preserve prior findings")
+	}
+	// nmap-only stages must emit neither httpx nor nuclei reports even if results exist.
+	if got, gotTags := webReports([]netip.Addr{wp, tomcat, nginx}, []string{pipeline.StageNmap}, web, detection); len(got) != 0 || len(gotTags) != 0 {
+		t.Errorf("nmap-only emitted web reports %v / tags %v, want empty", got, gotTags)
+	}
+	// nmap+httpx must emit httpx reports only and no nuclei reports.
+	gotHTTPOnly, _ := webReports([]netip.Addr{wp, nginx}, []string{pipeline.StageNmap, pipeline.StageHTTPX}, web, detection)
+	if len(gotHTTPOnly[wp]) != 0 || len(gotHTTPOnly[nginx]) != 1 || gotHTTPOnly[nginx][0].scanType != "httpx Scan" {
+		t.Errorf("nmap+httpx reports = %+v, want only httpx for nginx", gotHTTPOnly)
 	}
 }
 
