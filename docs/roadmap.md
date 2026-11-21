@@ -136,6 +136,7 @@ M0 is sequential and blocking. Do it in **one** worktree, as fast as possible, t
 - [x] **Q4 Services & technologies page + API follow-ups.** GET /api/services, Services/Technologies page; severity and tags in the signatures API; more findings status filters; "last edited by" on hosts.
 - [x] **Q3 Fingerprinting loose ends.** httpx/nuclei technologies get CVE matches via cve.CPEForTech; POST /api/signatures/{id}/test runs the template against one in-scope URL; schedules API has a name and a DefectDojo link.
 - [x] **Q1 Acceptance pass + image build in CI.** Fresh-clone deploy, lab attached, two runs with a lab change, all 12 jury test points walked; docs/acceptance.md with results; CI builds the Docker image.
+- [x] **U3 Findings layout + active findings counts.** Finding detail opens next to (wide) or under (narrow) the clicked row; active findings on the dashboard, hosts list and host detail.
 
 ## M4 — MCP (last)
 
