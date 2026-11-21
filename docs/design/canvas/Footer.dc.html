@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ASI – Footer</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500&amp;family=Roboto:wght@300;400;500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<footer style="width: 100%; font-family: Roboto, 'Helvetica Neue', Arial, sans-serif; color: #FFFFFF; background: #000000">
+  <div style="background: linear-gradient(#FFFFFF 0 50%, #000000 50% 100%)">
+    <div style="max-width: 1440px; margin: 0 auto; padding: 0 40px; box-sizing: border-box">
+      <div style="max-width: 840px">
+        <dc-import name="Squares" variant="footer" hint-size="100%,126px"></dc-import>
+      </div>
+    </div>
+  </div>
+  <div style="max-width: 1440px; margin: 0 auto; padding: 8px 40px 20px; box-sizing: border-box; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 24px; font-size: 13px; font-weight: 300; color: #D8D7D7">
+    <span>Centrum Bezpieczeństwa Informacji AGH · ASI</span>
+    <span>DefectDojo 3.5 connected · synced 3 min ago</span>
+  </div>
+</footer>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":180}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ASI – Hosts</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500&amp;family=Roboto:wght@300;400;500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#FFFFFF}
+a{color:#212121;text-decoration-color:#C10D14;text-underline-offset:3px}a:hover{color:#C10D14}
+</style>
+</helmet>
+<div style="background: #FFFFFF; font-family: Roboto, 'Helvetica Neue', Arial, sans-serif; color: #212121; font-size: 15px; line-height: 1.5">
+  <dc-import name="Nav" active="hosts" hint-size="100%,80px"></dc-import>
+
+  <section style="background: #000000; color: #FFFFFF">
+    <div style="max-width: 1440px; margin: 0 auto; box-sizing: border-box; padding: 16px 40px 44px; display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 24px 40px">
+      <div style="flex: 1 1 520px; display: flex; flex-direction: column; gap: 18px">
+        <nav aria-label="Breadcrumb" style="font-size: 14px; color: #BDBDBD"><a href="Main.dc.html" style="color: #BDBDBD">Dashboard</a> / Hosts</nav>
+        <h1 style="margin: 0; font-size: 64px; font-weight: 300; line-height: 1.05">Hosts</h1>
+        <div style="display: flex; gap: 12px; flex-wrap: wrap">
+          <button type="button" style="height: 48px; padding: 0 24px; border: 1px solid #FFFFFF; background: transparent; color: #FFFFFF; font: inherit">Export CSV</button>
+          <button type="button" style="height: 48px; padding: 0 24px; border: 1px solid #FFFFFF; background: transparent; color: #FFFFFF; font: inherit">Export JSON</button>
+        </div>
+      </div>
+      <div style="flex: 0 1 560px; min-width: 280px">
+        <dc-import name="Squares" variant="masthead" hint-size="100%,150px"></dc-import>
+      </div>
+    </div>
+  </section>
+
+  <section aria-label="Filters" style="background: #EDEDED">
+    <div style="max-width: 1440px; margin: 0 auto; box-sizing: border-box; padding: 28px 40px; display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end">
+      <label style="display: flex; flex-direction: column; gap: 6px; flex: 2 1 260px; font-size: 13px; font-weight: 500">IP, CIDR or hostname
+        <input type="text" value="10.20.0.0/16" style="height: 44px; padding: 0 12px; border: 1px solid #212121; border-radius: 0; background: #FFFFFF; font-family: 'Roboto Mono', monospace; font-size: 14px; color: #212121">
+      </label>
+      <label style="display: flex; flex-direction: column; gap: 6px; flex: 1 1 120px; font-size: 13px; font-weight: 500">Port
+        <input type="text" placeholder="e.g. 443" style="height: 44px; padding: 0 12px; border: 1px solid #212121; border-radius: 0; background: #FFFFFF; font: inherit; font-size: 14px; color: #212121">
+      </label>
+      <label style="display: flex; flex-direction: column; gap: 6px; flex: 1 1 170px; font-size: 13px; font-weight: 500">Technology
+        <select style="height: 44px; padding: 0 10px; border: 1px solid #212121; border-radius: 0; background: #FFFFFF; font: inherit; font-size: 14px; color: #212121"><option>Any</option><option>WordPress</option><option>nginx</option><option>Jenkins</option></select>
+      </label>
+      <label style="display: flex; flex-direction: column; gap: 6px; flex: 1 1 150px; font-size: 13px; font-weight: 500">Tag
+        <select style="height: 44px; padding: 0 10px; border: 1px solid #212121; border-radius: 0; background: #FFFFFF; font: inherit; font-size: 14px; color: #212121"><option>Any</option><option>env:staging</option><option>panel:admin</option><option>iot</option></select>
+      </label>
+      <fieldset style="border: 0; margin: 0; padding: 0; flex: 2 1 380px">
+        <legend style="font-size: 13px; font-weight: 500; padding: 0; margin-bottom: 6px">State</legend>
+        <div style="display: flex; flex-wrap: wrap">
+          <button type="button" aria-pressed="true" style="height: 44px; padding: 0 16px; border: 1px solid #000000; background: #000000; color: #FFFFFF; font: inherit; font-size: 14px">Active 1,204</button>
+          <button type="button" aria-pressed="false" style="height: 44px; padding: 0 16px; border: 1px solid #000000; border-left: 0; background: #FFFFFF; color: #212121; font: inherit; font-size: 14px">Unstable 31</button>
+          <button type="button" aria-pressed="false" style="height: 44px; padding: 0 16px; border: 1px solid #000000; border-left: 0; background: #FFFFFF; color: #212121; font: inherit; font-size: 14px">Inactive 112</button>
+          <button type="button" aria-pressed="false" style="height: 44px; padding: 0 16px; border: 1px solid #000000; border-left: 0; background: #FFFFFF; color: #212121; font: inherit; font-size: 14px">New 7</button>
+        </div>
+      </fieldset>
+    </div>
+  </section>
+
+  <section style="max-width: 1440px; margin: 0 auto; box-sizing: border-box; padding: 40px 40px 64px">
+    <div style="overflow-x: auto">
+      <table style="width: 100%; border-collapse: collapse; font-size: 14px; min-width: 1040px">
+        <thead>
+          <tr style="text-align: left; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: #505157; border-bottom: 2px solid #000000">
+            <th style="padding: 10px 12px 10px 0; font-weight: 500">IP ↑</th>
+            <th style="padding: 10px 12px; font-weight: 500">Hostnames</th>
+            <th style="padding: 10px 12px; font-weight: 500">State</th>
+            <th style="padding: 10px 12px; font-weight: 500">Open ports</th>
+            <th style="padding: 10px 12px; font-weight: 500">Technologies</th>
+            <th style="padding: 10px 12px; font-weight: 500">Findings</th>
+            <th style="padding: 10px 12px; font-weight: 500; text-align: right">Interest</th>
+            <th style="padding: 10px 0 10px 12px; font-weight: 500">Last seen</th>
+          </tr>
+        </thead>
+        <tbody>
+          <sc-for list="{{hosts}}" as="h" hint-placeholder-count="12">
+            <tr style="border-bottom: 1px solid #DEDEDE">
+              <td style="padding: 12px 12px 12px 0; white-space: nowrap"><a href="HostDetail.dc.html" style="font-family: 'Roboto Mono', monospace; font-weight: 500">{{h.ip}}</a></td>
+              <td style="padding: 12px">{{h.names}}<div style="font-size: 13px; color: #505157">{{h.owner}}</div></td>
+              <td style="padding: 12px"><span style="font-size: 12px; font-weight: 500; padding: 3px 8px; background: {{h.stBg}}; color: {{h.stFg}}">{{h.state}}</span></td>
+              <td style="padding: 12px">
+                <div style="display: flex; gap: 4px; flex-wrap: wrap">
+                  <sc-for list="{{h.ports}}" as="p" hint-placeholder-count="3">
+                    <span style="font-family: 'Roboto Mono', monospace; font-size: 12px; padding: 1px 6px; border: 1px solid #BDBDBD">{{p}}</span>
+                  </sc-for>
+                </div>
+              </td>
+              <td style="padding: 12px">{{h.tech}}</td>
+              <td style="padding: 12px; white-space: nowrap; font-size: 13px">{{h.findings}}</td>
+              <td style="padding: 12px; text-align: right; font-size: 20px; font-weight: 300; font-variant-numeric: tabular-nums">{{h.score}}</td>
+              <td style="padding: 12px 0 12px 12px; color: #505157; white-space: nowrap">{{h.seen}}</td>
+            </tr>
+          </sc-for>
+        </tbody>
+      </table>
+    </div>
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; padding-top: 20px; font-size: 14px; color: #505157">
+      <span>1–12 of 1,204</span>
+      <div style="display: flex">
+        <button type="button" style="height: 44px; padding: 0 18px; border: 1px solid #000000; background: #FFFFFF; color: #212121; font: inherit">Previous</button>
+        <button type="button" style="height: 44px; padding: 0 18px; border: 1px solid #000000; border-left: 0; background: #000000; color: #FFFFFF; font: inherit">Next</button>
+      </div>
+    </div>
+  </section>
+
+  <dc-import name="Footer" hint-size="100%,440px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1460}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var st = {
+      Active: { stBg: '#006837', stFg: '#FFFFFF', label: 'ACTIVE' },
+      Unstable: { stBg: '#F9BEAD', stFg: '#212121', label: 'UNSTABLE' },
+      New: { stBg: '#C10D14', stFg: '#FFFFFF', label: 'NEW' }
+    };
+    var hosts = [
+      { ip: '10.20.2.15', names: 'mail.lab.local', owner: 'Owner: IT Dept.', state: 'Active', ports: ['25', '143', '443', '587'], tech: 'Postfix, Dovecot, Roundcube', findings: '1 High · 3 Info', score: 42, seen: 'run #42' },
+      { ip: '10.20.2.20', names: 'www.lab.local', owner: 'Owner: Web team', state: 'Active', ports: ['80', '443', '8443'], tech: 'nginx 1.24, Drupal 10', findings: '2 Low · 6 Info', score: 38, seen: 'run #42' },
+      { ip: '10.20.5.60', names: 'db-tools.lab.local', owner: '—', state: 'Active', ports: ['22', '80'], tech: 'Apache 2.4, PHP 7.2, phpMyAdmin', findings: '1 Critical · 2 High', score: 68, seen: 'run #42' },
+      { ip: '10.20.9.141', names: 'lab-pc-07.lab.local', owner: '—', state: 'Unstable', ports: ['22', '3389'], tech: 'OpenSSH 8.9, RDP', findings: '4 Info', score: 31, seen: 'run #40' },
+      { ip: '10.20.12.7', names: 'no PTR record', owner: '—', state: 'Unstable', ports: ['80'], tech: 'lighttpd 1.4', findings: '2 Info', score: 27, seen: 'run #41' },
+      { ip: '10.20.14.37', names: 'wiki-staging.lab.local', owner: 'Owner: Web team', state: 'Active', ports: ['22', '80', '443'], tech: 'WordPress 6.4.2, Apache 2.4', findings: '3 Medium · 9 Info', score: 86, seen: 'run #42' },
+      { ip: '10.20.14.88', names: 'no PTR record', owner: '—', state: 'New', ports: ['8080'], tech: 'Jenkins 2.346, Jetty', findings: '1 Medium · 2 Info', score: 79, seen: 'run #42' },
+      { ip: '10.20.21.3', names: 'gitlab.lab.local', owner: 'Owner: DevOps', state: 'Active', ports: ['22', '443'], tech: 'GitLab, nginx', findings: '5 Info', score: 35, seen: 'run #42' },
+      { ip: '10.20.31.204', names: 'ipcam-3f.lab.local', owner: '—', state: 'New', ports: ['80', '554'], tech: 'IP camera web UI, RTSP', findings: '1 Medium · 2 Info', score: 71, seen: 'run #42' },
+      { ip: '10.20.33.50', names: 'erp.lab.local', owner: 'Owner: Finance IT', state: 'Unstable', ports: ['443', '8443'], tech: 'Apache Tomcat 9.0', findings: '2 Medium · 4 Info', score: 55, seen: 'run #42' },
+      { ip: '10.20.40.12', names: 'dev-api.lab.local', owner: '—', state: 'New', ports: ['3000'], tech: 'Node.js, Express, Swagger UI', findings: '1 Low · 3 Info', score: 64, seen: 'run #42' },
+      { ip: '10.20.60.3', names: 'no PTR record', owner: '—', state: 'New', ports: ['22'], tech: 'OpenSSH 9.6', findings: '1 Info', score: 24, seen: 'run #41' }
+    ].map(function (h) { var s = st[h.state]; return Object.assign({}, h, s, { state: s.label }); });
+    return { hosts: hosts };
+  }
+}
+</script>
+</body>
+</html>

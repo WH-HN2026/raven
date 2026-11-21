@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ASI – Dashboard</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500&amp;family=Roboto:wght@300;400;500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#FFFFFF}
+a{color:#212121;text-decoration-color:#C10D14;text-underline-offset:3px}a:hover{color:#C10D14}
+</style>
+</helmet>
+<div style="background: #FFFFFF; font-family: Roboto, 'Helvetica Neue', Arial, sans-serif; color: #212121; font-size: 15px; line-height: 1.5">
+  <dc-import name="Nav" active="dashboard" hint-size="100%,80px"></dc-import>
+
+  <section style="background: #000000; color: #FFFFFF">
+    <div style="max-width: 1440px; margin: 0 auto; box-sizing: border-box; padding: 16px 40px 44px; display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 24px 40px">
+      <div style="flex: 1 1 520px; display: flex; flex-direction: column; gap: 18px">
+        <h1 style="margin: 0; font-size: 64px; font-weight: 300; line-height: 1.05">Dashboard</h1>
+        <p style="margin: 0; border-left: 2px solid #C10D14; padding-left: 16px; font-size: 18px; font-weight: 300; color: #D8D7D7; max-width: 640px">Last run <a href="Scans.dc.html" style="color: #FFFFFF">#42 · Campus /16</a> · 21 Nov, 06:14 · 1 h 52 min · 65,536 IPs</p>
+        <div style="display: flex; gap: 12px; flex-wrap: wrap">
+          <button type="button" style="height: 48px; padding: 0 24px; border: 0; background: #C10D14; color: #FFFFFF; font: inherit; font-weight: 500">Start scan</button>
+          <button type="button" style="height: 48px; padding: 0 24px; border: 1px solid #FFFFFF; background: transparent; color: #FFFFFF; font: inherit">Export report</button>
+        </div>
+      </div>
+      <div style="flex: 0 1 560px; min-width: 280px">
+        <dc-import name="Squares" variant="masthead" hint-size="100%,150px"></dc-import>
+      </div>
+    </div>
+  </section>
+
+  <section aria-label="Key numbers" style="max-width: 1440px; margin: 0 auto; box-sizing: border-box; padding: 48px 40px 8px">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 28px 24px">
+      <sc-for list="{{kpis}}" as="k" hint-placeholder-count="6">
+        <div style="border-left: 2px solid {{k.edge}}; padding: 2px 0 2px 18px; display: flex; flex-direction: column">
+          <span style="font-size: 14px; color: #505157">{{k.label}}</span>
+          <span style="font-size: 52px; font-weight: 300; line-height: 1.1">{{k.value}}</span>
+          <span style="font-size: 13px; color: #505157">{{k.note}}</span>
+        </div>
+      </sc-for>
+    </div>
+  </section>
+
+  <section style="max-width: 1440px; margin: 0 auto; box-sizing: border-box; padding: 48px 40px">
+    <div style="display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin-bottom: 20px">
+      <h2 style="margin: 0; display: flex; align-items: center; gap: 14px; font-size: 28px; font-weight: 700"><span style="width: 10px; height: 10px; background: #C10D14; flex: none"></span>Changes since run #41</h2>
+      <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 13px">
+        <span style="padding: 3px 10px; background: #006837; color: #FFFFFF; font-weight: 500">+ 12 NEW</span>
+        <span style="padding: 3px 10px; background: #F9BEAD; color: #212121; font-weight: 500">~ 23 CHANGED</span>
+        <span style="padding: 3px 10px; background: #DEDEDE; color: #212121; font-weight: 500">− 4 GONE</span>
+        <a href="Changes.dc.html" style="margin-left: 12px; font-weight: 500">Compare runs</a>
+      </div>
+    </div>
+    <div style="overflow-x: auto">
+      <table style="width: 100%; border-collapse: collapse; font-size: 14px; min-width: 760px">
+        <thead>
+          <tr style="text-align: left; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: #505157; border-bottom: 2px solid #000000">
+            <th style="padding: 10px 12px 10px 0; font-weight: 500">Change</th>
+            <th style="padding: 10px 12px; font-weight: 500">Host</th>
+            <th style="padding: 10px 12px; font-weight: 500">Service</th>
+            <th style="padding: 10px 12px; font-weight: 500">What changed</th>
+            <th style="padding: 10px 0 10px 12px; font-weight: 500; text-align: right">Seen</th>
+          </tr>
+        </thead>
+        <tbody>
+          <sc-for list="{{changes}}" as="c" hint-placeholder-count="6">
+            <tr style="border-bottom: 1px solid #DEDEDE">
+              <td style="padding: 12px 12px 12px 0"><span style="display: inline-block; min-width: 92px; padding: 3px 8px; font-size: 12px; font-weight: 500; background: {{c.bg}}; color: {{c.fg}}">{{c.label}}</span></td>
+              <td style="padding: 12px"><a href="HostDetail.dc.html" style="font-family: 'Roboto Mono', monospace; font-weight: 500">{{c.ip}}</a><div style="font-size: 13px; color: #505157">{{c.host}}</div></td>
+              <td style="padding: 12px; font-family: 'Roboto Mono', monospace; font-size: 13px">{{c.service}}</td>
+              <td style="padding: 12px">{{c.what}}</td>
+              <td style="padding: 12px 0 12px 12px; text-align: right; color: #505157">{{c.when}}</td>
+            </tr>
+          </sc-for>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section style="background: #EDEDED">
+    <div style="max-width: 1440px; margin: 0 auto; box-sizing: border-box; padding: 48px 40px; display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 40px">
+      <div style="display: flex; flex-direction: column; gap: 18px">
+        <h2 style="margin: 0; display: flex; align-items: center; gap: 14px; font-size: 22px; font-weight: 700"><span style="width: 10px; height: 10px; background: #C10D14; flex: none"></span>Active findings by severity</h2>
+        <div style="display: flex; flex-direction: column; gap: 12px">
+          <sc-for list="{{severities}}" as="s" hint-placeholder-count="4">
+            <div style="display: grid; grid-template-columns: 88px 1fr 48px; gap: 12px; align-items: center">
+              <span style="display: inline-flex; align-items: center; gap: 8px; font-size: 14px"><span style="width: 10px; height: 10px; background: {{s.color}}"></span>{{s.label}}</span>
+              <div style="height: 14px; background: #FFFFFF"><div style="height: 14px; width: {{s.pct}}; background: {{s.color}}"></div></div>
+              <span style="text-align: right; font-size: 18px; font-weight: 300; font-variant-numeric: tabular-nums">{{s.count}}</span>
+            </div>
+          </sc-for>
+        </div>
+        <p style="margin: 0; font-size: 14px; color: #505157">+ 2,904 informational · <a href="Findings.dc.html">All findings</a></p>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 18px">
+        <h2 style="margin: 0; display: flex; align-items: center; gap: 14px; font-size: 22px; font-weight: 700"><span style="width: 10px; height: 10px; background: #C10D14; flex: none"></span>New devices (shadow IT)</h2>
+        <ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px">
+          <sc-for list="{{newDevices}}" as="d" hint-placeholder-count="4">
+            <li style="border-left: 2px solid #C10D14; padding-left: 14px">
+              <div style="display: flex; justify-content: space-between; gap: 8px"><a href="HostDetail.dc.html" style="font-family: 'Roboto Mono', monospace; font-weight: 500">{{d.ip}}</a><span style="font-size: 13px; color: #505157">{{d.when}}</span></div>
+              <div style="font-size: 15px; font-weight: 300">{{d.what}}</div>
+            </li>
+          </sc-for>
+        </ul>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 18px">
+        <h2 style="margin: 0; display: flex; align-items: center; gap: 14px; font-size: 22px; font-weight: 700"><span style="width: 10px; height: 10px; background: #C10D14; flex: none"></span>Top web technologies</h2>
+        <div style="display: flex; flex-direction: column; gap: 10px">
+          <sc-for list="{{tech}}" as="t" hint-placeholder-count="7">
+            <div style="display: grid; grid-template-columns: 120px 1fr 44px; gap: 12px; align-items: center; font-size: 14px">
+              <span>{{t.name}}</span>
+              <div style="height: 12px; background: #FFFFFF"><div style="height: 12px; width: {{t.pct}}; background: #006837"></div></div>
+              <span style="text-align: right; font-variant-numeric: tabular-nums">{{t.count}}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section style="max-width: 1440px; margin: 0 auto; box-sizing: border-box; padding: 48px 40px; display: flex; flex-wrap: wrap; gap: 48px">
+    <div style="flex: 2 1 600px; min-width: 0">
+      <div style="display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin-bottom: 16px">
+        <h2 style="margin: 0; display: flex; align-items: center; gap: 14px; font-size: 28px; font-weight: 700"><span style="width: 10px; height: 10px; background: #C10D14; flex: none"></span>Most interesting hosts</h2>
+      </div>
+      <ul style="list-style: none; margin: 0; padding: 0; border-top: 2px solid #000000">
+        <sc-for list="{{interesting}}" as="h" hint-placeholder-count="5">
+          <li style="display: flex; flex-wrap: wrap; gap: 16px; align-items: center; padding: 14px 0; border-bottom: 1px solid #DEDEDE">
+            <span style="width: 56px; height: 56px; background: #000000; color: #FFFFFF; display: inline-flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 300; flex: none">{{h.score}}</span>
+            <div style="flex: 1 1 200px; min-width: 0">
+              <a href="HostDetail.dc.html" style="font-family: 'Roboto Mono', monospace; font-weight: 500">{{h.ip}}</a>
+              <div style="font-size: 14px; color: #505157">{{h.host}}</div>
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 6px; flex: 2 1 320px">
+              <sc-for list="{{h.reasons}}" as="r" hint-placeholder-count="3">
+                <span style="font-size: 13px; padding: 3px 10px; border: 1px solid #212121">{{r}}</span>
+              </sc-for>
+            </div>
+          </li>
+        </sc-for>
+      </ul>
+    </div>
+    <div style="flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+      <h2 style="margin: 0; display: flex; align-items: center; gap: 14px; font-size: 28px; font-weight: 700"><span style="width: 10px; height: 10px; background: #C10D14; flex: none"></span>Unstable hosts</h2>
+      <ul style="list-style: none; margin: 0; padding: 0; border-top: 2px solid #000000">
+        <sc-for list="{{unstable}}" as="u" hint-placeholder-count="3">
+          <li style="display: flex; justify-content: space-between; gap: 8px; padding: 10px 0; border-bottom: 1px solid #DEDEDE">
+            <a href="HostDetail.dc.html" style="font-family: 'Roboto Mono', monospace; font-weight: 500; font-size: 14px">{{u.ip}}</a>
+            <span style="font-size: 14px; color: #505157">{{u.pattern}}</span>
+          </li>
+        </sc-for>
+      </ul>
+      <a href="Changes.dc.html" style="font-weight: 500">Time-of-day heatmap</a>
+    </div>
+  </section>
+
+  <section style="max-width: 1440px; margin: 0 auto; box-sizing: border-box; padding: 0 40px 64px">
+    <div style="display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin-bottom: 16px">
+      <h2 style="margin: 0; display: flex; align-items: center; gap: 14px; font-size: 28px; font-weight: 700"><span style="width: 10px; height: 10px; background: #C10D14; flex: none"></span>Recent runs</h2>
+      <a href="Scans.dc.html" style="font-weight: 500">All runs and schedules</a>
+    </div>
+    <div style="overflow-x: auto">
+      <table style="width: 100%; border-collapse: collapse; font-size: 14px; min-width: 720px">
+        <thead>
+          <tr style="text-align: left; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: #505157; border-bottom: 2px solid #000000">
+            <th style="padding: 10px 12px 10px 0; font-weight: 500">Run</th>
+            <th style="padding: 10px 12px; font-weight: 500">Profile</th>
+            <th style="padding: 10px 12px; font-weight: 500">Status</th>
+            <th style="padding: 10px 12px; font-weight: 500">Window</th>
+            <th style="padding: 10px 12px; font-weight: 500">Duration</th>
+            <th style="padding: 10px 0 10px 12px; font-weight: 500; text-align: right">Hosts up</th>
+          </tr>
+        </thead>
+        <tbody>
+          <sc-for list="{{runs}}" as="r" hint-placeholder-count="4">
+            <tr style="border-bottom: 1px solid #DEDEDE">
+              <td style="padding: 12px 12px 12px 0; font-size: 20px; font-weight: 300">{{r.id}}</td>
+              <td style="padding: 12px">{{r.profile}}<div style="font-size: 13px; color: #505157">{{r.source}}</div></td>
+              <td style="padding: 12px"><span style="font-size: 12px; font-weight: 500; padding: 3px 8px; background: {{r.bg}}; color: {{r.fg}}">{{r.status}}</span><div style="font-size: 13px; color: #505157; margin-top: 4px">{{r.statusNote}}</div></td>
+              <td style="padding: 12px; font-family: 'Roboto Mono', monospace; font-size: 13px">{{r.window}}</td>
+              <td style="padding: 12px">{{r.duration}}</td>
+              <td style="padding: 12px 0 12px 12px; text-align: right; font-variant-numeric: tabular-nums">{{r.up}}</td>
+            </tr>
+          </sc-for>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <dc-import name="Footer" hint-size="100%,440px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1820}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var type = {
+      'new': { label: '+ NEW', bg: '#006837', fg: '#FFFFFF' },
+      'changed': { label: '~ CHANGED', bg: '#F9BEAD', fg: '#212121' },
+      'gone': { label: '− GONE', bg: '#DEDEDE', fg: '#212121' }
+    };
+    var changes = [
+      { t: 'new', ip: '10.20.31.204', host: 'ipcam-3f.lab.local', service: '554/tcp rtsp', what: 'RTSP camera banner – IoT device', when: '04:31' },
+      { t: 'new', ip: '10.20.14.88', host: 'no PTR record', service: '8080/tcp http', what: 'Jenkins 2.346 login panel', when: '04:47' },
+      { t: 'changed', ip: '10.20.14.37', host: 'wiki-staging.lab.local', service: '443/tcp https', what: 'WordPress 5.8.3 → 6.4.2', when: '05:02' },
+      { t: 'changed', ip: '10.20.2.15', host: 'mail.lab.local', service: '25/tcp smtp', what: 'Postfix banner changed', when: '05:10' },
+      { t: 'gone', ip: '10.20.7.9', host: 'printer-b2.lab.local', service: '9100/tcp jetdirect', what: 'No response for 3 runs – host offline', when: '05:38' },
+      { t: 'new', ip: '10.20.40.12', host: 'dev-api.lab.local', service: '3000/tcp http', what: 'Header X-Environment: development', when: '05:51' }
+    ].map(function (c) { return Object.assign({}, c, type[c.t]); });
+
+    var sev = [
+      { label: 'Critical', count: 2, color: '#C10D14' },
+      { label: 'High', count: 14, color: '#E35205' },
+      { label: 'Medium', count: 61, color: '#E8A800' },
+      { label: 'Low', count: 118, color: '#2F6DB5' }
+    ].map(function (s) { return Object.assign({}, s, { pct: Math.max(2, Math.round(s.count / 118 * 100)) + '%' }); });
+
+    var tech = [
+      { name: 'nginx', count: 412 }, { name: 'Apache httpd', count: 287 }, { name: 'Microsoft IIS', count: 96 },
+      { name: 'WordPress', count: 58 }, { name: 'Apache Tomcat', count: 31 }, { name: 'Jenkins', count: 6 }, { name: 'phpMyAdmin', count: 4 }
+    ].map(function (t) { return Object.assign({}, t, { pct: Math.max(2, Math.round(t.count / 412 * 100)) + '%' }); });
+
+    var status = {
+      done: { bg: '#212121', fg: '#FFFFFF' },
+      suspended: { bg: '#F9BEAD', fg: '#212121' }
+    };
+    var runs = [
+      { id: '#42', profile: 'Campus /16', source: 'schedule: Campus early (ASI)', status: 'DONE', s: 'done', statusNote: '24/24 batches', window: '04:00–07:00', duration: '1 h 52 min', up: '1,204' },
+      { id: '#41', profile: 'Campus /16', source: 'schedule: Campus nightly (ASI)', status: 'DONE', s: 'done', statusNote: '24/24 batches', window: '22:00–01:00', duration: '1 h 58 min', up: '1,189' },
+      { id: '#40', profile: 'DMZ weekly', source: 'DefectDojo engagement #118', status: 'SUSPENDED', s: 'suspended', statusNote: 'window ended · 17/24 · resumes 22:00', window: '02:00–06:00', duration: '4 h 00 min', up: '212' },
+      { id: '#39', profile: 'Lab quick check', source: 'started by a.nowak', status: 'DONE', s: 'done', statusNote: '1/1 batch', window: 'manual', duration: '12 min', up: '38' }
+    ].map(function (r) { return Object.assign({}, r, status[r.s]); });
+
+    return {
+      kpis: [
+        { label: 'Active hosts', value: '1,204', note: '+15 since run #41', edge: '#006837' },
+        { label: 'Open services', value: '3,871', note: '+41 since run #41', edge: '#006837' },
+        { label: 'New devices', value: '7', note: 'since run #41', edge: '#C10D14' },
+        { label: 'Changed services', value: '23', note: 'since run #41', edge: '#F9BEAD' },
+        { label: 'Gone', value: '4', note: 'since run #41', edge: '#000000' },
+        { label: 'Unstable hosts', value: '31', note: 'last 10 runs', edge: '#000000' }
+      ],
+      changes: changes,
+      severities: sev,
+      tech: tech,
+      runs: runs,
+      interesting: [
+        { score: 86, ip: '10.20.14.37', host: 'wiki-staging.lab.local', reasons: ['Staging environment', 'Admin panel /wp-admin', 'WordPress version in footer'] },
+        { score: 79, ip: '10.20.14.88', host: 'no PTR record', reasons: ['New device', 'Jenkins login panel', 'HTTP only, no TLS'] },
+        { score: 71, ip: '10.20.31.204', host: 'ipcam-3f.lab.local', reasons: ['IoT camera', 'RTSP exposed', 'Default page title'] },
+        { score: 68, ip: '10.20.5.60', host: 'db-tools.lab.local', reasons: ['phpMyAdmin panel', 'PHP 7.2 (end of life)', 'CVE match: 3'] },
+        { score: 64, ip: '10.20.40.12', host: 'dev-api.lab.local', reasons: ['Development header', 'Swagger UI at /docs', 'New device'] }
+      ],
+      newDevices: [
+        { ip: '10.20.31.204', when: 'run #42', what: 'RTSP camera, HTTP admin page on 80/tcp' },
+        { ip: '10.20.14.88', when: 'run #42', what: 'Jenkins 2.346 on 8080/tcp' },
+        { ip: '10.20.40.12', when: 'run #42', what: 'Node.js API, Swagger UI on 3000/tcp' },
+        { ip: '10.20.60.3', when: 'run #41', what: 'Only 22/tcp – OpenSSH 9.6' }
+      ],
+      unstable: [
+        { ip: '10.20.9.141', pattern: 'up 08:00–18:00 only' },
+        { ip: '10.20.12.7', pattern: 'up in 5 of last 10 runs' },
+        { ip: '10.20.33.50', pattern: '8443/tcp flaps between runs' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

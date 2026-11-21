@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ASI – Findings</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500&amp;family=Roboto:wght@300;400;500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#FFFFFF}
+a{color:#212121;text-decoration-color:#C10D14;text-underline-offset:3px}a:hover{color:#C10D14}
+</style>
+</helmet>
+<div style="background: #FFFFFF; font-family: Roboto, 'Helvetica Neue', Arial, sans-serif; color: #212121; font-size: 15px; line-height: 1.5">
+  <dc-import name="Nav" active="findings" hint-size="100%,80px"></dc-import>
+
+  <section style="background: #000000; color: #FFFFFF">
+    <div style="max-width: 1440px; margin: 0 auto; box-sizing: border-box; padding: 16px 40px 44px; display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 24px 40px">
+      <div style="flex: 1 1 520px; display: flex; flex-direction: column; gap: 18px">
+        <nav aria-label="Breadcrumb" style="font-size: 14px; color: #BDBDBD"><a href="Main.dc.html" style="color: #BDBDBD">Dashboard</a> / Findings</nav>
+        <h1 style="margin: 0; font-size: 64px; font-weight: 300; line-height: 1.05">Findings</h1>
+        <div style="display: flex; gap: 12px; flex-wrap: wrap">
+          <button type="button" style="height: 48px; padding: 0 24px; border: 1px solid #FFFFFF; background: transparent; color: #FFFFFF; font: inherit">Export CSV</button>
+          <button type="button" style="height: 48px; padding: 0 24px; border: 1px solid #FFFFFF; background: transparent; color: #FFFFFF; font: inherit">Export JSON</button>
+          <a href="#" style="height: 48px; padding: 0 24px; border: 1px solid #FFFFFF; color: #FFFFFF; text-decoration: none; display: inline-flex; align-items: center; box-sizing: border-box">Open in DefectDojo ↗</a>
+        </div>
+      </div>
+      <div style="flex: 0 1 560px; min-width: 280px">
+        <dc-import name="Squares" variant="masthead" hint-size="100%,150px"></dc-import>
+      </div>
+    </div>
+  </section>
+
+  <section aria-label="Findings by severity" style="max-width: 1440px; margin: 0 auto; box-sizing: border-box; padding: 40px 40px 32px">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 24px">
+      <sc-for list="{{severities}}" as="s" hint-placeholder-count="5">
+        <button type="button" aria-pressed="{{s.pressed}}" style="text-align: left; background: {{s.bg}}; border: 0; border-left: 4px solid {{s.color}}; padding: 10px 14px 10px 16px; font: inherit; color: #212121; cursor: pointer">
+          <span style="display: block; font-size: 14px; color: #505157">{{s.label}}</span>
+          <span style="display: block; font-size: 44px; font-weight: 300; line-height: 1.1">{{s.count}}</span>
+          <span style="display: block; font-size: 13px; color: #505157">{{s.note}}</span>
+        </button>
+      </sc-for>
+    </div>
+  </section>
+
+  <section aria-label="Filters" style="background: #EDEDED">
+    <div style="max-width: 1440px; margin: 0 auto; box-sizing: border-box; padding: 24px 40px; display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end">
+      <label style="display: flex; flex-direction: column; gap: 6px; flex: 3 1 280px; font-size: 13px; font-weight: 500">Search title, host or CVE
+        <input type="search" placeholder="e.g. admin panel, 10.20.14.0/24, CVE-…" style="height: 44px; padding: 0 12px; border: 1px solid #212121; border-radius: 0; background: #FFFFFF; font: inherit; font-size: 15px; color: #212121">
+      </label>
+      <label style="display: flex; flex-direction: column; gap: 6px; flex: 1 1 170px; font-size: 13px; font-weight: 500">Status
+        <select style="height: 44px; padding: 0 10px; border: 1px solid #212121; border-radius: 0; background: #FFFFFF; font: inherit; font-size: 15px; color: #212121"><option>Active (incl. verified)</option><option>Verified</option><option>False positive</option><option>Risk accepted</option><option>Mitigated</option><option>All</option></select>
+      </label>
+      <label style="display: flex; flex-direction: column; gap: 6px; flex: 1 1 170px; font-size: 13px; font-weight: 500">Source
+        <select style="height: 44px; padding: 0 10px; border: 1px solid #212121; border-radius: 0; background: #FFFFFF; font: inherit; font-size: 15px; color: #212121"><option>Any</option><option>nmap</option><option>nuclei</option><option>custom signature</option><option>CVE match (offline)</option><option>ASI lifecycle</option></select>
+      </label>
+      <label style="display: flex; flex-direction: column; gap: 6px; flex: 1 1 170px; font-size: 13px; font-weight: 500">First seen
+        <select style="height: 44px; padding: 0 10px; border: 1px solid #212121; border-radius: 0; background: #FFFFFF; font: inherit; font-size: 15px; color: #212121"><option>Any time</option><option>In last run (#42)</option><option>Last 7 days</option></select>
+      </label>
+      <label style="display: flex; align-items: center; gap: 10px; height: 44px; font-size: 14px">
+        <input type="checkbox" checked style="width: 18px; height: 18px; accent-color: #C10D14; margin: 0">Hide informational
+      </label>
+    </div>
+  </section>
+
+  <div style="max-width: 1440px; margin: 0 auto; box-sizing: border-box; padding: 32px 40px 64px; display: flex; flex-wrap: wrap; gap: 40px; align-items: flex-start">
+    <section style="flex: 999 1 640px; min-width: 0; display: flex; flex-direction: column; gap: 14px">
+      <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; padding: 10px 14px; background: #000000; color: #FFFFFF">
+        <span style="font-size: 14px">2 selected</span>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px">
+          <label style="display: flex; align-items: center; gap: 8px; font-size: 13px">Set status
+            <select style="height: 36px; padding: 0 8px; border: 1px solid #FFFFFF; border-radius: 0; background: #000000; color: #FFFFFF; font: inherit; font-size: 13px"><option>Choose…</option><option>Verified</option><option>False positive</option><option>Risk accepted</option><option>Mitigated</option></select>
+          </label>
+          <button type="button" style="height: 36px; padding: 0 14px; border: 1px solid #FFFFFF; background: transparent; color: #FFFFFF; font: inherit; font-size: 13px">Add note</button>
+          <button type="button" style="height: 36px; padding: 0 14px; border: 0; background: #C10D14; color: #FFFFFF; font: inherit; font-size: 13px; font-weight: 500">Apply to 2</button>
+        </div>
+      </div>
+      <div style="overflow-x: auto">
+        <table style="width: 100%; border-collapse: collapse; font-size: 14px; min-width: 900px">
+          <thead><tr style="text-align: left; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: #505157; border-bottom: 2px solid #000000">
+            <th style="padding: 10px 8px 10px 0; width: 28px"><input type="checkbox" aria-label="Select all" style="width: 18px; height: 18px; accent-color: #C10D14; margin: 0"></th>
+            <th style="padding: 10px 12px; font-weight: 500">Severity ↓</th>
+            <th style="padding: 10px 12px; font-weight: 500">Finding</th>
+            <th style="padding: 10px 12px; font-weight: 500">Host</th>
+            <th style="padding: 10px 12px; font-weight: 500">Source</th>
+            <th style="padding: 10px 12px; font-weight: 500">Status</th>
+            <th style="padding: 10px 0 10px 12px; font-weight: 500">First seen</th>
+          </tr></thead>
+          <tbody>
+            <sc-for list="{{findings}}" as="f" hint-placeholder-count="12">
+              <tr style="border-bottom: 1px solid #DEDEDE; background: {{f.rowBg}}">
+                <td style="padding: 12px 8px 12px 0; border-left: 4px solid {{f.rowEdge}}"><input type="checkbox" aria-label="Select finding" checked="{{f.checked}}" style="width: 18px; height: 18px; accent-color: #C10D14; margin: 0 0 0 6px"></td>
+                <td style="padding: 12px; white-space: nowrap"><span style="display: inline-flex; align-items: center; gap: 8px"><span style="width: 10px; height: 10px; background: {{f.color}}"></span>{{f.sev}}</span></td>
+                <td style="padding: 12px"><a href="#" style="font-weight: 500">{{f.title}}</a><div style="font-family: 'Roboto Mono', monospace; font-size: 12px; color: #505157">{{f.location}}</div></td>
+                <td style="padding: 12px; white-space: nowrap"><a href="HostDetail.dc.html" style="font-family: 'Roboto Mono', monospace">{{f.ip}}</a><div style="font-size: 13px; color: #505157">{{f.host}}</div></td>
+                <td style="padding: 12px; font-size: 13px; color: #505157">{{f.src}}</td>
+                <td style="padding: 12px"><span style="font-size: 12px; font-weight: 500; letter-spacing: 0.04em; padding: 3px 8px; background: {{f.stBg}}; color: {{f.stFg}}; white-space: nowrap">{{f.status}}</span></td>
+                <td style="padding: 12px 0 12px 12px; color: #505157; white-space: nowrap">{{f.first}}</td>
+              </tr>
+            </sc-for>
+          </tbody>
+        </table>
+      </div>
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; padding-top: 6px; font-size: 14px; color: #505157">
+        <span>1–12 of 195</span>
+        <div style="display: flex">
+          <button type="button" style="height: 44px; padding: 0 18px; border: 1px solid #000000; background: #FFFFFF; color: #212121; font: inherit">Previous</button>
+          <button type="button" style="height: 44px; padding: 0 18px; border: 1px solid #000000; border-left: 0; background: #000000; color: #FFFFFF; font: inherit">Next</button>
+        </div>
+      </div>
+    </section>
+
+    <aside aria-label="Selected finding" style="flex: 1 1 380px; min-width: 0; display: flex; flex-direction: column; gap: 20px; background: #EDEDED; padding: 24px; border-top: 4px solid #C10D14">
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap">
+          <span style="font-size: 12px; font-weight: 500; letter-spacing: 0.06em; padding: 3px 8px; background: #C10D14; color: #FFFFFF">CRITICAL</span>
+          <span style="font-size: 13px; color: #505157">DefectDojo #4812 · <a href="#">open ↗</a></span>
+        </div>
+        <h2 style="margin: 0; font-size: 26px; font-weight: 300; line-height: 1.25">phpMyAdmin on PHP 7.2 (end of life), 3 known CVEs for this version</h2>
+        <p style="margin: 0; font-size: 14px"><a href="HostDetail.dc.html" style="font-family: 'Roboto Mono', monospace">10.20.5.60</a> · db-tools.lab.local · <span style="font-family: 'Roboto Mono', monospace">http://10.20.5.60/phpmyadmin/</span></p>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <div style="font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: #505157; font-weight: 500; padding-bottom: 6px; border-bottom: 2px solid #000000">Evidence</div>
+        <dl style="margin: 0; display: grid; grid-template-columns: 110px 1fr; gap: 6px 10px; font-size: 14px">
+          <dt style="color: #505157">Detected by</dt><dd style="margin: 0">nuclei tech template + offline CVE match</dd>
+          <dt style="color: #505157">Matched</dt><dd style="margin: 0; font-family: 'Roboto Mono', monospace; font-size: 13px">X-Powered-By: PHP/7.2.24<br>title: phpMyAdmin</dd>
+          <dt style="color: #505157">Request</dt><dd style="margin: 0; font-family: 'Roboto Mono', monospace; font-size: 13px">GET /phpmyadmin/ → 200</dd>
+          <dt style="color: #505157">Confidence</dt><dd style="margin: 0">high</dd>
+        </dl>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <div style="font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: #505157; font-weight: 500; padding-bottom: 6px; border-bottom: 2px solid #000000">History</div>
+        <ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; font-size: 14px">
+          <li style="border-left: 2px solid #C10D14; padding-left: 10px">Run #42 · still present, untouched by reimport</li>
+          <li style="border-left: 2px solid #BDBDBD; padding-left: 10px">20 Nov · k.wisniewska set status Verified</li>
+          <li style="border-left: 2px solid #BDBDBD; padding-left: 10px">Run #37 · created by reimport</li>
+        </ul>
+      </div>
+      <form style="display: flex; flex-direction: column; gap: 14px">
+        <div style="font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: #505157; font-weight: 500; padding-bottom: 6px; border-bottom: 2px solid #000000">Triage</div>
+        <div style="display: flex; flex-wrap: wrap; gap: 12px">
+          <label style="display: flex; flex-direction: column; gap: 6px; flex: 1 1 140px; font-size: 13px; font-weight: 500">Status
+            <select style="height: 44px; padding: 0 10px; border: 1px solid #212121; border-radius: 0; background: #FFFFFF; font: inherit; font-size: 15px; color: #212121"><option>Verified</option><option>Active</option><option>False positive</option><option>Risk accepted</option><option>Mitigated</option></select>
+          </label>
+          <label style="display: flex; flex-direction: column; gap: 6px; flex: 1 1 140px; font-size: 13px; font-weight: 500">Severity
+            <select style="height: 44px; padding: 0 10px; border: 1px solid #212121; border-radius: 0; background: #FFFFFF; font: inherit; font-size: 15px; color: #212121"><option>Critical</option><option>High</option><option>Medium</option><option>Low</option><option>Info</option></select>
+          </label>
+        </div>
+        <label style="display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 500">Add a note
+          <textarea rows="3" style="padding: 10px 12px; border: 1px solid #212121; border-radius: 0; background: #FFFFFF; font: inherit; font-size: 15px; color: #212121; resize: vertical"></textarea>
+        </label>
+        <div style="display: flex; justify-content: flex-end">
+          <button type="submit" style="height: 48px; padding: 0 24px; border: 0; background: #C10D14; color: #FFFFFF; font: inherit; font-weight: 500">Save to DefectDojo</button>
+        </div>
+      </form>
+    </aside>
+  </div>
+
+  <dc-import name="Footer" hint-size="100%,180px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var sevColor = { Critical: '#C10D14', High: '#E35205', Medium: '#E8A800', Low: '#2F6DB5', Info: '#808187' };
+    var st = {
+      'ACTIVE': { stBg: '#FFFFFF', stFg: '#212121' },
+      'VERIFIED': { stBg: '#212121', stFg: '#FFFFFF' },
+      'RISK ACCEPTED': { stBg: '#F9BEAD', stFg: '#212121' },
+      'FALSE POSITIVE': { stBg: '#DEDEDE', stFg: '#212121' }
+    };
+    var rows = [
+      { sev: 'Critical', title: 'phpMyAdmin on PHP 7.2 (end of life), 3 known CVEs', location: 'http://10.20.5.60/phpmyadmin/', ip: '10.20.5.60', host: 'db-tools.lab.local', src: 'nuclei + CVE match', status: 'VERIFIED', first: 'run #37', selected: true },
+      { sev: 'Critical', title: 'Jenkins 2.346: version with known critical CVEs', location: 'http://10.20.14.88:8080/', ip: '10.20.14.88', host: 'no PTR record', src: 'CVE match (offline)', status: 'ACTIVE', first: 'run #42', checked: true },
+      { sev: 'High', title: 'Telnet service exposed', location: 'tcp://10.20.7.31:23', ip: '10.20.7.31', host: 'switch-b1.lab.local', src: 'nmap', status: 'ACTIVE', first: 'run #12' },
+      { sev: 'High', title: 'RDP exposed to campus network', location: 'tcp://10.20.9.141:3389', ip: '10.20.9.141', host: 'lab-pc-07.lab.local', src: 'nmap', status: 'RISK ACCEPTED', first: 'run #20' },
+      { sev: 'Medium', title: 'Staging environment exposed (X-Environment: staging)', location: 'https://wiki-staging.lab.local/', ip: '10.20.14.37', host: 'wiki-staging.lab.local', src: 'signature staging-env-header', status: 'ACTIVE', first: 'run #7' },
+      { sev: 'Medium', title: 'Admin panel reachable: /wp-admin/', location: 'https://wiki-staging.lab.local/wp-admin/', ip: '10.20.14.37', host: 'wiki-staging.lab.local', src: 'signature wp-admin-panel', status: 'VERIFIED', first: 'run #7' },
+      { sev: 'Medium', title: 'Jenkins login panel exposed', location: 'http://10.20.14.88:8080/login', ip: '10.20.14.88', host: 'no PTR record', src: 'nuclei panel', status: 'ACTIVE', first: 'run #42', checked: true },
+      { sev: 'Medium', title: 'IoT camera web interface with default title', location: 'http://10.20.31.204/', ip: '10.20.31.204', host: 'ipcam-3f.lab.local', src: 'signature iot-camera', status: 'ACTIVE', first: 'run #42' },
+      { sev: 'Medium', title: 'TLS certificate expires within 30 days', location: 'https://wiki-staging.lab.local/', ip: '10.20.14.37', host: 'wiki-staging.lab.local', src: 'nuclei ssl', status: 'ACTIVE', first: 'run #41' },
+      { sev: 'Low', title: 'Session cookie without Secure flag', location: 'PHPSESSID @ https://wiki-staging.lab.local/', ip: '10.20.14.37', host: 'wiki-staging.lab.local', src: 'cookie check', status: 'ACTIVE', first: 'run #7' },
+      { sev: 'Low', title: 'Strict-Transport-Security header missing', location: 'https://erp.lab.local:8443/', ip: '10.20.33.50', host: 'erp.lab.local', src: 'nuclei', status: 'FALSE POSITIVE', first: 'run #15' },
+      { sev: 'Low', title: 'Swagger UI publicly reachable', location: 'http://10.20.40.12:3000/docs', ip: '10.20.40.12', host: 'dev-api.lab.local', src: 'nuclei exposure', status: 'ACTIVE', first: 'run #42' }
+    ];
+    var findings = rows.map(function (f) {
+      return Object.assign({}, f, st[f.status], {
+        color: sevColor[f.sev],
+        checked: !!(f.checked || f.selected),
+        rowBg: f.selected ? '#FBE9E4' : (f.checked ? '#F7F7F7' : '#FFFFFF'),
+        rowEdge: f.selected ? '#C10D14' : 'transparent'
+      });
+    });
+    var sev = [
+      { label: 'Critical', count: '2', note: '', color: '#C10D14', pressed: 'true' },
+      { label: 'High', count: '14', note: '3 new this week', color: '#E35205', pressed: 'true' },
+      { label: 'Medium', count: '61', note: '9 new this week', color: '#E8A800', pressed: 'true' },
+      { label: 'Low', count: '118', note: '', color: '#2F6DB5', pressed: 'true' },
+      { label: 'Info', count: '2,904', note: '', color: '#808187', pressed: 'false' }
+    ].map(function (s) { return Object.assign({}, s, { bg: s.pressed === 'true' ? '#FFFFFF' : '#EDEDED' }); });
+    return { findings: findings, severities: sev };
+  }
+}
+</script>
+</body>
+</html>

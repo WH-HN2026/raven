@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ASI – Runs and schedules</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500&amp;family=Roboto:wght@300;400;500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#FFFFFF}
+a{color:#212121;text-decoration-color:#C10D14;text-underline-offset:3px}a:hover{color:#C10D14}
+</style>
+</helmet>
+<div style="background: #FFFFFF; font-family: Roboto, 'Helvetica Neue', Arial, sans-serif; color: #212121; font-size: 15px; line-height: 1.5">
+  <dc-import name="Nav" active="runs" hint-size="100%,80px"></dc-import>
+
+  <section style="background: #000000; color: #FFFFFF">
+    <div style="max-width: 1440px; margin: 0 auto; box-sizing: border-box; padding: 16px 40px 44px; display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 24px 40px">
+      <div style="flex: 1 1 520px; display: flex; flex-direction: column; gap: 18px">
+        <nav aria-label="Breadcrumb" style="font-size: 14px; color: #BDBDBD"><a href="Main.dc.html" style="color: #BDBDBD">Dashboard</a> / Runs &amp; schedules</nav>
+        <h1 style="margin: 0; font-size: 64px; font-weight: 300; line-height: 1.05">Runs &amp; schedules</h1>
+        <div style="display: flex; gap: 12px; flex-wrap: wrap">
+          <button type="button" style="height: 48px; padding: 0 24px; border: 0; background: #C10D14; color: #FFFFFF; font: inherit; font-weight: 500">Start scan now</button>
+          <button type="button" style="height: 48px; padding: 0 24px; border: 1px solid #FFFFFF; background: transparent; color: #FFFFFF; font: inherit">New schedule</button>
+        </div>
+      </div>
+      <div style="flex: 0 1 560px; min-width: 280px">
+        <dc-import name="Squares" variant="masthead" hint-size="100%,150px"></dc-import>
+      </div>
+    </div>
+  </section>
+
+  <section aria-label="Current run" style="max-width: 1440px; margin: 0 auto; box-sizing: border-box; padding: 48px 40px; display: flex; flex-direction: column; gap: 24px">
+    <div style="display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap">
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap">
+          <h2 style="margin: 0; display: flex; align-items: center; gap: 14px; font-size: 28px; font-weight: 700"><span style="width: 10px; height: 10px; background: #C10D14; flex: none"></span>Run #43 · Campus /16</h2>
+          <span style="font-size: 12px; font-weight: 500; letter-spacing: 0.06em; padding: 4px 10px; background: #006837; color: #FFFFFF">RUNNING</span>
+        </div>
+        <p style="margin: 0; font-size: 15px; color: #505157">Schedule “Campus nightly” · window 22:00–01:00 · started 22:00 · window ends in 2 h 19 min</p>
+      </div>
+      <button type="button" style="height: 48px; padding: 0 24px; border: 2px solid #C10D14; background: #FFFFFF; color: #C10D14; font: inherit; font-weight: 500">Stop run</button>
+    </div>
+    <div>
+      <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px"><span style="font-size: 15px">9 of 24 batches done</span><span style="font-size: 32px; font-weight: 300">38%</span></div>
+      <div role="progressbar" aria-valuenow="38" aria-valuemin="0" aria-valuemax="100" aria-label="Run progress" style="height: 12px; background: #EDEDED"><div style="width: 38%; height: 12px; background: #006837"></div></div>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 24px">
+      <sc-for list="{{stats}}" as="s" hint-placeholder-count="6">
+        <div style="border-left: 2px solid #C10D14; padding-left: 14px">
+          <div style="font-size: 14px; color: #505157">{{s.label}}</div>
+          <div style="font-size: 30px; font-weight: 300; line-height: 1.2">{{s.value}}</div>
+          <div style="font-size: 13px; color: #505157">{{s.note}}</div>
+        </div>
+      </sc-for>
+    </div>
+    <div>
+      <div style="font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: #505157; font-weight: 500; margin-bottom: 8px">Batches · 2,731 IPs each</div>
+      <div role="img" aria-label="9 batches done, 1 running, 14 pending" style="display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 3px">
+        <sc-for list="{{batches}}" as="b" hint-placeholder-count="24"><span title="{{b.tip}}" style="height: 32px; background: {{b.bg}}; border: 1px solid {{b.border}}"></span></sc-for>
+      </div>
+      <div style="display: flex; gap: 20px; margin-top: 10px; font-size: 13px; color: #505157; flex-wrap: wrap">
+        <span><span style="display: inline-block; width: 10px; height: 10px; background: #006837; vertical-align: middle"></span> done</span>
+        <span><span style="display: inline-block; width: 10px; height: 10px; background: #F9BEAD; vertical-align: middle"></span> running</span>
+        <span><span style="display: inline-block; width: 10px; height: 10px; background: #EDEDED; border: 1px solid #BDBDBD; vertical-align: middle"></span> pending</span>
+      </div>
+    </div>
+  </section>
+
+  <section style="background: #EDEDED">
+    <div style="max-width: 1440px; margin: 0 auto; box-sizing: border-box; padding: 48px 40px">
+      <div style="display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin-bottom: 16px">
+        <h2 style="margin: 0; display: flex; align-items: center; gap: 14px; font-size: 28px; font-weight: 700"><span style="width: 10px; height: 10px; background: #C10D14; flex: none"></span>Schedules</h2>
+      </div>
+      <div style="overflow-x: auto; background: #FFFFFF; padding: 4px 20px 8px">
+        <table style="width: 100%; border-collapse: collapse; font-size: 14px; min-width: 960px">
+          <thead><tr style="text-align: left; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: #505157; border-bottom: 2px solid #000000">
+            <th style="padding: 12px 12px 10px 0; font-weight: 500">Schedule</th>
+            <th style="padding: 12px 12px 10px; font-weight: 500">Profile</th>
+            <th style="padding: 12px 12px 10px; font-weight: 500">Source</th>
+            <th style="padding: 12px 12px 10px; font-weight: 500">Repeats</th>
+            <th style="padding: 12px 12px 10px; font-weight: 500">Window</th>
+            <th style="padding: 12px 12px 10px; font-weight: 500">Next run</th>
+            <th style="padding: 12px 0 10px 12px; font-weight: 500">Enabled</th>
+          </tr></thead>
+          <tbody>
+            <sc-for list="{{schedules}}" as="s" hint-placeholder-count="5">
+              <tr style="border-bottom: 1px solid #DEDEDE">
+                <td style="padding: 12px 12px 12px 0; font-weight: 500">{{s.name}}</td>
+                <td style="padding: 12px">{{s.profile}}</td>
+                <td style="padding: 12px"><span style="font-size: 12px; font-weight: 500; letter-spacing: 0.04em; padding: 3px 8px; background: {{s.srcBg}}; color: {{s.srcFg}}">{{s.source}}</span></td>
+                <td style="padding: 12px">{{s.repeat}}</td>
+                <td style="padding: 12px; font-family: 'Roboto Mono', monospace; font-size: 13px">{{s.window}}</td>
+                <td style="padding: 12px">{{s.next}}</td>
+                <td style="padding: 12px 0 12px 12px; color: #505157">{{s.enabled}}</td>
+              </tr>
+            </sc-for>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <div style="max-width: 1440px; margin: 0 auto; box-sizing: border-box; padding: 48px 40px 64px; display: flex; flex-wrap: wrap; gap: 48px; align-items: flex-start">
+    <section style="flex: 1 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+      <div style="display: flex; justify-content: space-between; align-items: flex-end; gap: 12px">
+        <h2 style="margin: 0; display: flex; align-items: center; gap: 14px; font-size: 28px; font-weight: 700"><span style="width: 10px; height: 10px; background: #C10D14; flex: none"></span>Profile · Campus /16</h2>
+        <a href="#" style="font-weight: 500">Edit profile</a>
+      </div>
+      <dl style="margin: 0; border-top: 2px solid #000000; display: grid; grid-template-columns: 150px 1fr; font-size: 14px">
+        <dt style="padding: 12px 0; border-bottom: 1px solid #DEDEDE; color: #505157">Targets</dt><dd style="margin: 0; padding: 12px 0; border-bottom: 1px solid #DEDEDE"><a href="Targets.dc.html">10.20.0.0/16, *.lab.local</a> (−320 excluded)</dd>
+        <dt style="padding: 12px 0; border-bottom: 1px solid #DEDEDE; color: #505157">Ports</dt><dd style="margin: 0; padding: 12px 0; border-bottom: 1px solid #DEDEDE; font-family: 'Roboto Mono', monospace; font-size: 13px">allowed list: 21-23,25,53,80,110,143,443,445,554,587,993,1883,3000,3306,3389,5432,8000-8100,8443,9100</dd>
+        <dt style="padding: 12px 0; border-bottom: 1px solid #DEDEDE; color: #505157">nmap</dt><dd style="margin: 0; padding: 12px 0; border-bottom: 1px solid #DEDEDE; font-family: 'Roboto Mono', monospace; font-size: 13px">-sn, then -sS -sV · --max-rate 300 · scripts: http-title, http-headers, ssl-cert, banner</dd>
+        <dt style="padding: 12px 0; border-bottom: 1px solid #DEDEDE; color: #505157">nuclei</dt><dd style="margin: 0; padding: 12px 0; border-bottom: 1px solid #DEDEDE; font-family: 'Roboto Mono', monospace; font-size: 13px">tags tech, panel, ssl, favicon · -rl 20 · no interactsh · 14 custom signatures</dd>
+        <dt style="padding: 12px 0; border-bottom: 1px solid #DEDEDE; color: #505157">Offline after</dt><dd style="margin: 0; padding: 12px 0; border-bottom: 1px solid #DEDEDE">3 missed runs</dd>
+        <dt style="padding: 12px 0; border-bottom: 1px solid #DEDEDE; color: #505157">Batch target</dt><dd style="margin: 0; padding: 12px 0; border-bottom: 1px solid #DEDEDE">10 min</dd>
+      </dl>
+    </section>
+
+    <section style="flex: 1 1 440px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+      <div style="display: flex; justify-content: space-between; align-items: flex-end; gap: 12px">
+        <h2 style="margin: 0; display: flex; align-items: center; gap: 14px; font-size: 28px; font-weight: 700"><span style="width: 10px; height: 10px; background: #C10D14; flex: none"></span>Run duration</h2>
+        <span style="font-size: 13px; color: #505157">Campus /16 · 3 h window</span>
+      </div>
+      <div role="img" aria-label="Duration of the last 8 runs, between 1 h 52 min and 3 h 00 min; run 36 hit the window end" style="display: flex; flex-direction: column; gap: 8px; border-top: 2px solid #000000; padding-top: 14px">
+        <sc-for list="{{durations}}" as="d" hint-placeholder-count="8">
+          <div style="display: grid; grid-template-columns: 44px 1fr 150px; gap: 12px; align-items: center; font-size: 13px">
+            <span style="color: #505157">{{d.run}}</span>
+            <div style="height: 14px; background: #EDEDED"><div style="height: 14px; width: {{d.pct}}; background: {{d.color}}"></div></div>
+            <span style="font-variant-numeric: tabular-nums">{{d.label}}</span>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+  </div>
+
+  <dc-import name="Footer" hint-size="100%,180px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1860}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var batches = [];
+    for (var i = 1; i <= 24; i++) {
+      var s = i <= 9 ? 'done' : i === 10 ? 'running' : 'pending';
+      batches.push({
+        tip: 'Batch ' + i + ' – ' + s,
+        bg: s === 'done' ? '#006837' : s === 'running' ? '#F9BEAD' : '#EDEDED',
+        border: s === 'done' ? '#006837' : s === 'running' ? '#F9BEAD' : '#BDBDBD'
+      });
+    }
+    var src = {
+      asi: { srcBg: '#212121', srcFg: '#FFFFFF' },
+      dojo: { srcBg: '#F9BEAD', srcFg: '#212121' }
+    };
+    var schedules = [
+      Object.assign({ name: 'Campus nightly', profile: 'Campus /16', source: 'ASI', repeat: 'every day', window: '22:00–01:00', next: 'running now', enabled: 'on' }, src.asi),
+      Object.assign({ name: 'Campus early', profile: 'Campus /16', source: 'ASI', repeat: 'every day', window: '04:00–07:00', next: 'tomorrow 04:00', enabled: 'on' }, src.asi),
+      Object.assign({ name: 'Working-hours re-check', profile: 'Campus /16 (unstable hosts)', source: 'ASI', repeat: 'Mon–Fri', window: '10:00–16:00', next: 'Mon 24 Nov, 10:00', enabled: 'on' }, src.asi),
+      Object.assign({ name: 'DMZ quarterly review', profile: 'DMZ weekly', source: 'DEFECTDOJO #118', repeat: 'once (planned)', window: '22 Nov 02:00–06:00', next: 'tomorrow 02:00', enabled: 'read-only' }, src.dojo),
+      Object.assign({ name: 'Lab quick check', profile: 'Lab quick check', source: 'ASI', repeat: 'manual only', window: 'any time', next: '—', enabled: 'on' }, src.asi)
+    ];
+    var runs = [
+      ['#33', 118], ['#34', 121], ['#35', 125], ['#36', 180], ['#37', 116], ['#38', 119], ['#41', 118], ['#42', 112]
+    ];
+    var durations = runs.map(function (r) {
+      var m = r[1];
+      var hit = m >= 180;
+      return {
+        run: r[0],
+        pct: Math.round(m / 180 * 100) + '%',
+        color: hit ? '#C10D14' : '#006837',
+        label: Math.floor(m / 60) + ' h ' + (m % 60 < 10 ? '0' : '') + (m % 60) + ' min' + (hit ? ' · suspended' : '')
+      };
+    });
+    return {
+      batches: batches,
+      schedules: schedules,
+      durations: durations,
+      stats: [
+        { label: 'Elapsed', value: '41 min', note: 'since 22:00' },
+        { label: 'Estimated remaining', value: '1 h 08 min', note: 'fits in the window' },
+        { label: 'Throughput', value: '52 hosts/s', note: '' },
+        { label: 'Rate limits', value: '300 pps', note: 'nmap --max-rate · nuclei 20 req/s' },
+        { label: 'Hosts up so far', value: '471', note: 'of 24,579 IPs checked' },
+        { label: 'Pushed to DefectDojo', value: '462', note: '9 waiting for re-probe' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

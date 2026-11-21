@@ -230,7 +230,7 @@ Adding a scanner means adding a package that implements `Scanner` and registerin
   - Signatures (editor + validate)
   - Import / Export
   - Users (admin)
-- **Theme:** AGH colours (green / red / black-graphite, taken from the AGH visual identity book), defined once as CSS variables in `web/src/theme.css`, plus the AGH logo in the header.
+- **Theme and layout:** [`design/README.md`](design/README.md), the agh.edu.pl look. Black top bar with the AGH logo, red `#C10D14` accents, Roboto, square corners, the AGH squares band in the page header and footer. Tokens go in `web/src/theme.css`; each screen has a mockup in `design/canvas/`.
 - **Routing:** each page lives in `web/src/pages/<area>/` and exports its routes; `web/src/routes.tsx` only concatenates them.
 - **Dev:** `vite` dev server proxies `/api` to the Go server. **Prod:** `make build` puts `web/dist` into the binary.
 

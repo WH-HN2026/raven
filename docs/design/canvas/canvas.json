@@ -1,0 +1,27 @@
+{
+  "v": 3,
+  "createdOnFiles": {"v": 1, "at": "2026-11-21T13:00:00Z"},
+  "title": "ASI – Attack Surface Intelligence",
+  "launch": {"view": "canvas"},
+  "pages": [],
+  "boards": {
+    "Main.dc.html": {"x": 0, "y": 0, "w": 1440, "h": 1820, "title": "Dashboard", "expand": "fill", "is_interactive": true},
+    "Hosts.dc.html": {"x": 1520, "y": 0, "w": 1440, "h": 1460, "title": "Hosts", "expand": "fill", "is_interactive": true},
+    "HostDetail.dc.html": {"x": 3040, "y": 0, "w": 1440, "h": 2060, "title": "Host detail", "expand": "fill", "is_interactive": true},
+    "Findings.dc.html": {"x": 4560, "y": 0, "w": 1440, "h": 1900, "title": "Findings", "expand": "fill", "is_interactive": true},
+    "Changes.dc.html": {"x": 0, "y": 2480, "w": 1440, "h": 1760, "title": "Changes – compare runs", "expand": "fill", "is_interactive": true},
+    "Targets.dc.html": {"x": 1520, "y": 2480, "w": 1440, "h": 1620, "title": "Targets & scope", "expand": "fill", "is_interactive": true},
+    "Scans.dc.html": {"x": 3040, "y": 2480, "w": 1440, "h": 1860, "title": "Runs & schedules", "expand": "fill", "is_interactive": true},
+    "Nav.dc.html": {"x": 0, "y": 4760, "w": 1440, "h": 80, "title": "Top bar (shared component)"},
+    "Footer.dc.html": {"x": 0, "y": 4960, "w": 1440, "h": 180, "title": "Footer (shared component)"},
+    "Squares.dc.html": {"x": 1520, "y": 4760, "w": 380, "h": 104, "title": "AGH squares band (shared component)"}
+  },
+  "order": ["Main.dc.html", "Hosts.dc.html", "HostDetail.dc.html", "Findings.dc.html", "Changes.dc.html", "Targets.dc.html", "Scans.dc.html", "Nav.dc.html", "Footer.dc.html", "Squares.dc.html"],
+  "notes": {
+    "titleAnalyze": {"x": 0, "y": -300, "text": "ASI – analyze: dashboard, hosts, host detail, findings", "kind": "title1", "maxW": 6000},
+    "titleOperate": {"x": 0, "y": 2180, "text": "ASI – operate: changes, targets & scope, runs & schedules", "kind": "title1", "maxW": 4480},
+    "titleShared": {"x": 0, "y": 4460, "text": "Shared components", "kind": "title1", "maxW": 4480},
+    "assumptions": {"x": 1980, "y": 4760, "w": 320, "text": "AGH look taken from agh.edu.pl (used with the challenge authors' permission): red #C10D14, black bar and footer, Roboto with light headings, square corners everywhere, the squares band from the site's decor artwork, and the real AGH logo. All IPs and hostnames are sample lab data.", "fill": "orange"}
+  },
+  "designSystems": []
+}

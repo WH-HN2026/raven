@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ASI – Changes</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500&amp;family=Roboto:wght@300;400;500;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#FFFFFF}
+a{color:#212121;text-decoration-color:#C10D14;text-underline-offset:3px}a:hover{color:#C10D14}
+</style>
+</helmet>
+<div style="background: #FFFFFF; font-family: Roboto, 'Helvetica Neue', Arial, sans-serif; color: #212121; font-size: 15px; line-height: 1.5">
+  <dc-import name="Nav" active="changes" hint-size="100%,80px"></dc-import>
+
+  <section style="background: #000000; color: #FFFFFF">
+    <div style="max-width: 1440px; margin: 0 auto; box-sizing: border-box; padding: 16px 40px 44px; display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 24px 40px">
+      <div style="flex: 1 1 520px; display: flex; flex-direction: column; gap: 18px">
+        <nav aria-label="Breadcrumb" style="font-size: 14px; color: #BDBDBD"><a href="Main.dc.html" style="color: #BDBDBD">Dashboard</a> / Changes</nav>
+        <h1 style="margin: 0; font-size: 64px; font-weight: 300; line-height: 1.05">Changes</h1>
+        <div style="display: flex; gap: 12px; flex-wrap: wrap">
+          <button type="button" style="height: 48px; padding: 0 24px; border: 1px solid #FFFFFF; background: transparent; color: #FFFFFF; font: inherit">Export diff (CSV)</button>
+        </div>
+      </div>
+      <div style="flex: 0 1 560px; min-width: 280px">
+        <dc-import name="Squares" variant="masthead" hint-size="100%,150px"></dc-import>
+      </div>
+    </div>
+  </section>
+
+  <section aria-label="Runs to compare" style="background: #EDEDED">
+    <div style="max-width: 1440px; margin: 0 auto; box-sizing: border-box; padding: 28px 40px; display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end">
+      <label style="display: flex; flex-direction: column; gap: 6px; flex: 1 1 200px; font-size: 13px; font-weight: 500">Profile
+        <select style="height: 44px; padding: 0 10px; border: 1px solid #212121; border-radius: 0; background: #FFFFFF; font: inherit; font-size: 15px; color: #212121"><option>Campus /16</option><option>DMZ weekly</option><option>Lab quick check</option></select>
+      </label>
+      <label style="display: flex; flex-direction: column; gap: 6px; flex: 2 1 280px; font-size: 13px; font-weight: 500">From (baseline)
+        <select style="height: 44px; padding: 0 10px; border: 1px solid #212121; border-radius: 0; background: #FFFFFF; font: inherit; font-size: 15px; color: #212121"><option>Run #41 · 20 Nov, 22:00–23:58</option></select>
+      </label>
+      <span aria-hidden="true" style="height: 44px; display: inline-flex; align-items: center; font-size: 22px; font-weight: 300">→</span>
+      <label style="display: flex; flex-direction: column; gap: 6px; flex: 2 1 280px; font-size: 13px; font-weight: 500">To
+        <select style="height: 44px; padding: 0 10px; border: 1px solid #212121; border-radius: 0; background: #FFFFFF; font: inherit; font-size: 15px; color: #212121"><option>Run #42 · 21 Nov, 04:22–06:14</option></select>
+      </label>
+      <button type="button" style="height: 44px; padding: 0 28px; border: 0; background: #C10D14; color: #FFFFFF; font: inherit; font-weight: 500">Compare</button>
+    </div>
+  </section>
+
+  <section aria-label="Summary" style="max-width: 1440px; margin: 0 auto; box-sizing: border-box; padding: 48px 40px 0">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 24px">
+      <div style="border-left: 2px solid #006837; padding-left: 18px"><div style="font-size: 14px; color: #505157">New</div><div style="font-size: 52px; font-weight: 300; line-height: 1.1">12</div><div style="font-size: 13px; color: #505157">7 hosts, 5 services on known hosts</div></div>
+      <div style="border-left: 2px solid #F9BEAD; padding-left: 18px"><div style="font-size: 14px; color: #505157">Changed</div><div style="font-size: 52px; font-weight: 300; line-height: 1.1">23</div></div>
+      <div style="border-left: 2px solid #000000; padding-left: 18px"><div style="font-size: 14px; color: #505157">Gone</div><div style="font-size: 52px; font-weight: 300; line-height: 1.1">4</div></div>
+      <div style="border-left: 2px solid #C10D14; padding-left: 18px"><div style="font-size: 14px; color: #505157">Not answering (pending)</div><div style="font-size: 52px; font-weight: 300; line-height: 1.1">9</div><div style="font-size: 13px; color: #505157">missed 1–2 runs</div></div>
+    </div>
+  </section>
+
+  <section style="max-width: 1440px; margin: 0 auto; box-sizing: border-box; padding: 48px 40px">
+    <div style="display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin-bottom: 16px">
+      <h2 style="margin: 0; display: flex; align-items: center; gap: 14px; font-size: 28px; font-weight: 700"><span style="width: 10px; height: 10px; background: #C10D14; flex: none"></span>Run #41 → run #42</h2>
+      <div role="tablist" aria-label="Change type" style="display: flex; flex-wrap: wrap">
+        <button type="button" role="tab" aria-selected="true" style="height: 44px; padding: 0 16px; border: 1px solid #000000; background: #000000; color: #FFFFFF; font: inherit; font-size: 14px">All 39</button>
+        <button type="button" role="tab" aria-selected="false" style="height: 44px; padding: 0 16px; border: 1px solid #000000; border-left: 0; background: #FFFFFF; color: #212121; font: inherit; font-size: 14px">New 12</button>
+        <button type="button" role="tab" aria-selected="false" style="height: 44px; padding: 0 16px; border: 1px solid #000000; border-left: 0; background: #FFFFFF; color: #212121; font: inherit; font-size: 14px">Changed 23</button>
+        <button type="button" role="tab" aria-selected="false" style="height: 44px; padding: 0 16px; border: 1px solid #000000; border-left: 0; background: #FFFFFF; color: #212121; font: inherit; font-size: 14px">Gone 4</button>
+      </div>
+    </div>
+    <div style="overflow-x: auto">
+      <table style="width: 100%; border-collapse: collapse; font-size: 14px; min-width: 940px">
+        <thead><tr style="text-align: left; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: #505157; border-bottom: 2px solid #000000">
+          <th style="padding: 10px 12px 10px 0; font-weight: 500">Change</th>
+          <th style="padding: 10px 12px; font-weight: 500">Host</th>
+          <th style="padding: 10px 12px; font-weight: 500">Service</th>
+          <th style="padding: 10px 12px; font-weight: 500">Field</th>
+          <th style="padding: 10px 12px; font-weight: 500">Run #41</th>
+          <th style="padding: 10px 0 10px 12px; font-weight: 500">Run #42</th>
+        </tr></thead>
+        <tbody>
+          <sc-for list="{{diff}}" as="d" hint-placeholder-count="9">
+            <tr style="border-bottom: 1px solid #DEDEDE">
+              <td style="padding: 12px 12px 12px 0"><span style="display: inline-block; min-width: 92px; padding: 3px 8px; font-size: 12px; font-weight: 500; background: {{d.bg}}; color: {{d.fg}}">{{d.label}}</span></td>
+              <td style="padding: 12px"><a href="HostDetail.dc.html" style="font-family: 'Roboto Mono', monospace; font-weight: 500">{{d.ip}}</a><div style="font-size: 13px; color: #505157">{{d.host}}</div></td>
+              <td style="padding: 12px; font-family: 'Roboto Mono', monospace; font-size: 13px">{{d.service}}</td>
+              <td style="padding: 12px; color: #505157">{{d.field}}</td>
+              <td style="padding: 12px; font-family: 'Roboto Mono', monospace; font-size: 13px; color: #505157">{{d.before}}</td>
+              <td style="padding: 12px 0 12px 12px; font-family: 'Roboto Mono', monospace; font-size: 13px; font-weight: 500">{{d.after}}</td>
+            </tr>
+          </sc-for>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section style="background: #EDEDED">
+    <div style="max-width: 1440px; margin: 0 auto; box-sizing: border-box; padding: 48px 40px 56px; display: flex; flex-direction: column; gap: 20px">
+      <div style="display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap">
+        <div style="display: flex; flex-direction: column; gap: 10px">
+          <h2 style="margin: 0; display: flex; align-items: center; gap: 14px; font-size: 28px; font-weight: 700"><span style="width: 10px; height: 10px; background: #C10D14; flex: none"></span>Time-of-day presence</h2>
+          <p style="margin: 0; font-size: 14px; color: #505157">Last 30 days · % of runs answered</p>
+        </div>
+        <div aria-label="Legend" style="display: flex; align-items: center; gap: 4px; font-size: 13px; color: #505157">
+          <span style="margin-right: 6px">0%</span>
+          <sc-for list="{{legend}}" as="l" hint-placeholder-count="5"><span style="width: 24px; height: 16px; background: {{l}}"></span></sc-for>
+          <span style="margin-left: 6px">100%</span>
+        </div>
+      </div>
+      <div style="overflow-x: auto; background: #FFFFFF; padding: 20px">
+        <div style="min-width: 940px; display: flex; flex-direction: column; gap: 3px">
+          <div style="display: grid; grid-template-columns: 230px repeat(24, minmax(0, 1fr)) 140px; gap: 3px; font-size: 12px; color: #505157">
+            <span></span>
+            <sc-for list="{{hours}}" as="h" hint-placeholder-count="24"><span style="text-align: center; font-family: 'Roboto Mono', monospace">{{h}}</span></sc-for>
+            <span style="padding-left: 10px">Pattern</span>
+          </div>
+          <sc-for list="{{rows}}" as="r" hint-placeholder-count="7">
+            <div style="display: grid; grid-template-columns: 230px repeat(24, minmax(0, 1fr)) 140px; gap: 3px; align-items: center">
+              <span style="font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis"><span style="font-family: 'Roboto Mono', monospace; font-weight: 500">{{r.ip}}</span> <span style="color: #505157">{{r.what}}</span></span>
+              <sc-for list="{{r.cells}}" as="c" hint-placeholder-count="24"><span title="{{c.tip}}" style="height: 26px; background: {{c.bg}}"></span></sc-for>
+              <span style="padding-left: 10px; font-size: 13px">{{r.pattern}}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <dc-import name="Footer" hint-size="100%,440px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1760}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var type = {
+      'new': { label: '+ NEW', bg: '#006837', fg: '#FFFFFF' },
+      'changed': { label: '~ CHANGED', bg: '#F9BEAD', fg: '#212121' },
+      'gone': { label: '− GONE', bg: '#DEDEDE', fg: '#212121' }
+    };
+    var diff = [
+      { t: 'new', ip: '10.20.31.204', host: 'ipcam-3f.lab.local', service: '554/tcp', field: 'host', before: '—', after: 'up, 2 open ports' },
+      { t: 'new', ip: '10.20.14.88', host: 'no PTR record', service: '8080/tcp', field: 'service', before: '—', after: 'Jenkins 2.346 (Jetty)' },
+      { t: 'new', ip: '10.20.2.20', host: 'www.lab.local', service: '8443/tcp', field: 'service', before: '—', after: 'https, nginx 1.24' },
+      { t: 'changed', ip: '10.20.14.37', host: 'wiki-staging.lab.local', service: '443/tcp', field: 'technology', before: 'WordPress 5.8.3', after: 'WordPress 6.4.2' },
+      { t: 'changed', ip: '10.20.2.15', host: 'mail.lab.local', service: '25/tcp', field: 'banner', before: '220 mail ESMTP Postfix (Ubuntu)', after: '220 mail.lab.local ESMTP' },
+      { t: 'changed', ip: '10.20.21.3', host: 'gitlab.lab.local', service: '443/tcp', field: 'title', before: 'Sign in · GitLab', after: 'GitLab is not responding (502)' },
+      { t: 'changed', ip: '10.20.33.50', host: 'erp.lab.local', service: '8443/tcp', field: 'TLS cert', before: 'valid to 2026-11-30', after: 'valid to 2027-11-30' },
+      { t: 'gone', ip: '10.20.7.9', host: 'printer-b2.lab.local', service: 'all', field: 'host', before: 'up (9100, 80)', after: 'no answer, 3rd run in a row' },
+      { t: 'gone', ip: '10.20.5.60', host: 'db-tools.lab.local', service: '3306/tcp', field: 'service', before: 'MySQL 5.7.44', after: 'closed, 3rd run in a row' }
+    ].map(function (d) { return Object.assign({}, d, type[d.t]); });
+
+    var ramp = ['#EDEDED', '#CFE3D3', '#8DC29B', '#2E8A4F', '#006837'];
+    function bucket(v) { return v <= 0 ? 0 : v <= 25 ? 1 : v <= 50 ? 2 : v <= 75 ? 3 : 4; }
+    function row(ip, what, pattern, fn) {
+      var cells = [];
+      for (var h = 0; h < 24; h++) {
+        var v = fn(h);
+        cells.push({ bg: ramp[bucket(v)], tip: (h < 10 ? '0' : '') + h + ':00 – ' + v + '% of runs' });
+      }
+      return { ip: ip, what: what, pattern: pattern, cells: cells };
+    }
+    var noise = [55, 40, 62, 48, 35, 58, 44, 51, 60, 38, 47, 53, 42, 57, 49, 36, 61, 45, 52, 39, 56, 43, 50, 46];
+    var rows = [
+      row('10.20.14.37', 'wiki-staging', 'stable (reference)', function () { return 100; }),
+      row('10.20.9.141', 'lab-pc-07', 'working hours', function (h) { return h >= 8 && h < 18 ? 95 : (h === 7 || h === 18 ? 40 : 0); }),
+      row('10.20.18.22', 'no PTR record', 'evenings', function (h) { return h >= 18 && h <= 23 ? 85 : (h < 1 ? 30 : 5); }),
+      row('10.20.44.9', 'backup-01', 'night only', function (h) { return h >= 2 && h < 5 ? 100 : 0; }),
+      row('10.20.33.50', '8443/tcp', 'maintenance 01–03', function (h) { return h >= 1 && h < 3 ? 0 : 100; }),
+      row('10.20.12.7', 'no PTR record', 'flapping', function (h) { return noise[h]; }),
+      row('10.20.27.130', 'vpn-gw.lab.local', 'mostly up', function (h) { return h === 12 || h === 13 ? 70 : 100; })
+    ];
+    var hours = [];
+    for (var i = 0; i < 24; i++) hours.push(i % 3 === 0 ? (i < 10 ? '0' + i : '' + i) : '');
+    return { diff: diff, rows: rows, hours: hours, legend: ramp };
+  }
+}
+</script>
+</body>
+</html>
