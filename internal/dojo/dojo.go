@@ -159,7 +159,9 @@ type Finding struct {
 	Active           bool      `json:"active"`
 	Verified         bool      `json:"verified"`
 	FalseP           bool      `json:"false_p"`
+	OutOfScope       bool      `json:"out_of_scope"`
 	RiskAccepted     bool      `json:"risk_accepted"`
+	Duplicate        bool      `json:"duplicate"`
 	IsMitigated      bool      `json:"is_mitigated"`
 	Tags             []string  `json:"tags"`
 	Test             int64     `json:"test"`

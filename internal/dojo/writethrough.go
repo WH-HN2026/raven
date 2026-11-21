@@ -184,7 +184,8 @@ func isTrue(b *bool) bool { return b != nil && *b }
 func mirrorFromRow(r gen.GetDojoFindingRow, dojoPublicURL string) *MirrorFinding {
 	m := &MirrorFinding{
 		ID: r.ID, AssetID: r.AssetID, IP: r.Ip, Title: r.Title, Severity: r.Severity, Active: r.Active,
-		Verified: r.Verified, FalseP: r.FalseP, RiskAccepted: r.RiskAccepted, IsMitigated: r.IsMitigated,
+		Verified: r.Verified, FalseP: r.FalseP, OutOfScope: r.OutOfScope, RiskAccepted: r.RiskAccepted,
+		Duplicate: r.Duplicate, IsMitigated: r.IsMitigated,
 		Tags: nonNil(r.Tags), Scanner: r.Scanner, DojoURL: FindingURL(dojoPublicURL, r.ID),
 	}
 	if r.Date != "" {
@@ -253,7 +254,8 @@ func EditFinding(ctx context.Context, pool *pgxpool.Pool, c WriteClient, actor *
 		q := gen.New(tx)
 		u := gen.UpdateDojoFindingTriageParams{
 			ID: id, Severity: normSeverity(f.Severity), Active: f.Active, Verified: f.Verified, FalseP: f.FalseP,
-			RiskAccepted: f.RiskAccepted, IsMitigated: f.IsMitigated, Tags: nonNil(f.Tags),
+			OutOfScope: f.OutOfScope, RiskAccepted: f.RiskAccepted, Duplicate: f.Duplicate,
+			IsMitigated: f.IsMitigated, Tags: nonNil(f.Tags),
 		}
 		if !f.LastStatusUpdate.IsZero() {
 			t := f.LastStatusUpdate

@@ -15,13 +15,21 @@ import (
 // FindingFilter selects findings from the mirror (GET /api/findings).
 // Zero values mean "no filter".
 type FindingFilter struct {
-	Severities []string      // any of (Dojo values, see Severities)
-	Active     *bool         //
-	IP         *netip.Prefix // a single IP is a /32 (/128) prefix
-	Q          string        // case-insensitive title substring
-	Scanner    string        // exact: nmap, nuclei, raven, …
-	Limit      int32
-	Offset     int32
+	Severities   []string      // any of (Dojo values, see Severities)
+	Active       *bool         //
+	Verified     *bool         //
+	FalseP       *bool         //
+	OutOfScope   *bool         //
+	RiskAccepted *bool         //
+	Duplicate    *bool         //
+	IsMitigated  *bool         //
+	AssetID      *int64        // exact dojo_findings.asset_id
+	Asset        string        // asset id, IP/CIDR, or dojo_assets.name substring
+	IP           *netip.Prefix // a single IP is a /32 (/128) prefix
+	Q            string        // case-insensitive title substring
+	Scanner      string        // exact: nmap, nuclei, raven, …
+	Limit        int32
+	Offset       int32
 }
 
 // MirrorFinding is one row of the mirror as the API returns it.
@@ -34,7 +42,9 @@ type MirrorFinding struct {
 	Active       bool        `json:"active"`
 	Verified     bool        `json:"verified"`
 	FalseP       bool        `json:"false_p"`
+	OutOfScope   bool        `json:"out_of_scope"`
 	RiskAccepted bool        `json:"risk_accepted"`
+	Duplicate    bool        `json:"duplicate"`
 	IsMitigated  bool        `json:"is_mitigated"`
 	Tags         []string    `json:"tags"`
 	Scanner      string      `json:"scanner"`
@@ -60,6 +70,41 @@ func buildFindingWhere(f FindingFilter) (string, []any) {
 	if f.Active != nil {
 		conds = append(conds, "active = "+arg(*f.Active))
 	}
+	if f.Verified != nil {
+		conds = append(conds, "verified = "+arg(*f.Verified))
+	}
+	if f.FalseP != nil {
+		conds = append(conds, "false_p = "+arg(*f.FalseP))
+	}
+	if f.OutOfScope != nil {
+		conds = append(conds, "out_of_scope = "+arg(*f.OutOfScope))
+	}
+	if f.RiskAccepted != nil {
+		conds = append(conds, "risk_accepted = "+arg(*f.RiskAccepted))
+	}
+	if f.Duplicate != nil {
+		conds = append(conds, "duplicate = "+arg(*f.Duplicate))
+	}
+	if f.IsMitigated != nil {
+		conds = append(conds, "is_mitigated = "+arg(*f.IsMitigated))
+	}
+	if f.AssetID != nil {
+		conds = append(conds, "asset_id = "+arg(*f.AssetID))
+	}
+	if a := strings.TrimSpace(f.Asset); a != "" {
+		if id, err := strconv.ParseInt(a, 10, 64); err == nil && id > 0 {
+			conds = append(conds, "asset_id = "+arg(id))
+		} else if p, err := netip.ParsePrefix(a); err == nil {
+			conds = append(conds, "ip <<= "+arg(p.Masked().String())+"::inet")
+		} else if addr, err := netip.ParseAddr(a); err == nil {
+			addr = addr.Unmap()
+			p := netip.PrefixFrom(addr, addr.BitLen())
+			conds = append(conds, "ip <<= "+arg(p.String())+"::inet")
+		} else {
+			n := arg(a)
+			conds = append(conds, "(EXISTS (SELECT 1 FROM dojo_assets da WHERE da.id = dojo_findings.asset_id AND strpos(lower(da.name), lower("+n+")) > 0) OR starts_with(host(ip), "+n+"))")
+		}
+	}
 	if f.IP != nil {
 		conds = append(conds, "ip <<= "+arg(f.IP.Masked().String())+"::inet")
 	}
@@ -81,7 +126,7 @@ func buildFindingList(f FindingFilter) (list string, count string, args []any) {
 	where, args := buildFindingWhere(f)
 	count = "SELECT count(*) FROM dojo_findings" + where
 	n := len(args)
-	list = "SELECT id, asset_id, ip, title, severity, active, verified, false_p, risk_accepted, is_mitigated, tags, scanner, " +
+	list = "SELECT id, asset_id, ip, title, severity, active, verified, false_p, out_of_scope, risk_accepted, duplicate, is_mitigated, tags, scanner, " +
 		"to_char(date, 'YYYY-MM-DD') FROM dojo_findings" + where +
 		" ORDER BY " + severityOrder + ", date DESC NULLS LAST, id DESC" +
 		" LIMIT $" + strconv.Itoa(n+1) + " OFFSET $" + strconv.Itoa(n+2)
@@ -113,7 +158,7 @@ func ListMirrorFindings(ctx context.Context, pool *pgxpool.Pool, f FindingFilter
 	items, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (MirrorFinding, error) {
 		var m MirrorFinding
 		err := r.Scan(&m.ID, &m.AssetID, &m.IP, &m.Title, &m.Severity, &m.Active, &m.Verified, &m.FalseP,
-			&m.RiskAccepted, &m.IsMitigated, &m.Tags, &m.Scanner, &m.Date)
+			&m.OutOfScope, &m.RiskAccepted, &m.Duplicate, &m.IsMitigated, &m.Tags, &m.Scanner, &m.Date)
 		m.DojoURL = FindingURL(dojoPublicURL, m.ID)
 		return m, err
 	})

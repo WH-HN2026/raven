@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -22,6 +24,50 @@ var (
 	ErrBuiltin  = errors.New("built-in signatures can't be edited or deleted, only enabled or disabled")
 	ErrInvalid  = errors.New("invalid signature")
 )
+
+// Signature is a stored nuclei template enriched with severity and tags parsed
+// from its YAML info block.
+type Signature struct {
+	ID              int64     `json:"id"`
+	Name            string    `json:"name"`
+	TemplateYAML    string    `json:"template_yaml"`
+	Severity        string    `json:"severity"`
+	Tags            []string  `json:"tags"`
+	Enabled         bool      `json:"enabled"`
+	Valid           bool      `json:"valid"`
+	ValidationError string    `json:"validation_error"`
+	Builtin         bool      `json:"builtin"`
+	CreatedBy       *int64    `json:"created_by"`
+	CreatedAt       time.Time `json:"created_at"`
+}
+
+// ListFilter selects signatures for List. Zero values mean "no filter".
+type ListFilter struct {
+	Tag string // exact tag match (case-insensitive)
+}
+
+func enrich(r gen.Signature) Signature {
+	tpl, _ := Validate([]byte(r.TemplateYaml))
+	tags := make([]string, len(tpl.Tags))
+	copy(tags, tpl.Tags)
+	return Signature{
+		ID:              r.ID,
+		Name:            r.Name,
+		TemplateYAML:    r.TemplateYaml,
+		Severity:        strings.ToLower(strings.TrimSpace(tpl.Severity)),
+		Tags:            tags,
+		Enabled:         r.Enabled,
+		Valid:           r.Valid,
+		ValidationError: r.ValidationError,
+		Builtin:         r.Builtin,
+		CreatedBy:       r.CreatedBy,
+		CreatedAt:       r.CreatedAt,
+	}
+}
+
+func hasTag(tags []string, want string) bool {
+	return slices.ContainsFunc(tags, func(t string) bool { return strings.EqualFold(t, want) })
+}
 
 // InvalidError is returned when a template can't be saved at all (no usable
 // id) or an invalid one is enabled. Issues are the validator's findings.
@@ -63,30 +109,59 @@ func userID(u *auth.User) *int64 {
 
 func ids(id int64) string { return strconv.FormatInt(id, 10) }
 
-// List returns one page of signatures (built-ins first) and the total.
-func (s *Store) List(ctx context.Context, limit, offset int32) ([]gen.Signature, int64, error) {
+// List returns one page of signatures (built-ins first) and the total,
+// optionally filtered by tag.
+func (s *Store) List(ctx context.Context, f ListFilter, limit, offset int32) ([]Signature, int64, error) {
 	q := gen.New(s.Pool)
-	items, err := q.ListSignatures(ctx, gen.ListSignaturesParams{Limit: limit, Offset: offset})
+	tag := strings.TrimSpace(f.Tag)
+	if tag == "" {
+		rows, err := q.ListSignatures(ctx, gen.ListSignaturesParams{Limit: limit, Offset: offset})
+		if err != nil {
+			return nil, 0, fmt.Errorf("list signatures: %w", err)
+		}
+		total, err := q.CountSignatures(ctx)
+		if err != nil {
+			return nil, 0, fmt.Errorf("count signatures: %w", err)
+		}
+		items := make([]Signature, len(rows))
+		for i, r := range rows {
+			items[i] = enrich(r)
+		}
+		return items, total, nil
+	}
+	rows, err := q.ListAllSignatures(ctx)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list signatures: %w", err)
 	}
-	total, err := q.CountSignatures(ctx)
-	if err != nil {
-		return nil, 0, fmt.Errorf("count signatures: %w", err)
+	matched := make([]Signature, 0, len(rows))
+	for _, r := range rows {
+		sig := enrich(r)
+		if hasTag(sig.Tags, tag) {
+			matched = append(matched, sig)
+		}
 	}
-	return items, total, nil
+	total := int64(len(matched))
+	start := int(offset)
+	if start >= len(matched) {
+		return []Signature{}, total, nil
+	}
+	end := len(matched)
+	if limit > 0 && start+int(limit) < end {
+		end = start + int(limit)
+	}
+	return matched[start:end], total, nil
 }
 
 // Get returns one signature.
-func (s *Store) Get(ctx context.Context, id int64) (gen.Signature, error) {
+func (s *Store) Get(ctx context.Context, id int64) (Signature, error) {
 	sig, err := gen.New(s.Pool).GetSignature(ctx, id)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return sig, ErrNotFound
+		return Signature{}, ErrNotFound
 	}
 	if err != nil {
-		return sig, fmt.Errorf("get signature %d: %w", id, err)
+		return Signature{}, fmt.Errorf("get signature %d: %w", id, err)
 	}
-	return sig, nil
+	return enrich(sig), nil
 }
 
 // Enabled returns the templates nuclei should run (enabled ⇒ valid).
@@ -116,11 +191,11 @@ func uniqueViolation(err error) bool {
 
 // Create stores a user signature. Invalid templates are saved disabled with
 // their validation_error.
-func (s *Store) Create(ctx context.Context, u *auth.User, src string, enabled bool) (gen.Signature, error) {
+func (s *Store) Create(ctx context.Context, u *auth.User, src string, enabled bool) (Signature, error) {
 	var out gen.Signature
 	name, issues, err := check(src)
 	if err != nil {
-		return out, err
+		return Signature{}, err
 	}
 	valid := len(issues) == 0
 	err = s.tx(ctx, func(q *gen.Queries) error {
@@ -137,12 +212,15 @@ func (s *Store) Create(ctx context.Context, u *auth.User, src string, enabled bo
 		return audit.Log(ctx, q, userID(u), "signatures.create", "signature", ids(out.ID),
 			map[string]any{"name": name, "valid": valid, "enabled": out.Enabled})
 	})
-	return out, err
+	if err != nil {
+		return Signature{}, err
+	}
+	return enrich(out), nil
 }
 
 // Update changes a signature. Built-ins accept only Enabled; enabling an
 // invalid template is rejected.
-func (s *Store) Update(ctx context.Context, u *auth.User, id int64, in Update) (gen.Signature, error) {
+func (s *Store) Update(ctx context.Context, u *auth.User, id int64, in Update) (Signature, error) {
 	var out gen.Signature
 	err := s.tx(ctx, func(q *gen.Queries) error {
 		cur, err := q.GetSignature(ctx, id)
@@ -187,7 +265,10 @@ func (s *Store) Update(ctx context.Context, u *auth.User, id int64, in Update) (
 			"enabled": map[string]bool{"from": cur.Enabled, "to": out.Enabled},
 		})
 	})
-	return out, err
+	if err != nil {
+		return Signature{}, err
+	}
+	return enrich(out), nil
 }
 
 // Delete removes a user signature; built-ins can't be deleted.

@@ -15,7 +15,7 @@ import {
   textareaClass,
   type BadgeTone,
 } from '../../components/ui'
-import { hostsKey } from './ui'
+import { fmtTime, hostsKey } from './ui'
 
 type HostDetail = Schemas['HostDetail']
 type Service = Schemas['Service']
@@ -103,6 +103,15 @@ function HostView({ h }: { h: HostDetail }) {
         <DItem label="Open services">{h.open_service_count}</DItem>
         <DItem label="Missed runs">{h.miss_count}</DItem>
         <DItem label="Dojo asset">{h.dojo_asset_id ?? '—'}</DItem>
+        <DItem label="Last edited">
+          {h.edited_at ? (
+            <>
+              {h.edited_by || 'unknown'} · <span className="text-muted">{fmtTime(h.edited_at)}</span>
+            </>
+          ) : (
+            '—'
+          )}
+        </DItem>
       </dl>
       {h.notes && (
         <p aria-label="Notes" className="m-0 border-t border-line pt-3 text-sm whitespace-pre-wrap">

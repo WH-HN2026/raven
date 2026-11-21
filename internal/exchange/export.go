@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/WH-HN2026/raven/internal/changes"
@@ -24,14 +23,16 @@ import (
 // ServiceFilter selects services for GET /api/export/services. Zero values mean
 // no filter.
 type ServiceFilter struct {
-	Port    *int
-	Proto   string
-	State   string // open | gone
-	IP      *netip.Prefix
-	Product string
-	Q       string
-	Limit   int32
-	Offset  int32
+	Port       *int
+	Proto      string
+	State      string // open | gone
+	IP         *netip.Prefix
+	Product    string
+	Technology string
+	Version    string
+	Q          string
+	Limit      int32
+	Offset     int32
 }
 
 // ExportServiceRow is one exported service row with user overrides applied on
@@ -110,35 +111,19 @@ func ListServicesForExport(ctx context.Context, pool *pgxpool.Pool, f ServiceFil
 	if f.Limit <= 0 || f.Limit > MaxExportRows {
 		f.Limit = MaxExportRows
 	}
-	p := gen.ListServicesForExportParams{Lim: f.Limit, Off: f.Offset}
-	if f.Port != nil {
-		p.Port = pgtype.Int4{Int32: int32(*f.Port), Valid: true}
-	}
-	if f.Proto != "" {
-		p.Proto = pgtype.Text{String: f.Proto, Valid: true}
-	}
-	if f.State != "" {
-		p.State = pgtype.Text{String: f.State, Valid: true}
-	}
-	if f.IP != nil {
-		p.Ip = pgtype.Text{String: f.IP.Masked().String(), Valid: true}
-	}
-	if f.Product != "" {
-		p.Product = pgtype.Text{String: f.Product, Valid: true}
-	}
-	if f.Q != "" {
-		p.Q = pgtype.Text{String: f.Q, Valid: true}
-	}
-	rows, err := gen.New(pool).ListServicesForExport(ctx, p)
+	items, _, err := hosts.ListServices(ctx, pool, hosts.ServiceFilter{
+		Port: f.Port, Proto: f.Proto, State: f.State, IP: f.IP,
+		Product: f.Product, Technology: f.Technology, Version: f.Version, Q: f.Q,
+		Limit: f.Limit, Offset: f.Offset,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("list services for export: %w", err)
 	}
-	out := make([]ExportServiceRow, 0, len(rows))
-	for _, r := range rows {
-		name, product, version := applyOverrides(r.Name, r.Product, r.Version, r.Overrides)
+	out := make([]ExportServiceRow, 0, len(items))
+	for _, r := range items {
 		out = append(out, ExportServiceRow{
-			ID: r.ID, IP: r.Ip, Port: r.Port, Proto: r.Proto,
-			Name: name, Product: product, Version: version, CPE: r.Cpe,
+			ID: r.ID, IP: r.IP, Port: r.Port, Proto: r.Proto,
+			Name: r.Name, Product: r.Product, Version: r.Version, CPE: r.CPE,
 			State: r.State, FirstSeen: r.FirstSeen, LastSeen: r.LastSeen,
 		})
 	}
@@ -213,7 +198,7 @@ func WriteFindingsCSV(w io.Writer, items []dojo.MirrorFinding) error {
 	cw := csv.NewWriter(w)
 	if err := cw.Write([]string{
 		"id", "asset_id", "ip", "title", "severity", "active", "verified",
-		"false_p", "risk_accepted", "is_mitigated", "tags", "scanner", "date", "dojo_url",
+		"false_p", "out_of_scope", "risk_accepted", "duplicate", "is_mitigated", "tags", "scanner", "date", "dojo_url",
 	}); err != nil {
 		return err
 	}
@@ -237,7 +222,9 @@ func WriteFindingsCSV(w io.Writer, items []dojo.MirrorFinding) error {
 			strconv.FormatBool(f.Active),
 			strconv.FormatBool(f.Verified),
 			strconv.FormatBool(f.FalseP),
+			strconv.FormatBool(f.OutOfScope),
 			strconv.FormatBool(f.RiskAccepted),
+			strconv.FormatBool(f.Duplicate),
 			strconv.FormatBool(f.IsMitigated),
 			strings.Join(f.Tags, ";"),
 			f.Scanner,
@@ -383,23 +370,6 @@ func writeJSON(w io.Writer, v any) error {
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
 	return enc.Encode(v)
-}
-
-func applyOverrides(name, product, version string, raw []byte) (string, string, string) {
-	var m map[string]any
-	if len(raw) == 0 || json.Unmarshal(raw, &m) != nil {
-		return name, product, version
-	}
-	if v, ok := m["name"].(string); ok {
-		name = v
-	}
-	if v, ok := m["product"].(string); ok {
-		product = v
-	}
-	if v, ok := m["version"].(string); ok {
-		version = v
-	}
-	return name, product, version
 }
 
 func joinInt32s(xs []int32, sep string) string {

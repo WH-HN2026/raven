@@ -340,8 +340,25 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description stub */
+        /** @description Services across all hosts, with overrides applied, latest HTTP technologies, and CVE counts. */
         get: operations["listServices"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/technologies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Aggregated technologies and versions across services with host counts, service counts, and CVE-match counts. */
+        get: operations["listTechnologies"];
         put?: never;
         post?: never;
         delete?: never;
@@ -700,8 +717,8 @@ export interface paths {
          * @description Export filtered data as JSON or CSV (permission `export`).
          *     Honours the same query filters as the matching list APIs:
          *     - `hosts`: `state`, `port`, `tech`, `tag`, `q`
-         *     - `services`: `port`, `proto`, `state`, `ip`, `product`, `q`
-         *     - `findings`: `severity`, `active`, `ip`, `q`, `scanner` (reads the Dojo mirror, never Dojo)
+         *     - `services`: `port`, `proto`, `protocol`, `state`, `ip`, `product`, `technology`, `version`, `q`
+         *     - `findings`: `severity`, `active`, `verified`, `false_p`, `out_of_scope`, `risk_accepted`, `duplicate`, `is_mitigated`, `asset`, `asset_id`, `ip`, `q`, `scanner` (reads the Dojo mirror, never Dojo)
          *     - `changes`: `from`, `to`, `limit`
          *     - `targets`: all targets in the format accepted by `POST /api/targets/upload`
          */
@@ -997,6 +1014,10 @@ export interface components {
             overrides: {
                 [key: string]: unknown;
             };
+            /** @description username of who last edited user-owned fields */
+            edited_by?: string | null;
+            /** Format: date-time */
+            edited_at?: string | null;
         };
         /** @description User-owned fields only. */
         HostPatch: {
@@ -1067,8 +1088,31 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        ServiceItem: components["schemas"]["Service"] & {
+            hostnames: string[];
+            technologies: string[];
+            cve_count: number;
+            /** @enum {string} */
+            cve_severity: "" | "Info" | "Low" | "Medium" | "High" | "Critical";
+        };
         ServiceList: {
-            items: components["schemas"]["Service"][];
+            items: components["schemas"]["ServiceItem"][];
+            total: number;
+        };
+        TechnologySummary: {
+            technology: string;
+            version: string;
+            host_count: number;
+            service_count: number;
+            /** @description services matching one or more CVEs */
+            cve_match_count: number;
+            /** @description distinct matched CVEs */
+            cve_count: number;
+            /** @enum {string} */
+            max_severity: "" | "Info" | "Low" | "Medium" | "High" | "Critical";
+        };
+        TechnologyList: {
+            items: components["schemas"]["TechnologySummary"][];
             total: number;
         };
         /**
@@ -1142,7 +1186,9 @@ export interface components {
             active: boolean;
             verified?: boolean;
             false_p?: boolean;
+            out_of_scope?: boolean;
             risk_accepted?: boolean;
+            duplicate?: boolean;
             is_mitigated?: boolean;
             tags?: string[];
             scanner?: string;
@@ -1392,6 +1438,10 @@ export interface components {
             /** @description The template id. */
             name: string;
             template_yaml: string;
+            /** @description Template info.severity (lowercased, empty if unset). */
+            severity: string;
+            /** @description Template info.tags. */
+            tags: string[];
             enabled: boolean;
             valid: boolean;
             validation_error: string;
@@ -2015,8 +2065,22 @@ export interface operations {
         parameters: {
             query?: {
                 port?: number;
+                proto?: "tcp" | "udp";
+                /** @description alias for proto */
+                protocol?: "tcp" | "udp";
+                /** @description case-insensitive substring of effective product */
                 product?: string;
+                /** @description case-insensitive substring of detected technology */
+                technology?: string;
+                /** @description case-insensitive substring of effective service version or technology version */
+                version?: string;
                 state?: "open" | "gone";
+                /** @description IP or CIDR containment */
+                ip?: string;
+                /** @description search across IP, hostname, name, product, version, CPE, technology */
+                q?: string;
+                sort?: "ip" | "port" | "product" | "version" | "state" | "first_seen" | "last_seen";
+                order?: "asc" | "desc";
                 limit?: components["parameters"]["Limit"];
                 offset?: components["parameters"]["Offset"];
             };
@@ -2033,6 +2097,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ServiceList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listTechnologies: {
+        parameters: {
+            query?: {
+                state?: "open" | "gone" | "all";
+                /** @description case-insensitive substring of technology or version */
+                q?: string;
+                sort?: "hosts" | "services" | "technology" | "cves";
+                order?: "asc" | "desc";
+                limit?: components["parameters"]["Limit"];
+                offset?: components["parameters"]["Offset"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Aggregated technologies. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TechnologyList"];
                 };
             };
             default: components["responses"]["Error"];
@@ -2104,6 +2197,16 @@ export interface operations {
                 /** @description Any of these; repeat the parameter or separate with commas. Case-insensitive. */
                 severity?: components["schemas"]["Severity"][];
                 active?: boolean;
+                verified?: boolean;
+                false_p?: boolean;
+                out_of_scope?: boolean;
+                risk_accepted?: boolean;
+                duplicate?: boolean;
+                is_mitigated?: boolean;
+                /** @description Exact Dojo asset id. */
+                asset_id?: number;
+                /** @description Asset id */
+                asset?: string;
                 /** @description An IP address or a CIDR. */
                 ip?: string;
                 /** @description Case-insensitive substring of the title. */
@@ -2477,6 +2580,8 @@ export interface operations {
     listSignatures: {
         parameters: {
             query?: {
+                /** @description Filter by exact tag (case-insensitive). */
+                tag?: string;
                 limit?: components["parameters"]["Limit"];
                 offset?: components["parameters"]["Offset"];
             };

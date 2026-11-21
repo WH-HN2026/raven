@@ -69,13 +69,14 @@ func (q *Queries) UpsertDojoAsset(ctx context.Context, arg UpsertDojoAssetParams
 
 const upsertDojoFinding = `-- name: UpsertDojoFinding :exec
 INSERT INTO dojo_findings (id, asset_id, ip, title, severity, active, verified, false_p,
-    risk_accepted, is_mitigated, tags, scanner, date, last_status_update, synced_at)
+    out_of_scope, risk_accepted, duplicate, is_mitigated, tags, scanner, date, last_status_update, synced_at)
 VALUES ($1, $2, $3::inet, $4, $5, $6, $7, $8,
-    $9, $10, $11, $12, $13::date, $14, $15)
+    $9, $10, $11, $12, $13, $14, $15::date, $16, $17)
 ON CONFLICT (id) DO UPDATE SET
     asset_id = EXCLUDED.asset_id, ip = EXCLUDED.ip, title = EXCLUDED.title,
     severity = EXCLUDED.severity, active = EXCLUDED.active, verified = EXCLUDED.verified,
-    false_p = EXCLUDED.false_p, risk_accepted = EXCLUDED.risk_accepted,
+    false_p = EXCLUDED.false_p, out_of_scope = EXCLUDED.out_of_scope,
+    risk_accepted = EXCLUDED.risk_accepted, duplicate = EXCLUDED.duplicate,
     is_mitigated = EXCLUDED.is_mitigated, tags = EXCLUDED.tags, scanner = EXCLUDED.scanner,
     date = EXCLUDED.date, last_status_update = EXCLUDED.last_status_update,
     synced_at = EXCLUDED.synced_at
@@ -90,7 +91,9 @@ type UpsertDojoFindingParams struct {
 	Active           bool        `json:"active"`
 	Verified         bool        `json:"verified"`
 	FalseP           bool        `json:"false_p"`
+	OutOfScope       bool        `json:"out_of_scope"`
 	RiskAccepted     bool        `json:"risk_accepted"`
+	Duplicate        bool        `json:"duplicate"`
 	IsMitigated      bool        `json:"is_mitigated"`
 	Tags             []string    `json:"tags"`
 	Scanner          string      `json:"scanner"`
@@ -109,7 +112,9 @@ func (q *Queries) UpsertDojoFinding(ctx context.Context, arg UpsertDojoFindingPa
 		arg.Active,
 		arg.Verified,
 		arg.FalseP,
+		arg.OutOfScope,
 		arg.RiskAccepted,
+		arg.Duplicate,
 		arg.IsMitigated,
 		arg.Tags,
 		arg.Scanner,

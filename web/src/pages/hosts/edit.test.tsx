@@ -86,8 +86,14 @@ describe('helpers', () => {
 })
 
 describe('host edit', () => {
-  it('edits user-owned fields and shows the Dojo sync state', async () => {
-    const calls = mockApi((_, body) => ({ ...detail, ...body, dojo_sync: 'synced' }))
+  it('edits user-owned fields and shows the Dojo sync state and last edited by', async () => {
+    const calls = mockApi((_, body) => ({
+      ...detail,
+      ...body,
+      edited_by: 'operator',
+      edited_at: '2026-11-21T16:30:00Z',
+      dojo_sync: 'synced',
+    }))
     renderDetail()
     fireEvent.click(await screen.findByRole('button', { name: 'Edit' }))
     const form = screen.getByRole('form', { name: 'Edit host' })
@@ -111,6 +117,7 @@ describe('host edit', () => {
     expect(screen.queryByRole('form', { name: 'Edit host' })).toBeNull()
     expect(screen.getByLabelText('Notes')).toHaveTextContent('new note')
     expect(screen.getByText('net team')).toBeInTheDocument()
+    expect(screen.getByText(/operator/)).toBeInTheDocument()
   })
 
   it('shows a pending sync and keeps the form on errors', async () => {

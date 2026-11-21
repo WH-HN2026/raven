@@ -104,6 +104,8 @@ type DojoFinding struct {
 	Date             pgtype.Date `json:"date"`
 	LastStatusUpdate *time.Time  `json:"last_status_update"`
 	SyncedAt         time.Time   `json:"synced_at"`
+	OutOfScope       bool        `json:"out_of_scope"`
+	Duplicate        bool        `json:"duplicate"`
 }
 
 type Host struct {
@@ -119,6 +121,8 @@ type Host struct {
 	NotesEnc    []byte          `json:"notes_enc"`
 	UserTags    []string        `json:"user_tags"`
 	Overrides   json.RawMessage `json:"overrides"`
+	EditedBy    *int64          `json:"edited_by"`
+	EditedAt    *time.Time      `json:"edited_at"`
 }
 
 type HttpObservation struct {

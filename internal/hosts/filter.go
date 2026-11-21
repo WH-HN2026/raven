@@ -78,7 +78,7 @@ func parsePrefix(s string) (netip.Prefix, bool) {
 
 // listColumns are the columns of one list item (see scanItem).
 const listColumns = `h.ip, h.hostnames, h.state, h.first_seen, h.last_seen, h.miss_count, h.dojo_asset_id,
-	h.owner, h.criticality, h.user_tags, h.overrides,
+	h.owner, h.criticality, h.user_tags, h.overrides, u.username AS edited_by, h.edited_at,
 	(SELECT count(*) FROM services s WHERE s.ip = h.ip AND s.state = 'open') AS open_services,
 	ARRAY(SELECT DISTINCT s.port FROM services s WHERE s.ip = h.ip AND s.state = 'open' ORDER BY s.port) AS open_ports,
 	ARRAY(SELECT DISTINCT t FROM services s JOIN http_observations o ON o.service_id = s.id,
@@ -94,6 +94,6 @@ func buildList(f Filter) (list, count string, args []any) {
 	n := len(args)
 	list = "SELECT " + listColumns + " FROM (SELECT h.* FROM hosts h" + where +
 		" ORDER BY h.ip LIMIT $" + strconv.Itoa(n+1) + " OFFSET $" + strconv.Itoa(n+2) +
-		") h ORDER BY h.ip"
+		") h LEFT JOIN users u ON u.id = h.edited_by ORDER BY h.ip"
 	return list, count, append(args, f.Limit, f.Offset)
 }

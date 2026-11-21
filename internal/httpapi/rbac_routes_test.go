@@ -47,6 +47,7 @@ var routePerms = map[string]auth.Permission{
 	"GET /api/hosts/{ip}":      auth.PermRead,
 	"PATCH /api/hosts/{ip}":    auth.PermHostsEdit,
 	"GET /api/services":        auth.PermRead,
+	"GET /api/technologies":    auth.PermRead,
 	"PATCH /api/services/{id}": auth.PermHostsEdit,
 	"GET /api/cve-matches":     auth.PermRead,
 

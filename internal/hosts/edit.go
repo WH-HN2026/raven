@@ -152,6 +152,7 @@ func Edit(ctx context.Context, pool *pgxpool.Pool, c dojo.WriteClient, actor *in
 		assetID = cur.DojoAssetID
 		next := gen.UpdateHostUserFieldsParams{
 			Ip: ip, Owner: cur.Owner, Criticality: cur.Criticality, Notes: cur.Notes, UserTags: cur.UserTags,
+			EditedBy: actor,
 		}
 		diff := map[string]any{}
 		if p.Owner != nil && *p.Owner != cur.Owner {
@@ -259,6 +260,9 @@ func EditServiceOverrides(ctx context.Context, pool *pgxpool.Pool, actor *int64,
 		}
 		if err := q.UpdateServiceOverrides(ctx, gen.UpdateServiceOverridesParams{ID: id, Overrides: next}); err != nil {
 			return fmt.Errorf("update service %d: %w", id, err)
+		}
+		if err := q.SetHostEdited(ctx, gen.SetHostEditedParams{Ip: cur.Ip, EditedBy: actor}); err != nil {
+			return fmt.Errorf("mark host %s edited: %w", cur.Ip, err)
 		}
 		if err := audit.Log(ctx, q, actor, "service.update", "service", strconv.FormatInt(id, 10),
 			change{objectOrEmpty(cur.Overrides), json.RawMessage(next)}); err != nil {

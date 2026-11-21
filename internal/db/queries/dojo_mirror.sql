@@ -13,13 +13,14 @@ DELETE FROM dojo_assets WHERE NOT (id = ANY(@ids::bigint[]));
 
 -- name: UpsertDojoFinding :exec
 INSERT INTO dojo_findings (id, asset_id, ip, title, severity, active, verified, false_p,
-    risk_accepted, is_mitigated, tags, scanner, date, last_status_update, synced_at)
+    out_of_scope, risk_accepted, duplicate, is_mitigated, tags, scanner, date, last_status_update, synced_at)
 VALUES (@id, sqlc.narg(asset_id), sqlc.narg(ip)::inet, @title, @severity, @active, @verified, @false_p,
-    @risk_accepted, @is_mitigated, @tags, @scanner, sqlc.narg(date)::date, sqlc.narg(last_status_update), @synced_at)
+    @out_of_scope, @risk_accepted, @duplicate, @is_mitigated, @tags, @scanner, sqlc.narg(date)::date, sqlc.narg(last_status_update), @synced_at)
 ON CONFLICT (id) DO UPDATE SET
     asset_id = EXCLUDED.asset_id, ip = EXCLUDED.ip, title = EXCLUDED.title,
     severity = EXCLUDED.severity, active = EXCLUDED.active, verified = EXCLUDED.verified,
-    false_p = EXCLUDED.false_p, risk_accepted = EXCLUDED.risk_accepted,
+    false_p = EXCLUDED.false_p, out_of_scope = EXCLUDED.out_of_scope,
+    risk_accepted = EXCLUDED.risk_accepted, duplicate = EXCLUDED.duplicate,
     is_mitigated = EXCLUDED.is_mitigated, tags = EXCLUDED.tags, scanner = EXCLUDED.scanner,
     date = EXCLUDED.date, last_status_update = EXCLUDED.last_status_update,
     synced_at = EXCLUDED.synced_at;

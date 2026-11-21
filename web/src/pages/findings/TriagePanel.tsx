@@ -117,7 +117,7 @@ function TriageForm({ finding: f }: { finding: Finding }) {
             }}
           >
             {options.map((s) => (
-              <option key={s} value={s} disabled={s === 'inactive'}>
+              <option key={s} value={s} disabled={!settableStatuses.includes(s)}>
                 {statusLabel[s]}
               </option>
             ))}

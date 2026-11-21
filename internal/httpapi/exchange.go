@@ -181,7 +181,7 @@ func parseServiceFilter(r *http.Request) (exchange.ServiceFilter, string) {
 		}
 		f.Port = &n
 	}
-	if v := strings.ToLower(strings.TrimSpace(qs.Get("proto"))); v != "" {
+	if v := strings.ToLower(strings.TrimSpace(cmp.Or(qs.Get("proto"), qs.Get("protocol")))); v != "" {
 		if v != "tcp" && v != "udp" {
 			return f, "proto must be tcp or udp"
 		}
@@ -206,6 +206,8 @@ func parseServiceFilter(r *http.Request) (exchange.ServiceFilter, string) {
 		f.IP = &p
 	}
 	f.Product = strings.TrimSpace(qs.Get("product"))
+	f.Technology = strings.TrimSpace(cmp.Or(qs.Get("technology"), qs.Get("tech")))
+	f.Version = strings.TrimSpace(qs.Get("version"))
 	f.Q = strings.TrimSpace(qs.Get("q"))
 	return f, ""
 }

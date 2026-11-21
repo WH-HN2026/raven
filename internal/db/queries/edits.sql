@@ -4,7 +4,7 @@
 -- raven_enc and must never be logged.
 
 -- name: GetDojoFinding :one
-SELECT id, asset_id, ip, title, severity, active, verified, false_p, risk_accepted, is_mitigated,
+SELECT id, asset_id, ip, title, severity, active, verified, false_p, out_of_scope, risk_accepted, duplicate, is_mitigated,
     tags, scanner, COALESCE(to_char(date, 'YYYY-MM-DD'), '')::text AS date
 FROM dojo_findings WHERE id = @id;
 
@@ -12,7 +12,8 @@ FROM dojo_findings WHERE id = @id;
 -- Mirror the state Dojo answered with after a PATCH.
 UPDATE dojo_findings SET
     severity = @severity, active = @active, verified = @verified, false_p = @false_p,
-    risk_accepted = @risk_accepted, is_mitigated = @is_mitigated, tags = @tags,
+    out_of_scope = @out_of_scope, risk_accepted = @risk_accepted, duplicate = @duplicate,
+    is_mitigated = @is_mitigated, tags = @tags,
     last_status_update = sqlc.narg(last_status_update), synced_at = now()
 WHERE id = @id;
 
@@ -24,8 +25,12 @@ FROM hosts WHERE ip = @ip FOR UPDATE;
 -- An empty note clears notes_enc.
 UPDATE hosts SET
     owner = @owner, criticality = @criticality, user_tags = @user_tags,
-    notes_enc = CASE WHEN @notes::text = '' THEN NULL ELSE raven_enc(@notes::text) END
+    notes_enc = CASE WHEN @notes::text = '' THEN NULL ELSE raven_enc(@notes::text) END,
+    edited_by = sqlc.narg(edited_by), edited_at = now()
 WHERE ip = @ip;
+
+-- name: SetHostEdited :exec
+UPDATE hosts SET edited_by = sqlc.narg(edited_by), edited_at = now() WHERE ip = @ip;
 
 -- name: GetServiceOverridesForUpdate :one
 SELECT ip, overrides FROM services WHERE id = @id FOR UPDATE;

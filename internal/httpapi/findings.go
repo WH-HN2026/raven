@@ -104,7 +104,9 @@ func (a *api) listFindings(w http.ResponseWriter, r *http.Request) {
 }
 
 // parseFindingFilter reads severity (repeatable and/or comma-separated,
-// case-insensitive), active, ip (address or CIDR), q and scanner.
+// case-insensitive), status flags (active, verified, false_p, out_of_scope,
+// risk_accepted, duplicate, is_mitigated), asset_id, asset, ip (address or
+// CIDR), q and scanner.
 func parseFindingFilter(r *http.Request) (dojo.FindingFilter, string) {
 	var f dojo.FindingFilter
 	qs := r.URL.Query()
@@ -120,13 +122,40 @@ func parseFindingFilter(r *http.Request) (dojo.FindingFilter, string) {
 			f.Severities = append(f.Severities, dojo.Severities[i])
 		}
 	}
-	if v := qs.Get("active"); v != "" {
-		b, err := strconv.ParseBool(v)
-		if err != nil {
-			return f, "active must be true or false"
+	parseBool := func(name string, dst **bool) string {
+		if v := strings.TrimSpace(qs.Get(name)); v != "" {
+			b, err := strconv.ParseBool(v)
+			if err != nil {
+				return name + " must be true or false"
+			}
+			*dst = &b
 		}
-		f.Active = &b
+		return ""
 	}
+	for _, bf := range []struct {
+		name string
+		dst  **bool
+	}{
+		{"active", &f.Active},
+		{"verified", &f.Verified},
+		{"false_p", &f.FalseP},
+		{"out_of_scope", &f.OutOfScope},
+		{"risk_accepted", &f.RiskAccepted},
+		{"duplicate", &f.Duplicate},
+		{"is_mitigated", &f.IsMitigated},
+	} {
+		if msg := parseBool(bf.name, bf.dst); msg != "" {
+			return f, msg
+		}
+	}
+	if v := strings.TrimSpace(qs.Get("asset_id")); v != "" {
+		id, err := strconv.ParseInt(v, 10, 64)
+		if err != nil || id <= 0 {
+			return f, "asset_id must be a positive integer"
+		}
+		f.AssetID = &id
+	}
+	f.Asset = strings.TrimSpace(qs.Get("asset"))
 	if v := strings.TrimSpace(qs.Get("ip")); v != "" {
 		p, err := netip.ParsePrefix(v)
 		if err != nil {

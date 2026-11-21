@@ -22,7 +22,6 @@ func (a *api) mountHosts(r chi.Router) {
 	r.With(auth.Require(auth.PermRead)).Get("/hosts", a.listHosts)
 	r.With(auth.Require(auth.PermRead)).Get("/hosts/{ip}", a.getHost)
 	r.With(auth.Require(auth.PermHostsEdit)).Patch("/hosts/{ip}", a.updateHost)
-	stub(r, "GET", "/services", auth.PermRead)
 	r.With(auth.Require(auth.PermHostsEdit)).Patch("/services/{id}", a.updateService)
 }
 
