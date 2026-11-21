@@ -190,7 +190,7 @@ audit_log(id, user_id, action, object, object_id, diff jsonb, at)
 | `sessions.token_hash`, `api_tokens.token_hash` | S | plaintext (allowlisted) | SHA-256 of a random token; it's the lookup key |
 | `targets.note`, `scope_entries.note` | I | plaintext (allowlisted) | short operator label from the import file, shown in lists like a tag; not meant for secrets |
 | `hosts.ip`, `hostnames`, `services.ip/port/proto`, `run_observations.*`, `batches.ips`, `scope_entries.value`, `targets.value`, `dojo_*.ip` | I | plaintext | filter and join keys (architecture §5) |
-| `services.name/product/version/cpe`, `http_observations.url/status/title/technologies/favicon_hash` | I | plaintext | fingerprint: filtered, diffed (C1), CPE-matched (§11) |
+| `services.name/product/version/cpe`, `http_observations.url/status/title/technologies/favicon_hash`, `run_observations.service_fp` | I | plaintext | fingerprint: filtered, diffed (C1), CPE-matched (§11) |
 | `http_observations.redirects` | I | plaintext | redirect chain URLs (S7 drops userinfo, keeps query strings); see follow-up A4 below |
 | `hosts.owner/criticality/user_tags`, `*.overrides` | I | plaintext | filter fields and corrections of scan-owned fingerprint fields; notes are not in `overrides` |
 | `runs.stats`, `batches.error`, `batches.*` counters | M | plaintext | counters; `error` is a wrapped Go error (nmap's last stderr line, Dojo status), not scan content |
@@ -381,6 +381,18 @@ Matching fingerprints to known vulnerabilities is allowed (organizers' note 2); 
 
   A pass runs at startup and every 5 min: it rewrites `cve_matches` from the open services, then reimports the findings of every **active** IP whose match set changed (hash in `cve_push`). `GET /api/cve-matches?ip=` reads the table.
 
-## 12. Out of scope (for the hackathon)
+## 12. Scale
+
+Load-tested with `make test-scale` (`internal/scaletest`, build-tagged `scaletest`, in-process fake scanners + loopback `httptest` Dojo stub, zero outbound network traffic) across 16,384 IPs (`/18`) and 65,536 IPs (`/16`) with two runs (~30% up, 1–5 services each, ~5% changed on Run 2).
+
+At 65,536 IPs (~20k up hosts, ~60k open services, ~250k `run_observations`, ~256 MB DB after two runs), after fixing `nmap.perIP` buffer over-allocation (7.7 GB → 93 MB peak heap on 4,096-IP adaptive batches), persisting plaintext `run_observations.service_fp` + indexes, bulk `unnest` ingests, subquery-first host pagination, and Dojo HTTP pooling/`test_types` caching:
+
+- Run 1 (256 × 256 IPs): **25.1 s** total (83 ms plan, 24.7 s scan+ingest, 0.30 s Dojo drain).
+- Run 2 (16 × 4,096 IPs via S5 adaptive batching): **20.5 s** total, **93 MB** peak heap.
+- API latencies at 65k hosts: `GET /api/hosts` **1.7–81 ms** (deep page `offset=5000`: **4.5 ms**), `GET /api/changes` **309 ms**, `GET /api/dashboard` **498 ms**.
+
+Full before/after tables and methodology are in [`scale.md`](scale.md).
+
+## 13. Out of scope (for the hackathon)
 
 Multi-tenant orgs inside our app, SSO/LDAP, HA/clustering, Dojo versions older than 3.5, a CLI, active vulnerability verification of any kind.

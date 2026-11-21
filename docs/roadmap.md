@@ -132,6 +132,7 @@ M0 is sequential and blocking. Do it in **one** worktree, as fast as possible, t
 - [ ] **X5 Export observations to Dojo.** Select observations in the UI → push as INFO findings, with evidence attached.
 - [ ] **X6 Demo script + docs.** `scripts/demo.sh` (two runs with a lab change in between), README quickstart, technical docs, ≤10 slides.
 - [x] **N1 Rename to RAVEN.** Project, module, binary, env vars, DB helpers, Dojo-facing names, lab and docs renamed from ASI to RAVEN.
+- [x] **Q2 Scale test.** Fake-scanner load test of run planning, batching, ingest, Dojo push and the dashboard/hosts APIs at 10k and 65k hosts; bottlenecks fixed; numbers in docs.
 
 ## M4 — MCP (last)
 
