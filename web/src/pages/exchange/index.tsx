@@ -6,6 +6,6 @@ export const routes: AppRoute[] = [
     path: '/exchange',
     element: <Placeholder title="Import / Export" task="P3" />,
     perm: 'export',
-    nav: { label: 'Import / Export', order: 100 },
+    nav: { label: 'Import/Export', order: 100 },
   },
 ]

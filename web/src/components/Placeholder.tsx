@@ -1,11 +1,17 @@
+import { PageHeader } from './PageHeader'
+import { Section } from './ui'
+
+/** A page that isn't built yet: the shared frame with the roadmap task id. */
 export function Placeholder({ title, task, children }: { title: string; task: string; children?: React.ReactNode }) {
   return (
-    <section>
-      <h1 className="text-2xl font-semibold text-ink">{title}</h1>
-      <p className="mt-2 text-muted">
-        Coming in roadmap task <span className="font-mono text-graphite">{task}</span>.
-      </p>
-      {children}
-    </section>
+    <>
+      <PageHeader title={title} crumbs={title === 'Dashboard' ? undefined : [{ label: title }]} />
+      <Section>
+        <p className="m-0 text-muted">
+          Roadmap task <span className="font-mono text-ink">{task}</span>
+        </p>
+        {children}
+      </Section>
+    </>
   )
 }

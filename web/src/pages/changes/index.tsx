@@ -6,6 +6,6 @@ export const routes: AppRoute[] = [
     path: '/changes',
     element: <Placeholder title="Changes" task="W6" />,
     perm: 'read',
-    nav: { label: 'Changes', order: 50 },
+    nav: { label: 'Changes', order: 35 },
   },
 ]

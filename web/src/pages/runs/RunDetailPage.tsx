@@ -1,12 +1,26 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { Link, useParams } from 'react-router'
+import { useParams } from 'react-router'
 import { api, ApiError } from '../../api/client'
 import { useCan } from '../../auth/hooks'
+import { PageHeader } from '../../components/PageHeader'
 import {
-  btnDanger,
-  btnSecondary,
-  card,
+  Alert,
+  Button,
+  EmptyRow,
+  ErrorText,
+  KeyNumber,
+  KeyNumbers,
+  Section,
+  SectionHeading,
+  Table,
+  Td,
+  Th,
+  THeadRow,
+  Tr,
+} from '../../components/ui'
+import {
+  BatchStrip,
   formatDuration,
   formatTime,
   isActive,
@@ -16,8 +30,6 @@ import {
   runDurationMs,
   runsKey,
   StatusBadge,
-  td,
-  th,
   type Run,
 } from './ui'
 
@@ -41,28 +53,26 @@ function StopButton({ run }: { run: Run }) {
   return (
     <div className="flex flex-col items-end gap-2">
       {!confirming ? (
-        <button className={btnDanger} onClick={() => setConfirming(true)}>
+        <Button variant="danger" size="lg" className="border-2" onClick={() => setConfirming(true)}>
           Stop run
-        </button>
+        </Button>
       ) : (
-        <div role="dialog" aria-label="Confirm stop" className="rounded border border-accent bg-accent-light p-3 text-sm">
-          <p className="mb-2 text-accent-dark">
-            Stop run #{run.id}?
-          </p>
-          <div className="flex justify-end gap-2">
-            <button className={btnSecondary} onClick={() => setConfirming(false)} disabled={stop.isPending}>
+        <div role="dialog" aria-label="Confirm stop" className="flex flex-col gap-3 border-2 border-red bg-white p-4">
+          <p className="m-0 font-medium">Stop run #{run.id}?</p>
+          <div className="flex justify-end">
+            <Button onClick={() => setConfirming(false)} disabled={stop.isPending}>
               Cancel
-            </button>
-            <button className={btnDanger} onClick={() => stop.mutate()} disabled={stop.isPending}>
+            </Button>
+            <Button variant="primary" onClick={() => stop.mutate()} disabled={stop.isPending}>
               {stop.isPending ? 'Stopping…' : 'Confirm stop'}
-            </button>
+            </Button>
           </div>
         </div>
       )}
       {err && (
-        <p role="alert" className="rounded bg-accent-light px-3 py-2 text-sm text-accent-dark">
+        <Alert>
           {err instanceof ApiError && err.status === 409 ? 'The run is no longer active.' : `Stop failed: ${err.message}`}
-        </p>
+        </Alert>
       )}
     </div>
   )
@@ -77,20 +87,23 @@ function Stats({ stats }: { stats: Run['stats'] }) {
   if (entries.length === 0 && warnings.length === 0) return null
   return (
     <div>
-      <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-3 lg:grid-cols-4">
+      <div className="mb-2 text-xs font-medium tracking-[0.06em] text-muted uppercase">Stats</div>
+      <dl className="m-0 grid grid-cols-1 gap-x-10 border-t-2 border-black text-sm sm:grid-cols-2 lg:grid-cols-3">
         {entries.map(([k, v]) => (
-          <div key={k} className="flex justify-between gap-2 border-b border-line py-1">
+          <div key={k} className="flex justify-between gap-3 border-b border-line py-2.5">
             <dt className="text-muted">{k.replaceAll('_', ' ')}</dt>
-            <dd className="font-medium text-ink">
+            <dd className="m-0 text-right tabular-nums">
               {k.startsWith('duration_ms') && typeof v === 'number' ? formatDuration(v) : String(v)}
             </dd>
           </div>
         ))}
       </dl>
       {warnings.length > 0 && (
-        <ul className="mt-2 list-inside list-disc text-sm text-warn">
+        <ul className="mt-3 flex list-none flex-col gap-1 p-0 text-sm">
           {warnings.map((w, i) => (
-            <li key={i}>{w}</li>
+            <li key={i} className="border-l-2 border-sev-high pl-3">
+              {w}
+            </li>
           ))}
         </ul>
       )}
@@ -123,113 +136,84 @@ export function RunDetailPage() {
   const batches = batchesQ.data?.items ?? []
   const profileName = profiles.data?.items.find((p) => p.id === run?.profile_id)?.name
 
+  const title = `Run #${Number.isFinite(id) ? id : '?'}`
+  const pct = run && run.batches_total > 0 ? Math.round((100 * run.batches_done) / run.batches_total) : null
   return (
-    <div className="space-y-6">
-      <div className="flex items-baseline gap-3">
-        <Link to="/runs" className="text-sm text-brand hover:underline">
-          ← Runs
-        </Link>
-        <h1 className="text-2xl font-semibold text-ink">Run #{Number.isFinite(id) ? id : '?'}</h1>
-        {run && <StatusBadge status={run.status} />}
-        {active && <span className="text-xs text-muted">live</span>}
-      </div>
+    <>
+      <PageHeader
+        title={title}
+        crumbs={[{ label: 'Runs', to: '/runs' }, { label: title }]}
+        badges={run && <StatusBadge status={run.status} />}
+      />
       {runQ.error && (
-        <p className="text-sm text-danger">
-          {runQ.error instanceof ApiError && runQ.error.status === 404
-            ? 'Run not found.'
-            : `Cannot load the run: ${runQ.error.message}`}
-        </p>
+        <Section>
+          <ErrorText>
+            {runQ.error instanceof ApiError && runQ.error.status === 404
+              ? 'Run not found.'
+              : `Cannot load the run: ${runQ.error.message}`}
+          </ErrorText>
+        </Section>
       )}
       {run && (
-        <section className={card}>
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <dl className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm md:grid-cols-4">
-              <div>
-                <dt className="text-muted">Profile</dt>
-                <dd className="font-medium text-ink">{profileName ?? `profile ${run.profile_id}`}</dd>
-              </div>
-              <div>
-                <dt className="text-muted">Progress</dt>
-                <dd>
-                  <ProgressBar run={run} />
-                </dd>
-              </div>
-              <div>
-                <dt className="text-muted">Hosts up / total</dt>
-                <dd className="font-medium text-ink">
-                  {run.hosts_up} / {run.hosts_total}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-muted">Duration</dt>
-                <dd className="font-medium text-ink">{formatDuration(runDurationMs(run))}</dd>
-              </div>
-              <div>
-                <dt className="text-muted">Created</dt>
-                <dd>{formatTime(run.created_at)}</dd>
-              </div>
-              <div>
-                <dt className="text-muted">Started</dt>
-                <dd>{formatTime(run.started_at)}</dd>
-              </div>
-              <div>
-                <dt className="text-muted">Finished</dt>
-                <dd>{formatTime(run.finished_at)}</dd>
-              </div>
-            </dl>
+        <Section label="Run" className="flex flex-col gap-8">
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <SectionHeading>{profileName ?? `profile ${run.profile_id}`}</SectionHeading>
             {canControl && active && <StopButton run={run} />}
           </div>
-          <div className="mt-4">
-            <Stats stats={run.stats} />
+          <div>
+            <div className="mb-2 flex items-baseline justify-between gap-4">
+              <ProgressBar run={run} />
+              {pct !== null && <span className="text-[32px] font-light">{pct}%</span>}
+            </div>
+            <BatchStrip batches={batches} />
           </div>
-        </section>
+          <KeyNumbers>
+            <KeyNumber size="md" label="Hosts up / total" value={`${run.hosts_up} / ${run.hosts_total}`} />
+            <KeyNumber size="md" label="Duration" value={formatDuration(runDurationMs(run))} />
+            <KeyNumber size="sm" label="Created" value={formatTime(run.created_at)} />
+            <KeyNumber size="sm" label="Started" value={formatTime(run.started_at)} />
+            <KeyNumber size="sm" label="Finished" value={formatTime(run.finished_at)} />
+          </KeyNumbers>
+          <Stats stats={run.stats} />
+        </Section>
       )}
       {run && (
-        <section className={card}>
-          <div className="mb-3 flex items-baseline gap-3">
-            <h2 className="text-lg font-semibold text-ink">Batches</h2>
-            <span className="text-sm text-muted">{batches.length} total</span>
-          </div>
-          {batchesQ.error && <p className="text-sm text-danger">Cannot load batches: {batchesQ.error.message}</p>}
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+        <Section band className="flex flex-col gap-4 pb-16">
+          <SectionHeading>Batches · {batches.length}</SectionHeading>
+          {batchesQ.error && <ErrorText>Cannot load batches: {batchesQ.error.message}</ErrorText>}
+          <div className="bg-white px-5 pt-1 pb-2">
+            <Table minWidth={760}>
               <thead>
-                <tr>
-                  <th className={th}>Seq</th>
-                  <th className={th}>Status</th>
-                  <th className={th}>IPs</th>
-                  <th className={th}>Hosts up</th>
-                  <th className={th}>Attempts</th>
-                  <th className={th}>Duration</th>
-                  <th className={th}>Error</th>
-                </tr>
+                <THeadRow>
+                  <Th>Seq</Th>
+                  <Th>Status</Th>
+                  <Th>IPs</Th>
+                  <Th>Hosts up</Th>
+                  <Th>Attempts</Th>
+                  <Th>Duration</Th>
+                  <Th>Error</Th>
+                </THeadRow>
               </thead>
               <tbody>
                 {batches.map((b) => (
-                  <tr key={b.id}>
-                    <td className={td}>{b.seq}</td>
-                    <td className={td}>
+                  <Tr key={b.id}>
+                    <Td className="tabular-nums">{b.seq}</Td>
+                    <Td>
                       <StatusBadge status={b.status} />
-                    </td>
-                    <td className={td}>{b.host_count}</td>
-                    <td className={td}>{b.hosts_up}</td>
-                    <td className={td}>{b.attempts}</td>
-                    <td className={td + ' whitespace-nowrap'}>{formatDuration(b.duration_ms)}</td>
-                    <td className={td + ' max-w-md break-words text-danger'}>{b.error}</td>
-                  </tr>
+                    </Td>
+                    <Td className="tabular-nums">{b.host_count}</Td>
+                    <Td className="tabular-nums">{b.hosts_up}</Td>
+                    <Td className="tabular-nums">{b.attempts}</Td>
+                    <Td className="whitespace-nowrap">{formatDuration(b.duration_ms)}</Td>
+                    <Td className="max-w-md font-mono text-[13px] break-words text-red">{b.error}</Td>
+                  </Tr>
                 ))}
-                {batchesQ.data && batches.length === 0 && (
-                  <tr>
-                    <td className={td + ' text-muted'} colSpan={7}>
-                      No batches.
-                    </td>
-                  </tr>
-                )}
+                {batchesQ.data && batches.length === 0 && <EmptyRow colSpan={7}>No batches</EmptyRow>}
               </tbody>
-            </table>
+            </Table>
           </div>
-        </section>
+        </Section>
       )}
-    </div>
+    </>
   )
 }

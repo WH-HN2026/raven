@@ -3,13 +3,26 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { api, ApiError, type Schemas } from '../../api/client'
 import { useCan } from '../../auth/hooks'
+import { PageHeader } from '../../components/PageHeader'
 import {
-  btnPrimary,
-  btnSecondary,
-  card,
+  Alert,
+  Button,
+  EmptyRow,
+  ErrorText,
+  Field,
+  Pagination,
+  Section,
+  SectionHeading,
+  Table,
+  Td,
+  Th,
+  THeadRow,
+  Tr,
+  inputClass,
+} from '../../components/ui'
+import {
   formatDuration,
   formatTime,
-  input,
   isActive,
   pollWhile,
   profilesKey,
@@ -17,8 +30,6 @@ import {
   runDurationMs,
   runsKey,
   StatusBadge,
-  td,
-  th,
 } from './ui'
 
 const PAGE = 50
@@ -55,63 +66,60 @@ export function StartRunForm() {
     : undefined
 
   return (
-    <section className={card}>
-      <h2 className="mb-3 text-lg font-semibold text-ink">Start a run</h2>
-      <form
-        className="flex flex-wrap items-end gap-3"
-        onSubmit={(e) => {
-          e.preventDefault()
-          if (profileId !== null) start.mutate(profileId)
-        }}
-      >
-        <label className="flex flex-col gap-1 text-sm text-graphite">
-          Profile
-          <select
-            className={input}
-            value={profileId ?? ''}
-            onChange={(e) => {
-              setPicked(Number(e.target.value))
-              start.reset()
-            }}
-            disabled={enabled.length === 0}
-          >
-            {enabled.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name} (max rate {p.nmap_max_rate}/s)
-              </option>
-            ))}
-          </select>
-        </label>
-        <button type="submit" className={btnPrimary} disabled={profileId === null || start.isPending}>
-          {start.isPending ? 'Starting…' : 'Start run'}
-        </button>
-      </form>
-      {profiles.error && <p className="mt-2 text-sm text-danger">Cannot load profiles: {profiles.error.message}</p>}
-      {profiles.data && enabled.length === 0 && (
-        <p className="mt-2 text-sm text-muted">No enabled profiles.</p>
-      )}
-      {err && (
-        <p role="alert" className="mt-3 rounded bg-accent-light px-3 py-2 text-sm text-accent-dark">
-          {conflict ? (
-            <>
-              This profile already has an active run
-              {blocking && (
-                <>
-                  {' '}
-                  (
-                  <Link className="font-medium underline" to={`/runs/${blocking.id}`}>
-                    run #{blocking.id}
-                  </Link>
-                  )
-                </>
-              )}
-              .
-            </>
-          ) : (
-            <>Cannot start the run: {err.message}</>
-          )}
-        </p>
-      )}
+    <section aria-label="Start a run" className="bg-band">
+      <div className="mx-auto flex max-w-[1440px] flex-col gap-4 px-10 py-7">
+        <form
+          className="flex flex-wrap items-end gap-4"
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (profileId !== null) start.mutate(profileId)
+          }}
+        >
+          <Field label="Profile" className="flex-[0_1_360px]">
+            <select
+              className={inputClass}
+              value={profileId ?? ''}
+              onChange={(e) => {
+                setPicked(Number(e.target.value))
+                start.reset()
+              }}
+              disabled={enabled.length === 0}
+            >
+              {enabled.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name} (max rate {p.nmap_max_rate}/s)
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Button type="submit" variant="primary" disabled={profileId === null || start.isPending}>
+            {start.isPending ? 'Starting…' : 'Start run'}
+          </Button>
+        </form>
+        {profiles.error && <ErrorText>Cannot load profiles: {profiles.error.message}</ErrorText>}
+        {profiles.data && enabled.length === 0 && <p className="m-0 text-sm text-muted">No enabled profiles</p>}
+        {err && (
+          <Alert>
+            {conflict ? (
+              <>
+                This profile already has an active run
+                {blocking && (
+                  <>
+                    {' '}
+                    (<Link className="font-medium" to={`/runs/${blocking.id}`}>
+                      run #{blocking.id}
+                    </Link>
+                    )
+                  </>
+                )}
+                .
+              </>
+            ) : (
+              <>Cannot start the run: {err.message}</>
+            )}
+          </Alert>
+        )}
+      </div>
     </section>
   )
 }
@@ -130,81 +138,56 @@ export function RunsTable() {
   const total = q.data?.total ?? 0
 
   return (
-    <section className={card}>
-      <div className="mb-3 flex items-baseline gap-3">
-        <h2 className="text-lg font-semibold text-ink">Runs</h2>
-        <span className="text-sm text-muted">{total} total</span>
-      </div>
-      {q.error && <p className="text-sm text-danger">Cannot load runs: {q.error.message}</p>}
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr>
-              <th className={th}>Run</th>
-              <th className={th}>Profile</th>
-              <th className={th}>Status</th>
-              <th className={th}>Progress</th>
-              <th className={th}>Hosts up / total</th>
-              <th className={th}>Started</th>
-              <th className={th}>Duration</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((r) => (
-              <tr key={r.id} className="hover:bg-canvas">
-                <td className={td}>
-                  <Link className="font-medium text-brand hover:underline" to={`/runs/${r.id}`}>
-                    #{r.id}
-                  </Link>
-                </td>
-                <td className={td}>{names.get(r.profile_id) ?? `profile ${r.profile_id}`}</td>
-                <td className={td}>
-                  <StatusBadge status={r.status} />
-                </td>
-                <td className={td}>
-                  <ProgressBar run={r} />
-                </td>
-                <td className={td + ' whitespace-nowrap'}>
-                  {r.hosts_up} / {r.hosts_total}
-                </td>
-                <td className={td + ' whitespace-nowrap text-muted'}>{formatTime(r.started_at ?? r.created_at)}</td>
-                <td className={td + ' whitespace-nowrap'}>{formatDuration(runDurationMs(r))}</td>
-              </tr>
-            ))}
-            {q.data && items.length === 0 && (
-              <tr>
-                <td className={td + ' text-muted'} colSpan={7}>
-                  No runs yet.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-      {total > PAGE && (
-        <div className="mt-3 flex items-center gap-2 text-sm text-muted">
-          <button className={btnSecondary} disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - PAGE))}>
-            Previous
-          </button>
-          <span>
-            {offset + 1}–{Math.min(offset + PAGE, total)} of {total}
-          </span>
-          <button className={btnSecondary} disabled={offset + PAGE >= total} onClick={() => setOffset(offset + PAGE)}>
-            Next
-          </button>
-        </div>
-      )}
-    </section>
+    <Section className="flex flex-col gap-4 pb-16">
+      <SectionHeading>Runs · {total}</SectionHeading>
+      {q.error && <ErrorText>Cannot load runs: {q.error.message}</ErrorText>}
+      <Table minWidth={760}>
+        <thead>
+          <THeadRow>
+            <Th>Run</Th>
+            <Th>Profile</Th>
+            <Th>Status</Th>
+            <Th>Progress</Th>
+            <Th>Hosts up / total</Th>
+            <Th>Started</Th>
+            <Th className="text-right">Duration</Th>
+          </THeadRow>
+        </thead>
+        <tbody>
+          {items.map((r) => (
+            <Tr key={r.id}>
+              <Td className="text-xl leading-none font-light">
+                <Link to={`/runs/${r.id}`}>#{r.id}</Link>
+              </Td>
+              <Td>{names.get(r.profile_id) ?? `profile ${r.profile_id}`}</Td>
+              <Td>
+                <StatusBadge status={r.status} />
+              </Td>
+              <Td>
+                <ProgressBar run={r} />
+              </Td>
+              <Td className="whitespace-nowrap tabular-nums">
+                {r.hosts_up} / {r.hosts_total}
+              </Td>
+              <Td className="whitespace-nowrap text-muted">{formatTime(r.started_at ?? r.created_at)}</Td>
+              <Td className="text-right whitespace-nowrap">{formatDuration(runDurationMs(r))}</Td>
+            </Tr>
+          ))}
+          {q.data && items.length === 0 && <EmptyRow colSpan={7}>No runs</EmptyRow>}
+        </tbody>
+      </Table>
+      <Pagination offset={offset} pageSize={PAGE} total={total} onChange={setOffset} />
+    </Section>
   )
 }
 
 export function RunsPage() {
   const canControl = useCan('runs:control')
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-semibold text-ink">Runs</h1>
+    <>
+      <PageHeader title="Runs" crumbs={[{ label: 'Runs' }]} />
       {canControl && <StartRunForm />}
       <RunsTable />
-    </div>
+    </>
   )
 }

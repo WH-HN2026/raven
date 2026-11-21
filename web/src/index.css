@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "./theme.css";
+@import "./fonts.css";
 
 @layer base {
   html,
@@ -8,6 +9,27 @@
     height: 100%;
   }
   body {
-    @apply bg-canvas text-ink font-sans antialiased;
+    @apply bg-white font-sans text-ink antialiased;
+    font-size: 15px;
+    line-height: 1.5;
+  }
+  /* Square corners everywhere, including native controls. */
+  *,
+  ::before,
+  ::after {
+    border-radius: 0;
+  }
+  /* Links: text colour, red underline, red on hover. */
+  a {
+    text-decoration-line: underline;
+    text-decoration-color: var(--color-red);
+    text-underline-offset: 3px;
+  }
+  a:hover {
+    color: var(--color-red);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-red);
+    outline-offset: 2px;
   }
 }

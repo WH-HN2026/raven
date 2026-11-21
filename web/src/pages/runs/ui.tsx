@@ -1,22 +1,11 @@
 // Shared bits of the Runs pages (theme tokens only).
 import type { Schemas } from '../../api/client'
+import { Badge, type BadgeTone } from '../../components/ui'
 
 export type Run = Schemas['Run']
 export type RunStatus = Schemas['RunStatus']
 export type Batch = Schemas['Batch']
 export type BatchStatus = Batch['status']
-
-export const card = 'rounded-lg border border-line bg-surface p-4 shadow-sm'
-export const input =
-  'rounded border border-line bg-surface px-3 py-1.5 text-sm focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand-light'
-export const btnPrimary =
-  'rounded bg-brand px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-60'
-export const btnSecondary =
-  'rounded border border-line bg-surface px-3 py-1.5 text-sm text-graphite hover:bg-canvas disabled:opacity-60'
-export const btnDanger =
-  'rounded bg-accent px-3 py-1.5 text-sm font-medium text-white hover:bg-accent-dark disabled:opacity-60'
-export const th = 'border-b border-line px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-muted'
-export const td = 'border-b border-line px-3 py-2 align-top'
 
 export const runsKey = ['runs'] as const
 export const profilesKey = ['profiles'] as const
@@ -55,24 +44,17 @@ export function formatTime(s: string | null | undefined): string {
   return s ? new Date(s).toLocaleString() : '—'
 }
 
-const badgeClass: Record<RunStatus, string> = {
-  pending: 'bg-canvas text-graphite border-line',
-  running: 'bg-brand-light text-brand-dark border-brand',
-  suspended: 'bg-canvas text-warn border-warn',
-  done: 'bg-brand text-white border-brand',
-  failed: 'bg-accent-light text-accent-dark border-accent',
-  stopped: 'bg-canvas text-muted border-line',
+const badgeTone: Record<RunStatus, BadgeTone> = {
+  pending: 'neutral',
+  running: 'rose',
+  suspended: 'rose',
+  done: 'done',
+  failed: 'red',
+  stopped: 'gone',
 }
 
 export function StatusBadge({ status }: { status: RunStatus | BatchStatus }) {
-  return (
-    <span
-      className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-xs font-medium ${badgeClass[status]}`}
-    >
-      {isActive(status) && <span aria-hidden className="h-1.5 w-1.5 animate-pulse rounded-full bg-current" />}
-      {status}
-    </span>
-  )
+  return <Badge tone={badgeTone[status]}>{status}</Badge>
 }
 
 /** Batch progress: done (green) and failed (red) segments of all batches. */
@@ -88,15 +70,40 @@ export function ProgressBar({ run }: { run: Pick<Run, 'batches_done' | 'batches_
         aria-valuemin={0}
         aria-valuemax={total}
         aria-valuenow={run.batches_done}
-        className="flex h-2 w-24 overflow-hidden rounded bg-canvas ring-1 ring-line"
+        className="flex h-2.5 w-24 bg-band"
       >
-        <div className="bg-brand" style={{ width: `${pct(run.batches_done)}%` }} />
-        <div className="bg-accent" style={{ width: `${pct(run.batches_failed)}%` }} />
+        <div className="bg-green" style={{ width: `${pct(run.batches_done)}%` }} />
+        <div className="bg-red" style={{ width: `${pct(run.batches_failed)}%` }} />
       </div>
-      <span className="whitespace-nowrap text-xs text-muted">
+      <span className="text-[13px] whitespace-nowrap text-muted">
         {total > 0 ? `${run.batches_done}/${total}` : '—'}
-        {run.batches_failed > 0 && <span className="text-danger"> ({run.batches_failed} failed)</span>}
+        {run.batches_failed > 0 && <span className="font-medium text-red"> ({run.batches_failed} failed)</span>}
       </span>
+    </div>
+  )
+}
+
+/** One square per batch: done green, running rose, failed red, pending grey. */
+export function BatchStrip({ batches }: { batches: Batch[] }) {
+  if (batches.length === 0) return null
+  const fill: Record<BatchStatus, string> = {
+    pending: 'bg-band border-on-dark-muted',
+    running: 'bg-rose border-rose',
+    done: 'bg-green border-green',
+    failed: 'bg-red border-red',
+    stopped: 'bg-line border-line',
+  }
+  const done = batches.filter((b) => b.status === 'done').length
+  return (
+    <div
+      role="img"
+      aria-label={`${done} of ${batches.length} batches done`}
+      className="grid gap-[3px]"
+      style={{ gridTemplateColumns: `repeat(${Math.min(batches.length, 24)}, minmax(0, 1fr))` }}
+    >
+      {batches.map((b) => (
+        <span key={b.id} title={`#${b.seq} ${b.status}`} className={'h-8 border ' + fill[b.status]} />
+      ))}
     </div>
   )
 }

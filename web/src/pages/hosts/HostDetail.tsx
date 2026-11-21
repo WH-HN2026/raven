@@ -1,7 +1,24 @@
 import { useQuery } from '@tanstack/react-query'
-import { Link, useLocation, useParams } from 'react-router'
+import type { ReactNode } from 'react'
+import { useLocation, useParams } from 'react-router'
 import { ApiError, api, type Schemas } from '../../api/client'
-import { card, chip, chipMuted, fmtTime, hostsKey, stateClass, td, th } from './ui'
+import { PageHeader } from '../../components/PageHeader'
+import {
+  Badge,
+  Chip,
+  EmptyRow,
+  ErrorText,
+  KeyNumber,
+  KeyNumbers,
+  Section,
+  SectionHeading,
+  Table,
+  Td,
+  Th,
+  THeadRow,
+  Tr,
+} from '../../components/ui'
+import { fmtTime, hostsKey, stateTone } from './ui'
 
 type Service = Schemas['Service']
 type HttpObservation = Schemas['HttpObservation']
@@ -15,71 +32,89 @@ export function HostDetailPage() {
     queryFn: () => api.get('/hosts/{ip}', { params: { ip } }),
     retry: (n, err) => !(err instanceof ApiError && err.status < 500) && n < 2,
   })
-  const back = (
-    <Link to={from ? `/hosts?${from}` : '/hosts'} className="text-sm text-brand hover:underline">
-      ← All hosts
-    </Link>
-  )
+  const crumbs = [{ label: 'Hosts', to: from ? `/hosts?${from}` : '/hosts' }, { label: ip }]
 
-  if (q.isPending) return <div className="space-y-3">{back}<p className="text-muted">Loading…</p></div>
-  if (q.error) {
+  if (q.isPending || q.error) {
     const notFound = q.error instanceof ApiError && q.error.status === 404
     return (
-      <div className="space-y-3">
-        {back}
-        <p className="text-danger">{notFound ? `Host ${ip} is not known.` : `Cannot load host: ${q.error.message}`}</p>
-      </div>
+      <>
+        <PageHeader title={ip} crumbs={crumbs} />
+        <Section>
+          {q.isPending ? (
+            <p className="m-0 text-muted">Loading…</p>
+          ) : (
+            <ErrorText>{notFound ? `Host ${ip} is not known.` : `Cannot load host: ${q.error?.message}`}</ErrorText>
+          )}
+        </Section>
+      </>
     )
   }
   const h = q.data
   return (
-    <div className="space-y-6">
-      {back}
-      <div className="flex flex-wrap items-baseline gap-3">
-        <h1 className="font-mono text-2xl font-semibold text-ink">{h.ip}</h1>
-        <span className={stateClass(h.state)}>{h.state}</span>
-        {h.hostnames.length > 0 && <span className="text-graphite">{h.hostnames.join(', ')}</span>}
-      </div>
+    <>
+      <PageHeader
+        title={h.ip}
+        crumbs={crumbs}
+        badges={<Badge tone={stateTone(h.state)}>{h.state}</Badge>}
+        meta={
+          <>
+            {h.hostnames.length > 0 && <div>{h.hostnames.join(' · ')}</div>}
+            <div>
+              First seen {fmtTime(h.first_seen)} · last seen {fmtTime(h.last_seen)}
+            </div>
+          </>
+        }
+      >
+        {h.user_tags.map((t) => (
+          <Chip key={t} variant="light">
+            {t}
+          </Chip>
+        ))}
+      </PageHeader>
 
-      <section className={card}>
-        <dl className="grid grid-cols-1 gap-x-6 gap-y-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
-          <Field label="First seen">{fmtTime(h.first_seen)}</Field>
-          <Field label="Last seen">{fmtTime(h.last_seen)}</Field>
-          <Field label="Missed runs">{h.miss_count}</Field>
-          <Field label="Open services">{h.open_service_count}</Field>
-          <Field label="Owner">{h.owner || <span className="text-muted">—</span>}</Field>
-          <Field label="Criticality">{h.criticality || <span className="text-muted">—</span>}</Field>
-          <Field label="Tags">
-            {h.user_tags.length ? (
-              <span className="flex flex-wrap gap-1">
-                {h.user_tags.map((t) => (
-                  <span key={t} className={chip}>
-                    {t}
+      <div className="mx-auto flex max-w-[1440px] flex-wrap items-start gap-12 px-10 pt-12 pb-16">
+        <div className="flex min-w-0 flex-[999_1_640px] flex-col gap-12">
+          <ServicesTable services={h.services} />
+          <HttpSection http={h.http} services={h.services} />
+        </div>
+        <aside className="flex min-w-0 flex-[1_1_340px] flex-col gap-8">
+          <section className="flex flex-col gap-4 bg-band p-6">
+            <SectionHeading size="sm">Host details</SectionHeading>
+            <dl className="m-0 grid grid-cols-[120px_1fr] gap-x-3 gap-y-2 text-sm">
+              <Field label="Owner">{h.owner || '—'}</Field>
+              <Field label="Criticality">{h.criticality || '—'}</Field>
+              <Field label="Tags">
+                {h.user_tags.length ? (
+                  <span className="flex flex-wrap gap-1.5">
+                    {h.user_tags.map((t) => (
+                      <Chip key={t} variant="filled">
+                        {t}
+                      </Chip>
+                    ))}
                   </span>
-                ))}
-              </span>
-            ) : (
-              <span className="text-muted">—</span>
-            )}
-          </Field>
-          <Field label="Dojo asset">{h.dojo_asset_id ?? <span className="text-muted">—</span>}</Field>
-        </dl>
-        {h.notes && <p className="mt-3 whitespace-pre-wrap border-t border-line pt-3 text-sm text-graphite">{h.notes}</p>}
-      </section>
-
-      <ServicesTable services={h.services} />
-      <HttpSection http={h.http} services={h.services} />
-      <Timeline items={h.timeline} />
-    </div>
+                ) : (
+                  '—'
+                )}
+              </Field>
+              <Field label="Open services">{h.open_service_count}</Field>
+              <Field label="Missed runs">{h.miss_count}</Field>
+              <Field label="Dojo asset">{h.dojo_asset_id ?? '—'}</Field>
+            </dl>
+            {h.notes && <p className="m-0 border-t border-line pt-3 text-sm whitespace-pre-wrap">{h.notes}</p>}
+          </section>
+          <Timeline items={h.timeline} />
+        </aside>
+      </div>
+    </>
   )
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div>
-      <dt className="text-xs uppercase tracking-wide text-muted">{label}</dt>
-      <dd className="text-ink">{children}</dd>
-    </div>
+    <>
+      <dt className="text-muted">{label}</dt>
+      <dd className="m-0 min-w-0 break-words">{children}</dd>
+    </>
   )
 }
 
@@ -90,11 +125,10 @@ function Eff({ s, field }: { s: Service; field: 'name' | 'product' | 'version' }
     <>
       {s[field]}
       {over && (
-        <span
-          className="ml-1 rounded bg-accent-light px-1 text-xs text-accent-dark"
-          title={`Scan value: ${s.scan[field] || '—'}`}
-        >
-          edited
+        <span className="ml-1.5">
+          <Badge tone="rose" title={`Scan value: ${s.scan[field] || '—'}`}>
+            edited
+          </Badge>
         </span>
       )}
     </>
@@ -103,55 +137,47 @@ function Eff({ s, field }: { s: Service; field: 'name' | 'product' | 'version' }
 
 function ServicesTable({ services }: { services: Service[] }) {
   return (
-    <section className={card}>
-      <h2 className="mb-3 text-lg font-semibold text-ink">Services</h2>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr>
-              <th className={th}>Port</th>
-              <th className={th}>State</th>
-              <th className={th}>Name</th>
-              <th className={th}>Product</th>
-              <th className={th}>Version</th>
-              <th className={th}>Banner</th>
-              <th className={th}>First seen</th>
-              <th className={th}>Last seen</th>
-            </tr>
-          </thead>
-          <tbody>
-            {services.map((s) => (
-              <tr key={s.id} className={s.state === 'gone' ? 'text-muted' : ''}>
-                <td className={td + ' font-mono whitespace-nowrap'}>
-                  {s.port}/{s.proto}
-                </td>
-                <td className={td}>
-                  <span className={s.state === 'open' ? stateClass('active') : stateClass('inactive')}>{s.state}</span>
-                </td>
-                <td className={td}>
-                  <Eff s={s} field="name" />
-                </td>
-                <td className={td}>
-                  <Eff s={s} field="product" />
-                </td>
-                <td className={td}>
-                  <Eff s={s} field="version" />
-                </td>
-                <td className={td + ' max-w-md break-all font-mono text-xs'}>{s.banner}</td>
-                <td className={td + ' whitespace-nowrap text-muted'}>{fmtTime(s.first_seen)}</td>
-                <td className={td + ' whitespace-nowrap text-muted'}>{fmtTime(s.last_seen)}</td>
-              </tr>
-            ))}
-            {services.length === 0 && (
-              <tr>
-                <td className={td + ' text-muted'} colSpan={8}>
-                  No services.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+    <section className="flex flex-col gap-4">
+      <SectionHeading>Services</SectionHeading>
+      <Table minWidth={760}>
+        <thead>
+          <THeadRow>
+            <Th>Port</Th>
+            <Th>State</Th>
+            <Th>Service</Th>
+            <Th>Product</Th>
+            <Th>Version</Th>
+            <Th>Banner</Th>
+            <Th>First seen</Th>
+            <Th>Last seen</Th>
+          </THeadRow>
+        </thead>
+        <tbody>
+          {services.map((s) => (
+            <Tr key={s.id} className={s.state === 'gone' ? 'text-muted' : ''}>
+              <Td className="font-mono whitespace-nowrap">
+                {s.port}/{s.proto}
+              </Td>
+              <Td>
+                <Badge tone={stateTone(s.state)}>{s.state}</Badge>
+              </Td>
+              <Td>
+                <Eff s={s} field="name" />
+              </Td>
+              <Td className="font-mono text-[13px]">
+                <Eff s={s} field="product" />
+              </Td>
+              <Td className="font-mono text-[13px]">
+                <Eff s={s} field="version" />
+              </Td>
+              <Td className="max-w-xs font-mono text-xs break-all">{s.banner}</Td>
+              <Td className="whitespace-nowrap text-muted">{fmtTime(s.first_seen)}</Td>
+              <Td className="whitespace-nowrap text-muted">{fmtTime(s.last_seen)}</Td>
+            </Tr>
+          ))}
+          {services.length === 0 && <EmptyRow colSpan={8}>No services.</EmptyRow>}
+        </tbody>
+      </Table>
     </section>
   )
 }
@@ -159,113 +185,153 @@ function ServicesTable({ services }: { services: Service[] }) {
 function HttpSection({ http, services }: { http: HttpObservation[]; services: Service[] }) {
   const port = new Map(services.map((s) => [s.id, `${s.port}/${s.proto}`]))
   return (
-    <section className={card}>
-      <h2 className="mb-3 text-lg font-semibold text-ink">HTTP observations</h2>
+    <section className="flex flex-col gap-6">
+      <SectionHeading>HTTP fingerprint</SectionHeading>
       {http.length === 0 ? (
-        <p className="text-sm text-muted">No HTTP observations.</p>
+        <p className="m-0 border-t-2 border-black py-4 text-muted">No HTTP observations.</p>
       ) : (
-        <div className="space-y-4">
-          {http.map((o) => (
-            <article key={o.id} className="rounded border border-line p-3">
-              <div className="flex flex-wrap items-baseline gap-2">
-                <span className="font-mono text-sm text-ink break-all">{o.url}</span>
-                {o.status !== null && <span className={chipMuted}>{o.status}</span>}
-                <span className="text-xs text-muted">
-                  {port.get(o.service_id)} · observed {fmtTime(o.observed_at)}
-                  {o.run_id !== null && ` · run #${o.run_id}`}
-                </span>
+        http.map((o) => (
+          <article key={o.id} className="flex flex-col gap-5 border-t-2 border-black pt-4">
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <span className="font-mono font-medium break-all">{o.url}</span>
+              <span className="text-[13px] text-muted">{port.get(o.service_id)}</span>
+            </div>
+            <KeyNumbers>
+              <KeyNumber size="sm" label="Status" value={o.status ?? '—'} />
+              <KeyNumber size="sm" label="Title" value={o.title || '—'} />
+              {o.favicon_hash && (
+                <KeyNumber size="sm" label="Favicon (mmh3)" value={<span className="font-mono">{o.favicon_hash}</span>} />
+              )}
+              <KeyNumber
+                size="sm"
+                label="Observed"
+                value={o.run_id !== null ? `run #${o.run_id}` : fmtTime(o.observed_at)}
+                note={o.run_id !== null ? fmtTime(o.observed_at) : undefined}
+              />
+            </KeyNumbers>
+            {o.redirects.length > 0 && (
+              <div>
+                <SubHeading>Redirect chain</SubHeading>
+                <div className="flex flex-wrap items-center gap-2 font-mono text-[13px]">
+                  {o.redirects.map((r, i) => (
+                    <span key={i} className="flex items-center gap-2">
+                      {i > 0 && <span className="text-muted">→</span>}
+                      <span className="bg-band px-2 py-1 break-all">{r}</span>
+                    </span>
+                  ))}
+                </div>
               </div>
-              {o.title && <p className="mt-1 text-sm text-graphite">{o.title}</p>}
-              {o.technologies.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-1">
+            )}
+            <div className="flex flex-wrap gap-8">
+              {Object.keys(o.headers).length > 0 && (
+                <div className="min-w-0 flex-[1_1_380px]">
+                  <SubHeading rule>Response headers</SubHeading>
+                  <table className="w-full border-collapse font-mono text-[13px]">
+                    <tbody>
+                      {Object.entries(o.headers)
+                        .sort(([a], [b]) => a.localeCompare(b))
+                        .map(([k, v]) => (
+                          <tr key={k} className="border-b border-line">
+                            <td className="py-2 pr-2.5 align-top whitespace-nowrap text-muted">{k}</td>
+                            <td className="py-2 break-all">{v}</td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {(o.cookies.length > 0 || o.tls_cert) && (
+                <div className="flex min-w-0 flex-[1_1_320px] flex-col gap-6">
+                  {o.cookies.length > 0 && (
+                    <div>
+                      <SubHeading rule>Cookies</SubHeading>
+                      <ul className="m-0 list-none p-0 font-mono text-[13px]">
+                        {o.cookies.map((c, i) => (
+                          <li key={i} className="border-b border-line py-2 break-all">
+                            {c}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {o.tls_cert && (
+                    <div>
+                      <SubHeading rule>TLS certificate</SubHeading>
+                      <pre className="m-0 pt-2 font-mono text-[13px] break-all whitespace-pre-wrap">{o.tls_cert}</pre>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            {o.technologies.length > 0 && (
+              <div>
+                <SubHeading rule>Technologies</SubHeading>
+                <div className="flex flex-wrap gap-2 pt-1">
                   {o.technologies.map((t) => (
-                    <span key={t} className={chip}>
+                    <span key={t} className="border border-line-strong px-3.5 py-2 font-medium">
                       {t}
                     </span>
                   ))}
                 </div>
-              )}
-              <div className="mt-2 grid gap-3 text-xs lg:grid-cols-2">
-                {Object.keys(o.headers).length > 0 && (
-                  <Block title="Headers">
-                    <table className="w-full">
-                      <tbody>
-                        {Object.entries(o.headers)
-                          .sort(([a], [b]) => a.localeCompare(b))
-                          .map(([k, v]) => (
-                            <tr key={k}>
-                              <td className="pr-2 align-top font-mono text-muted whitespace-nowrap">{k}</td>
-                              <td className="font-mono break-all text-ink">{v}</td>
-                            </tr>
-                          ))}
-                      </tbody>
-                    </table>
-                  </Block>
-                )}
-                {o.cookies.length > 0 && (
-                  <Block title="Cookies">
-                    <ul className="font-mono break-all">
-                      {o.cookies.map((c, i) => (
-                        <li key={i}>{c}</li>
-                      ))}
-                    </ul>
-                  </Block>
-                )}
-                {o.redirects.length > 0 && (
-                  <Block title="Redirects">
-                    <ol className="list-decimal pl-4 font-mono break-all">
-                      {o.redirects.map((r, i) => (
-                        <li key={i}>{r}</li>
-                      ))}
-                    </ol>
-                  </Block>
-                )}
-                {o.tls_cert && (
-                  <Block title="TLS certificate">
-                    <pre className="whitespace-pre-wrap break-all font-mono">{o.tls_cert}</pre>
-                  </Block>
-                )}
-                {o.favicon_hash && (
-                  <Block title="Favicon hash">
-                    <span className="font-mono">{o.favicon_hash}</span>
-                  </Block>
-                )}
               </div>
-            </article>
-          ))}
-        </div>
+            )}
+          </article>
+        ))
       )}
     </section>
   )
 }
 
-function Block({ title, children }: { title: string; children: React.ReactNode }) {
+/** 12px uppercase label, optionally with the 2px black rule under it. */
+function SubHeading({ children, rule = false }: { children: ReactNode; rule?: boolean }) {
   return (
-    <div>
-      <h3 className="mb-1 font-semibold uppercase tracking-wide text-muted">{title}</h3>
+    <h3
+      className={
+        'm-0 mb-2 text-xs font-medium tracking-[0.06em] text-muted uppercase ' + (rule ? 'border-b-2 border-black pb-2' : '')
+      }
+    >
       {children}
-    </div>
+    </h3>
   )
 }
 
 function Timeline({ items }: { items: Schemas['HostObservation'][] }) {
+  const up = items.filter((o) => o.up).length
+  // Oldest first in the strip (the API returns newest first).
+  const strip = [...items].reverse()
   return (
-    <section className={card}>
-      <h2 className="mb-3 text-lg font-semibold text-ink">Recent runs</h2>
+    <section className="flex flex-col gap-3">
+      <SectionHeading size="sm">Presence, last {items.length} runs</SectionHeading>
       {items.length === 0 ? (
-        <p className="text-sm text-muted">No run observations.</p>
+        <p className="m-0 text-sm text-muted">No run observations.</p>
       ) : (
-        <ul className="space-y-1 text-sm" aria-label="Up/down timeline">
-          {items.map((o) => (
-            <li key={o.run_id} className="flex items-center gap-3">
-              <span className={o.up ? stateClass('active') : 'rounded bg-accent-light px-1.5 py-0.5 text-xs font-medium text-accent-dark'}>
-                {o.up ? 'up' : 'down'}
-              </span>
-              <span className="text-graphite">run #{o.run_id}</span>
-              <span className="text-muted">{fmtTime(o.observed_at)}</span>
-            </li>
-          ))}
-        </ul>
+        <>
+          <div
+            aria-hidden
+            className="grid gap-[3px]"
+            style={{ gridTemplateColumns: `repeat(${strip.length}, minmax(0, 1fr))` }}
+          >
+            {strip.map((o) => (
+              <span
+                key={o.run_id}
+                title={`run #${o.run_id}: ${o.up ? 'up' : 'down'}`}
+                className={'h-7 border ' + (o.up ? 'border-green bg-green' : 'border-on-dark-muted bg-band')}
+              />
+            ))}
+          </div>
+          <p className="m-0 text-sm font-light">
+            Up in {up} of {items.length} runs
+          </p>
+          <ul aria-label="Up/down timeline" className="m-0 flex list-none flex-col p-0 text-sm">
+            {items.map((o) => (
+              <li key={o.run_id} className="flex items-center gap-3 border-b border-line py-1.5">
+                <Badge tone={o.up ? 'new' : 'gone'}>{o.up ? 'up' : 'down'}</Badge>
+                <span>run #{o.run_id}</span>
+                <span className="ml-auto text-muted">{fmtTime(o.observed_at)}</span>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
     </section>
   )

@@ -1,42 +1,60 @@
 /*
- * AGH theme tokens: the ONLY place colours are defined (AGENTS.md: no raw hex
- * in components). Values approximate the AGH University of Krakow visual
- * identity (Księga Identyfikacji Wizualnej AGH): AGH green, AGH red and
- * black/graphite. They were taken from the public logo artwork, not from the
- * official book, so treat them as approximations to verify against the book.
+ * ASI design tokens: the ONLY place colours are defined (AGENTS.md: no raw hex
+ * in components). Values come from docs/design/README.md ("Tokens"); the
+ * Tailwind names map 1:1 to the design names:
+ *
+ *   design token            Tailwind colour   e.g.
+ *   --agh-red               red               bg-red, border-red, text-red
+ *   --agh-black             black             bg-black
+ *   --text                  ink               text-ink
+ *   --text-secondary        muted             text-muted
+ *   --text-on-dark          on-dark           text-on-dark
+ *   --text-on-dark-muted    on-dark-muted     text-on-dark-muted
+ *   --border                line              border-line
+ *   --border-strong         line-strong       border-line-strong
+ *   --band                  band              bg-band
+ *   --agh-green             green             bg-green
+ *   --agh-rose              rose              bg-rose
+ *   --sev-*                 sev-*             bg-sev-high
+ *   --heat-0..4             heat-0..4         bg-heat-2
  */
 @theme {
-  /* Disable Tailwind's default palette: only the tokens below exist. */
+  /* Disable Tailwind's default palette, radii and shadows: only the tokens below exist. */
   --color-*: initial;
+  --radius-*: initial;
+  --shadow-*: initial;
+  --inset-shadow-*: initial;
+  --drop-shadow-*: initial;
 
   --color-white: #ffffff;
   --color-transparent: transparent;
   --color-current: currentColor;
 
-  /* AGH green (primary) */
-  --color-brand: #00693c;
-  --color-brand-dark: #004d2c;
-  --color-brand-light: #e3f1ea;
+  --color-red: #c10d14;
+  --color-black: #000000;
+  --color-ink: #212121;
+  --color-muted: #505157;
+  --color-on-dark: #d8d7d7;
+  --color-on-dark-muted: #bdbdbd;
+  --color-on-dark-rule: #666666; /* the divider between logo and wordmark in the top bar */
+  --color-line: #dedede;
+  --color-line-strong: #212121;
+  --color-band: #ededed;
+  --color-green: #006837;
+  --color-rose: #f9bead;
 
-  /* AGH red (accent / danger) */
-  --color-accent: #a71930;
-  --color-accent-dark: #7f1324;
-  --color-accent-light: #f8e5e8;
+  --color-sev-critical: #c10d14;
+  --color-sev-high: #e35205;
+  --color-sev-medium: #e8a800;
+  --color-sev-low: #2f6db5;
+  --color-sev-info: #808187;
 
-  /* black / graphite */
-  --color-ink: #1d1d1b;
-  --color-graphite: #3c3c3b;
-  --color-muted: #6f6f6e;
+  --color-heat-0: #ededed;
+  --color-heat-1: #cfe3d3;
+  --color-heat-2: #8dc29b;
+  --color-heat-3: #2e8a4f;
+  --color-heat-4: #006837;
 
-  /* surfaces */
-  --color-surface: #ffffff;
-  --color-canvas: #f4f5f4;
-  --color-line: #d9dcda;
-
-  /* status */
-  --color-ok: #00693c;
-  --color-warn: #b7791f;
-  --color-danger: #a71930;
-
-  --font-sans: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-sans: Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'Roboto Mono', monospace;
 }
