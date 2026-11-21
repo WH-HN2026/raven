@@ -6,7 +6,7 @@ SQLC := go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1
 GO_PKGS := ./cmd/... ./internal/... ./web
 INFRA_SERVICES := asi-db nginx uwsgi celeryworker celerybeat initializer postgres valkey
 
-.PHONY: dev check check-go check-web gen build infra-up infra-down db-new test-integration lab-up lab-down
+.PHONY: dev check check-go check-web gen build infra-up infra-down db-new test-integration lab-up lab-down cve-db
 
 ## dev: Go server (rebuilt on change) + Vite dev server, using .env.local (run scripts/wt-env.sh first)
 dev: web/node_modules
@@ -55,6 +55,11 @@ db-new:
 ## test-integration: DB/Dojo tests; needs `make infra-up` and .env.local (scripts/wt-env.sh)
 test-integration:
 	set -a; [ -f .env.local ] && . ./.env.local; set +a; go test -count=1 -tags integration $(GO_PKGS)
+
+## cve-db: regenerate internal/cve/data/cve.json.gz from NVD (products.txt), CISA KEV and EPSS.
+## Dev machine only (≈15 min without NVD_API_KEY); commit the output. Build and runtime never download.
+cve-db:
+	go run ./internal/cve/gen
 
 lab-up:
 	docker compose -f compose.lab.yml up -d --build --wait

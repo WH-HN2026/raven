@@ -449,6 +449,21 @@ paths:
               schema: { $ref: "#/components/schemas/Service" }
         default: { $ref: "#/components/responses/Error" }
 
+  /cve-matches:
+    get:
+      tags: [hosts]
+      operationId: listCveMatches
+      description: Offline CVE matches (C3), one per product instance, highest CVSS first.
+      parameters:
+        - { name: ip, in: query, required: false, schema: { type: string }, description: Only this IP. }
+      responses:
+        "200":
+          description: Matches.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CveMatchList" }
+        default: { $ref: "#/components/responses/Error" }
+
   # ───────────────────────── findings (D3, D6, W5) ─────────────────────────
   /findings:
     get:
@@ -1322,6 +1337,38 @@ components:
         favicon_hash: { type: string }
         run_id: { type: [integer, "null"], format: int64 }
         observed_at: { type: string, format: date-time }
+
+    CveHit:
+      type: object
+      required: [id, cvss, kev, epss]
+      properties:
+        id: { type: string, examples: ["CVE-2021-41773"] }
+        cvss: { type: number }
+        kev: { type: boolean }
+        epss: { type: number }
+    CveMatch:
+      type: object
+      required: [ip, port, proto, product, cpe, version, cves, max_cvss, kev, distro, confidence, severity, matched_at]
+      properties:
+        ip: { type: string }
+        port: { type: integer }
+        proto: { type: string }
+        product: { type: string, examples: ["Apache httpd"] }
+        cpe: { type: string, examples: ["apache:http_server"] }
+        version: { type: string, examples: ["2.4.49"] }
+        cves: { type: array, items: { $ref: "#/components/schemas/CveHit" } }
+        max_cvss: { type: number }
+        kev: { type: integer, description: Number of CVEs in CISA KEV. }
+        distro: { type: boolean }
+        confidence: { type: string, enum: [high, low] }
+        severity: { $ref: "#/components/schemas/Severity" }
+        matched_at: { type: string, format: date-time }
+    CveMatchList:
+      type: object
+      required: [items, total]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/CveMatch" } }
+        total: { type: integer }
 
     # ── findings ──
     Finding:

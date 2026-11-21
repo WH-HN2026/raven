@@ -55,6 +55,30 @@ type Batch struct {
 	Error      string       `json:"error"`
 }
 
+type CveMatch struct {
+	Ip         netip.Addr      `json:"ip"`
+	Port       int32           `json:"port"`
+	Proto      string          `json:"proto"`
+	Product    string          `json:"product"`
+	Cpe        string          `json:"cpe"`
+	Version    string          `json:"version"`
+	CveIds     []string        `json:"cve_ids"`
+	Hits       json.RawMessage `json:"hits"`
+	MaxCvss    float32         `json:"max_cvss"`
+	Kev        int32           `json:"kev"`
+	Distro     bool            `json:"distro"`
+	Confidence string          `json:"confidence"`
+	Severity   string          `json:"severity"`
+	MatchedAt  time.Time       `json:"matched_at"`
+	UpdatedAt  time.Time       `json:"updated_at"`
+}
+
+type CvePush struct {
+	Ip       netip.Addr `json:"ip"`
+	Hash     string     `json:"hash"`
+	PushedAt time.Time  `json:"pushed_at"`
+}
+
 type DojoAsset struct {
 	ID       int64       `json:"id"`
 	Name     string      `json:"name"`

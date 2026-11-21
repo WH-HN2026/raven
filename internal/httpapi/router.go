@@ -50,6 +50,7 @@ func NewRouter(d Deps) http.Handler {
 		a.mountScope(r)
 		a.mountRuns(r)
 		a.mountHosts(r)
+		a.mountCVE(r)
 		a.mountFindings(r)
 		a.mountChanges(r)
 		a.mountProfiles(r)

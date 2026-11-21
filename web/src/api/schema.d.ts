@@ -372,6 +372,23 @@ export interface paths {
         patch: operations["updateService"];
         trace?: never;
     };
+    "/cve-matches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Offline CVE matches (C3), one per product instance, highest CVSS first. */
+        get: operations["listCveMatches"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/findings": {
         parameters: {
             query?: never;
@@ -1041,6 +1058,38 @@ export interface components {
             run_id: number | null;
             /** Format: date-time */
             observed_at: string;
+        };
+        CveHit: {
+            /** @example CVE-2021-41773 */
+            id: string;
+            cvss: number;
+            kev: boolean;
+            epss: number;
+        };
+        CveMatch: {
+            ip: string;
+            port: number;
+            proto: string;
+            /** @example Apache httpd */
+            product: string;
+            /** @example apache:http_server */
+            cpe: string;
+            /** @example 2.4.49 */
+            version: string;
+            cves: components["schemas"]["CveHit"][];
+            max_cvss: number;
+            /** @description Number of CVEs in CISA KEV. */
+            kev: number;
+            distro: boolean;
+            /** @enum {string} */
+            confidence: "high" | "low";
+            severity: components["schemas"]["Severity"];
+            /** Format: date-time */
+            matched_at: string;
+        };
+        CveMatchList: {
+            items: components["schemas"]["CveMatch"][];
+            total: number;
         };
         Finding: {
             /**
@@ -1887,6 +1936,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Service"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listCveMatches: {
+        parameters: {
+            query?: {
+                /** @description Only this IP. */
+                ip?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Matches. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CveMatchList"];
                 };
             };
             default: components["responses"]["Error"];
