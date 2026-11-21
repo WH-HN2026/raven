@@ -8,8 +8,6 @@ import { scopeKey } from './ui'
 type List = Schemas['ScopeEntryInput']['list']
 type Kind = Schemas['TargetKind']
 
-// TODO(W7): profile-specific scope entries (GET/POST /scope with profile_id) once profiles exist.
-
 /** Global include list and global blacklist. Editing needs scope:write + scope:global (admin). */
 export function ScopeEditor() {
   const canWrite = useCan('scope:write')
@@ -41,16 +39,19 @@ export function ScopeEditor() {
   )
 }
 
-function ScopeList({
+/** One include or exclude list; `profileId` adds entries to that profile instead of the global lists. */
+export function ScopeList({
   list,
   title,
   items,
   canEdit,
+  profileId = null,
 }: {
   list: List
   title: string
   items: Schemas['ScopeEntry'][]
   canEdit: boolean
+  profileId?: number | null
 }) {
   const qc = useQueryClient()
   const [value, setValue] = useState('')
@@ -60,7 +61,7 @@ function ScopeList({
   const add = useMutation({
     mutationFn: () =>
       api.post('/scope', {
-        body: { value: value.trim(), list, profile_id: null, ...(kind ? { kind } : {}), ...(note.trim() ? { note: note.trim() } : {}) },
+        body: { value: value.trim(), list, profile_id: profileId, ...(kind ? { kind } : {}), ...(note.trim() ? { note: note.trim() } : {}) },
       }),
     onSuccess: () => {
       setValue('')
