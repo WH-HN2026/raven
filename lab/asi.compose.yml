@@ -1,0 +1,10 @@
+services:
+  asi:
+    networks:
+      - default
+      - lab
+
+networks:
+  lab:
+    external: true
+    name: asi_lab
