@@ -66,8 +66,8 @@ type Config struct {
 	Nuclei    scanner.Scanner  // nil = ProjectDiscovery nuclei from PATH
 	Resolver  targets.Resolver // net.DefaultResolver in production
 	Hook      BatchHook        // nil = no-op
-	BatchSize int              // 0 = BatchSize
-	Workers   int              // 0 = maxWorkers
+	BatchSize int              // 0 = adaptive sizing (S5); > 0 = fixed batch size
+	Workers   int              // 0 = maxWorkers (global concurrency cap)
 }
 
 type Service struct {
@@ -86,9 +86,6 @@ func New(pool *pgxpool.Pool, cfg Config) (*Service, error) {
 	}
 	if cfg.Hook == nil {
 		cfg.Hook = nopHook{}
-	}
-	if cfg.BatchSize <= 0 {
-		cfg.BatchSize = BatchSize
 	}
 	if cfg.Workers <= 0 {
 		cfg.Workers = maxWorkers
@@ -241,15 +238,18 @@ func (s *Service) StartRun(ctx context.Context, u *auth.User, profileID int64) (
 		return Run{}, fmt.Errorf("scan list of profile %d: %w", profileID, err)
 	}
 
-	batches := SplitBatches(sl.IPs, s.cfg.BatchSize)
+	plan, batches, err := s.planRunBatches(ctx, prof, sl.IPs)
+	if err != nil {
+		return Run{}, err
+	}
 	stats := lifecycleStats{}.runStats()
+	maps.Copy(stats, plan.statsMap(batches, prof, s.cfg.Workers))
 	maps.Copy(stats, map[string]any{
 		"candidates":   sl.Stats.Candidates,
 		"not_included": sl.Stats.NotIncluded,
 		"excluded":     sl.Stats.Excluded,
 		"rejected":     sl.Stats.Rejected,
 		"warnings":     nonNil(sl.Warnings),
-		"batch_size":   s.cfg.BatchSize,
 	})
 	now := time.Now()
 	status, finished := "running", (*time.Time)(nil)
@@ -313,7 +313,7 @@ func (s *Service) StartRun(ctx context.Context, u *auth.User, profileID int64) (
 			}
 		}
 		return audit.Log(ctx, q, userID(u), "runs.start", "run", strconv.FormatInt(run.ID, 10),
-			map[string]any{"profile_id": profileID, "hosts_total": len(sl.IPs), "batches": len(batches)})
+			map[string]any{"profile_id": profileID, "hosts_total": len(sl.IPs), "batches": len(batches), "batch_size": plan.Size})
 	})
 	if err != nil {
 		return Run{}, err

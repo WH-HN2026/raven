@@ -89,7 +89,7 @@ func (s *Service) reprobeHosts(ctx context.Context, ips []netip.Addr, prof gen.P
 	for _, port := range slices.Sorted(maps.Keys(byPort)) {
 		for _, batch := range SplitBatches(byPort[port], s.cfg.BatchSize) {
 			res, err := s.cfg.Scanner.Run(ctx, scanner.Input{IPs: batch},
-				scanner.Options{Ports: strconv.Itoa(int(port)), MaxRate: int(prof.NmapMaxRate)})
+				scanner.Options{Ports: strconv.Itoa(int(port)), MaxRate: s.nmapRate(prof)})
 			if err != nil {
 				return lifecycleStats{}, fmt.Errorf("re-probe hosts on port %d: %w", port, err)
 			}
