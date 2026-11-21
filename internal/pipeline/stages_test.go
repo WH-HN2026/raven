@@ -69,9 +69,14 @@ func TestValidateStages(t *testing.T) {
 			wantErr: "stage nikto is not available",
 		},
 		{
-			name:    "aggressive wpscan rejected as unavailable",
-			in:      []string{StageNmap, StageHTTPX, StageWPScan},
-			wantErr: "stage wpscan is not available",
+			name: "aggressive wpscan accepted when available",
+			in:   []string{StageNmap, StageHTTPX, StageWPScan},
+			want: []string{StageNmap, StageHTTPX, StageWPScan},
+		},
+		{
+			name:    "aggressive wpscan without httpx rejected",
+			in:      []string{StageNmap, StageWPScan},
+			wantErr: "stage wpscan requires httpx",
 		},
 		{
 			name:    "aggressive zap rejected as unavailable",

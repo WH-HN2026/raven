@@ -26,6 +26,10 @@ WHERE id = $1 AND status = 'pending';
 UPDATE runs SET status = $2, finished_at = $3, hosts_up = $4, stats = stats || sqlc.arg(stats)::jsonb
 WHERE id = $1;
 
+-- name: MergeRunStats :exec
+UPDATE runs SET stats = stats || sqlc.arg(stats)::jsonb
+WHERE id = $1;
+
 -- name: GetRunView :one
 SELECT sqlc.embed(r),
     (SELECT count(*) FROM batches b WHERE b.run_id = r.id) AS batches_total,

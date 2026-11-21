@@ -314,6 +314,21 @@ func (q *Queries) MarkRunRunning(ctx context.Context, id int64) error {
 	return err
 }
 
+const mergeRunStats = `-- name: MergeRunStats :exec
+UPDATE runs SET stats = stats || $2::jsonb
+WHERE id = $1
+`
+
+type MergeRunStatsParams struct {
+	ID    int64           `json:"id"`
+	Stats json.RawMessage `json:"stats"`
+}
+
+func (q *Queries) MergeRunStats(ctx context.Context, arg MergeRunStatsParams) error {
+	_, err := q.db.Exec(ctx, mergeRunStats, arg.ID, arg.Stats)
+	return err
+}
+
 const runBatchStats = `-- name: RunBatchStats :one
 SELECT count(*) AS total,
     count(*) FILTER (WHERE status = 'done') AS done,

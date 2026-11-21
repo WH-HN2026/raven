@@ -1,0 +1,213 @@
+{
+    "start_time": 1795295088,
+    "start_memory": 51716096,
+    "command_line": "wpscan --url http://172.30.0.17:80 --no-update --no-banner --format json --output /tmp/raven-wpscan-369042871/report.json --cache-dir /tmp/raven-wpscan-369042871/cache --cookie-jar /tmp/raven-wpscan-369042871/cookies.txt --enumerate p,t,cb,dbe,u1-5 --detection-mode mixed --plugins-detection passive --themes-detection passive --users-detection passive --throttle 40 --request-timeout 15 --connect-timeout 10 --max-threads 2 --max-scan-duration 120",
+    "hostname": "b6e7340ae981",
+    "target_url": "http://172.30.0.17/",
+    "target_ip": "172.30.0.17",
+    "effective_url": "http://172.30.0.17/",
+    "interesting_findings": [
+        {
+            "url": "http://172.30.0.17/",
+            "to_s": "Headers",
+            "type": "headers",
+            "found_by": "Headers (Passive Detection)",
+            "confidence": 100,
+            "confirmed_by": {},
+            "references": {},
+            "interesting_entries": [
+                "Server: Apache/2.4.71 (Debian)",
+                "X-Powered-By: PHP/8.4.28"
+            ]
+        },
+        {
+            "url": "http://172.30.0.17/xmlrpc.php",
+            "to_s": "XML-RPC seems to be enabled: http://172.30.0.17/xmlrpc.php",
+            "type": "xmlrpc",
+            "found_by": "Direct Access (Aggressive Detection)",
+            "confidence": 100,
+            "confirmed_by": {},
+            "references": {
+                "url": [
+                    "http://codex.wordpress.org/XML-RPC_Pingback_API"
+                ],
+                "metasploit": [
+                    "auxiliary/scanner/http/wordpress_ghost_scanner",
+                    "auxiliary/dos/http/wordpress_xmlrpc_dos",
+                    "auxiliary/scanner/http/wordpress_xmlrpc_login",
+                    "auxiliary/scanner/http/wordpress_pingback_access"
+                ]
+            },
+            "interesting_entries": []
+        },
+        {
+            "url": "http://172.30.0.17/readme.html",
+            "to_s": "WordPress readme found: http://172.30.0.17/readme.html",
+            "type": "readme",
+            "found_by": "Direct Access (Aggressive Detection)",
+            "confidence": 100,
+            "confirmed_by": {},
+            "references": {},
+            "interesting_entries": []
+        },
+        {
+            "url": "http://172.30.0.17/wp-cron.php",
+            "to_s": "The external WP-Cron seems to be enabled: http://172.30.0.17/wp-cron.php",
+            "type": "wp_cron",
+            "found_by": "Direct Access (Aggressive Detection)",
+            "confidence": 60,
+            "confirmed_by": {},
+            "references": {
+                "url": [
+                    "https://www.iplocation.net/defend-wordpress-from-ddos",
+                    "https://github.com/wpscanteam/wpscan/issues/1299"
+                ]
+            },
+            "interesting_entries": []
+        }
+    ],
+    "version": {
+        "number": "7.1.5",
+        "release_date": "2026-11-18",
+        "status": "latest",
+        "found_by": "Rss Generator (Passive Detection)",
+        "confidence": 100,
+        "interesting_entries": [
+            "http://172.30.0.17/?feed=rss2, <generator>https://wordpress.org/?v=7.1.5</generator>"
+        ],
+        "confirmed_by": {
+            "Rss Generator (Passive Detection)": {
+                "confidence": 80,
+                "interesting_entries": [
+                    "http://172.30.0.17/?feed=comments-rss2, <generator>https://wordpress.org/?v=7.1.5</generator>"
+                ]
+            }
+        },
+        "vulnerabilities": []
+    },
+    "main_theme": {
+        "slug": "twentytwentyfive",
+        "location": "http://172.30.0.17/wp-content/themes/twentytwentyfive/",
+        "latest_version": "1.5",
+        "last_updated": "2026-05-20T00:00:00Z",
+        "last_updated_relative": "6 months ago",
+        "last_updated_source": "WordPress.org",
+        "active_installs": 1000000,
+        "outdated": false,
+        "readme_url": "http://172.30.0.17/wp-content/themes/twentytwentyfive/readme.txt",
+        "directory_listing": false,
+        "error_log_url": null,
+        "style_url": "http://172.30.0.17/wp-content/themes/twentytwentyfive/style.css",
+        "style_name": "Twenty Twenty-Five",
+        "style_uri": "https://wordpress.org/themes/twentytwentyfive/",
+        "description": "Twenty Twenty-Five emphasizes simplicity and adaptability. It offers flexible design options, supported by a variety of patterns for different page types, such as services and landing pages, making it ideal for building personal blogs, professional portfolios, online magazines, or business websites. Its templates cater to various blog styles, from text-focused to image-heavy layouts. Additionally, it supports international typography and diverse color palettes, ensuring accessibility and customization for users worldwide.",
+        "author": "the WordPress team",
+        "author_uri": "https://wordpress.org",
+        "template": null,
+        "license": "GNU General Public License v2 or later",
+        "license_uri": "http://www.gnu.org/licenses/gpl-2.0.html",
+        "tags": "one-column, custom-colors, custom-menu, custom-logo, editor-style, featured-images, full-site-editing, block-patterns, rtl-language-support, sticky-post, threaded-comments, translation-ready, wide-blocks, block-styles, style-variations, accessibility-ready, blog, portfolio, news",
+        "text_domain": "twentytwentyfive",
+        "found_by": "Urls In Homepage (Passive Detection)",
+        "confidence": 4,
+        "interesting_entries": [],
+        "confirmed_by": {
+            "Urls In 404 Page (Passive Detection)": {
+                "confidence": 2,
+                "interesting_entries": []
+            }
+        },
+        "vulnerabilities": [],
+        "version": {
+            "number": "1.5",
+            "confidence": 80,
+            "found_by": "Style (Passive Detection)",
+            "interesting_entries": [
+                "http://172.30.0.17/wp-content/themes/twentytwentyfive/style.css, Match: 'Version: 1.5'"
+            ],
+            "confirmed_by": {}
+        },
+        "parents": []
+    },
+    "plugins": {},
+    "themes": {
+        "twentytwentyfive": {
+            "slug": "twentytwentyfive",
+            "location": "http://172.30.0.17/wp-content/themes/twentytwentyfive/",
+            "latest_version": "1.5",
+            "last_updated": "2026-05-20T00:00:00Z",
+            "last_updated_relative": "6 months ago",
+            "last_updated_source": "WordPress.org",
+            "active_installs": 1000000,
+            "outdated": false,
+            "readme_url": null,
+            "directory_listing": false,
+            "error_log_url": null,
+            "style_url": "http://172.30.0.17/wp-content/themes/twentytwentyfive/style.css",
+            "style_name": "Twenty Twenty-Five",
+            "style_uri": "https://wordpress.org/themes/twentytwentyfive/",
+            "description": "Twenty Twenty-Five emphasizes simplicity and adaptability. It offers flexible design options, supported by a variety of patterns for different page types, such as services and landing pages, making it ideal for building personal blogs, professional portfolios, online magazines, or business websites. Its templates cater to various blog styles, from text-focused to image-heavy layouts. Additionally, it supports international typography and diverse color palettes, ensuring accessibility and customization for users worldwide.",
+            "author": "the WordPress team",
+            "author_uri": "https://wordpress.org",
+            "template": null,
+            "license": "GNU General Public License v2 or later",
+            "license_uri": "http://www.gnu.org/licenses/gpl-2.0.html",
+            "tags": "one-column, custom-colors, custom-menu, custom-logo, editor-style, featured-images, full-site-editing, block-patterns, rtl-language-support, sticky-post, threaded-comments, translation-ready, wide-blocks, block-styles, style-variations, accessibility-ready, blog, portfolio, news",
+            "text_domain": "twentytwentyfive",
+            "found_by": "Urls In Homepage (Passive Detection)",
+            "confidence": 100,
+            "interesting_entries": [],
+            "confirmed_by": {
+                "Urls In 404 Page (Passive Detection)": {
+                    "confidence": 80,
+                    "interesting_entries": []
+                }
+            },
+            "vulnerabilities": [],
+            "version": {
+                "number": "1.5",
+                "confidence": 80,
+                "found_by": "Style (Passive Detection)",
+                "interesting_entries": [
+                    "http://172.30.0.17/wp-content/themes/twentytwentyfive/style.css, Match: 'Version: 1.5'"
+                ],
+                "confirmed_by": {}
+            },
+            "parents": []
+        }
+    },
+    "config_backups": {},
+    "db_exports": {},
+    "users": {
+        "lab-admin": {
+            "id": null,
+            "found_by": "Rss Generator (Passive Detection)",
+            "confidence": 50,
+            "interesting_entries": [],
+            "confirmed_by": {}
+        }
+    },
+    "vuln_api": {
+        "error": "No WPScan API Token given, as a result vulnerability data has not been output.\nYou can get a free API token with 25 daily requests by registering at https://wpscan.com/register"
+    },
+    "stop_time": 1795295103,
+    "elapsed": 14,
+    "requests_done": 247,
+    "cached_requests": 11,
+    "response_status_codes": {
+        "301": 219,
+        "200": 24,
+        "403": 2,
+        "302": 1,
+        "500": 1
+    },
+    "response_status_codes_warning": false,
+    "response_status_codes_warnings": [],
+    "truncated_responses": [],
+    "data_sent": 63197,
+    "data_sent_humanised": "61.716 KB",
+    "data_received": 499563,
+    "data_received_humanised": "487.854 KB",
+    "used_memory": 315346944,
+    "used_memory_humanised": "300.738 MB"
+}

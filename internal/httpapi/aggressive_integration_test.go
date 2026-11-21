@@ -107,8 +107,12 @@ func TestAggressiveGatingIntegration(t *testing.T) {
 
 	admin, editor, viewer := auth.RoleAdmin, auth.RoleEditor, auth.RoleViewer
 
-	// 1. With production availability, aggressive stages still fail with 400 "not available".
-	for _, stage := range []string{pipeline.StageNucleiActive, pipeline.StageNikto, pipeline.StageWPScan, pipeline.StageZAP} {
+	// 1. With production availability, unimplemented aggressive stages still fail with 400 "not available".
+	for _, st := range pipeline.Stages() {
+		if !st.Aggressive || st.Available {
+			continue
+		}
+		stage := st.Name
 		for _, role := range []auth.Role{admin, editor} {
 			body := request(400, role, http.MethodPost, "/profiles",
 				fmt.Sprintf(`{"name":"unavail-%s","ports":"80","stages":["nmap","httpx","%s"]}`, stage, stage))

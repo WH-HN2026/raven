@@ -97,7 +97,7 @@ func TestNucleiBatchIngest(t *testing.T) {
 			if err != nil || (detection == nil) != (tt.err != nil) {
 				t.Fatalf("scanNuclei: detection present=%v, error=%v", detection != nil, err)
 			}
-			if _, err := s.ingestBatch(ctx, b, prof, nil, nmapRes, web, detection, now); err != nil {
+			if _, err := s.ingestBatch(ctx, b, prof, nil, nmapRes, web, detection, nil, now); err != nil {
 				t.Fatal(err)
 			}
 			if got := count(t, pool, `SELECT count(*) FROM artifacts WHERE run_id = $1 AND scanner IN ('nmap', 'httpx')`, run.ID); got != 2 {

@@ -74,7 +74,8 @@ func TestMirrorAsset(t *testing.T) {
 func TestScannerFromScanType(t *testing.T) {
 	for in, want := range map[string]string{
 		"Nmap Scan": "nmap", "Nuclei Scan": "nuclei", "Generic Findings Import": "raven",
-		"": "", "OpenVAS Parser": "openvas parser", "Nessus Scan": "nessus",
+		"Wpscan": "wpscan",
+		"":       "", "OpenVAS Parser": "openvas parser", "Nessus Scan": "nessus",
 	} {
 		if got := ScannerFromScanType(in); got != want {
 			t.Errorf("%q → %q, want %q", in, got, want)

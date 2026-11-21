@@ -131,9 +131,13 @@ func (s *Service) runBatch(ctx context.Context, a BatchArgs, jobID int64, attemp
 	if err == nil && HasStage(stages, StageNuclei) {
 		detection, err = s.scanNuclei(ctx, b, prof, web)
 	}
+	var wp *wpscanStageResult
+	if err == nil && HasStage(stages, StageWPScan) {
+		wp, err = s.scanWPScan(ctx, b, prof, web, detection)
+	}
 	if err == nil {
 		var plan Plan
-		plan, err = s.ingestBatch(ctx, b, prof, hostnames, res, web, detection, start)
+		plan, err = s.ingestBatch(ctx, b, prof, hostnames, res, web, detection, wp, start)
 		if err == nil {
 			s.afterBatch(jobCtx, b, prof, stages, plan, res)
 			return nil
@@ -153,7 +157,7 @@ func (s *Service) runBatch(ctx context.Context, a BatchArgs, jobID int64, attemp
 // ingestBatch writes the batch result, marks the batch done and, if it was
 // the last one, finishes the run, all in one transaction under the run lock.
 func (s *Service) ingestBatch(ctx context.Context, b gen.Batch, prof gen.Profile,
-	hostnames map[netip.Addr][]string, res, web, detection *scanner.Result, start time.Time) (Plan, error) {
+	hostnames map[netip.Addr][]string, res, web, detection *scanner.Result, wp *wpscanStageResult, start time.Time) (Plan, error) {
 	ports, err := ParsePorts(prof.Ports)
 	if err != nil {
 		return Plan{}, err
@@ -205,6 +209,11 @@ func (s *Service) ingestBatch(ctx context.Context, b gen.Batch, prof gen.Profile
 		}
 		if detection != nil {
 			if err := s.ingestNuclei(ctx, q, b, detection); err != nil {
+				return err
+			}
+		}
+		if wp != nil {
+			if err := s.ingestWPScan(ctx, q, run, b, wp); err != nil {
 				return err
 			}
 		}
