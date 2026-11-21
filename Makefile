@@ -100,3 +100,16 @@ vlab-down:
 
 vlab-ps:
 	$(VLAB) --profile scenario --profile tools ps
+
+## one-command demo (docs/vuln-lab.md §6): RAVEN + DefectDojo + vuln lab, seeded; ARGS="--scale[=N] --l1 --no-run"
+.PHONY: demo demo-down demo-reset
+demo:
+	scripts/demo.sh up $(ARGS)
+
+## demo-down: stop RAVEN, DefectDojo and the labs; data kept
+demo-down:
+	scripts/demo.sh down
+
+## demo-reset: delete RAVEN/Dojo/lab volumes and .demo-credentials, keep .env (asks first; CONFIRM=1 skips)
+demo-reset:
+	CONFIRM=$(CONFIRM) scripts/demo.sh reset
