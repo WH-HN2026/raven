@@ -64,7 +64,7 @@ M0 is sequential and blocking. Do it in **one** worktree, as fast as possible, t
 - [ ] **D3 Sync (pull).** (needs D1) Periodic job → `dojo_assets`/`dojo_findings` mirror tables; API `GET /api/findings` reading the mirror.
 
 **Track W — Web UI**
-- [ ] **W1 Targets & Scope pages.** (needs S1 API) Manual form, CSV/JSON upload with a preview of parsed entries + errors, black/whitelist editor.
+- [x] **W1 Targets & Scope pages.** (needs S1 API) Manual form, CSV/JSON upload with a preview of parsed entries + errors, black/whitelist editor.
 - [ ] **W2 Runs page.** (needs S3 API) Start a run for a profile, live progress (polling), batches with durations, stop button.
 - [ ] **W3 Hosts list + detail.** (needs S3 API) Filterable list (state, port, tech, tag), detail with services and HTTP observations.
 
