@@ -1,0 +1,16 @@
+id: asi-debug-header
+info:
+  name: Debug mode header
+  author: asi
+  severity: low
+  description: Debug headers (e.g. the Symfony profiler's X-Debug-Token) show the application runs in debug mode.
+  tags: asi,headers,debug,staging
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}"
+    matchers:
+      - type: regex
+        part: header
+        regex:
+          - '(?mi)^x-(debug-token|debug-token-link|debug|debug-mode|debug-info):'

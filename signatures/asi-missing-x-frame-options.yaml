@@ -1,0 +1,28 @@
+id: asi-missing-x-frame-options
+info:
+  name: HTML page can be framed
+  author: asi
+  severity: info
+  description: An HTML page has neither X-Frame-Options nor a CSP frame-ancestors directive.
+  tags: asi,headers,misconfig,clickjacking
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}"
+    matchers-condition: and
+    matchers:
+      - type: status
+        status:
+          - 200
+      - type: word
+        part: header
+        case-insensitive: true
+        words:
+          - "content-type: text/html"
+      - type: word
+        part: header
+        negative: true
+        case-insensitive: true
+        words:
+          - "x-frame-options:"
+          - "frame-ancestors"

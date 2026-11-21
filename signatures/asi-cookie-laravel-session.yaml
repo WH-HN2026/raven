@@ -1,0 +1,16 @@
+id: asi-cookie-laravel-session
+info:
+  name: Laravel session cookie
+  author: asi
+  severity: info
+  description: The response sets laravel_session, the Laravel framework session cookie.
+  tags: asi,cookies,tech,laravel,php
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}"
+    matchers:
+      - type: regex
+        part: header
+        regex:
+          - '(?mi)^set-cookie:[ \t]*laravel_session='

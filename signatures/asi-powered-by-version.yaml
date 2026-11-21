@@ -1,0 +1,16 @@
+id: asi-powered-by-version
+info:
+  name: '"Powered by" with a version'
+  author: asi
+  severity: info
+  description: The page says "Powered by <product> version X.Y".
+  tags: asi,version,footer
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}"
+    matchers:
+      - type: regex
+        part: body
+        regex:
+          - '(?i)powered by[^\n]{0,120}?\b(version|ver\.?|v)[: ]*[0-9]+\.[0-9]+'

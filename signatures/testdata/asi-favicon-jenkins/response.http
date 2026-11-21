@@ -1,0 +1,5 @@
+HTTP/1.1 200 OK
+Server: Jetty(10.0.18)
+Content-Type: image/vnd.microsoft.icon
+Cache-Control: max-age=86400
+

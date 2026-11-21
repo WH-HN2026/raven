@@ -1,0 +1,22 @@
+id: asi-staging-title
+info:
+  name: Non-production page title
+  author: asi
+  severity: low
+  description: The page title marks the site as staging, test, development, QA or UAT.
+  tags: asi,staging,title
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}"
+    matchers:
+      - type: regex
+        part: body
+        regex:
+          - '(?i)<title>[^<]*\b(staging|stage|dev|development|test|testing|uat|qa|preprod|sandbox)\b[^<]*</title>'
+    extractors:
+      - type: regex
+        part: body
+        group: 1
+        regex:
+          - '(?i)<title>([^<]*)</title>'

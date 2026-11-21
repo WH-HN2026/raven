@@ -1,0 +1,8 @@
+HTTP/1.1 200 OK
+Server: Hikvision-Webs
+Content-Type: text/html
+
+<!DOCTYPE html>
+<html><head><title></title>
+<script>window.location.href = "doc/page/login.asp?_" + (new Date()).getTime();</script>
+</head><body></body></html>

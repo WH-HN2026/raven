@@ -1,0 +1,7 @@
+HTTP/1.1 200 OK
+Content-Type: text/html
+X-Frame-Options: SAMEORIGIN
+
+<html><script type="text/javascript">
+if (window!=top) top.location=window.location;top.location="/remote/login";
+</script></html>

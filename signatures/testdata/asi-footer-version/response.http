@@ -1,0 +1,10 @@
+HTTP/1.1 200 OK
+Server: nginx
+Content-Type: text/html; charset=utf-8
+
+<!doctype html>
+<html><head><title>Helpdesk</title></head>
+<body><main>Open a ticket</main>
+<footer class="site-footer">
+  <span>&copy; 2026 ACME</span> &middot; <span class="ver">Helpdesk version 3.2.1</span>
+</footer></body></html>

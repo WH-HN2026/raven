@@ -1,0 +1,28 @@
+id: asi-cookie-missing-secure
+info:
+  name: Cookies set without the Secure flag
+  author: asi
+  severity: info
+  description: The response sets cookies and none of them carries the Secure attribute.
+  tags: asi,cookies,misconfig
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}"
+    matchers-condition: and
+    matchers:
+      - type: regex
+        part: header
+        regex:
+          - '(?mi)^set-cookie:'
+      - type: regex
+        part: header
+        negative: true
+        regex:
+          - '(?mi)^set-cookie:[^\r\n]*;[ \t]*secure\b'
+    extractors:
+      - type: regex
+        part: header
+        group: 1
+        regex:
+          - '(?mi)^set-cookie:[ \t]*([^=\r\n]+)='

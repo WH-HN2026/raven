@@ -1,0 +1,8 @@
+HTTP/1.1 200 OK
+Server: nginx
+Content-Type: text/html; charset=utf-8
+
+<!doctype html>
+<html><head><title>Orders</title>
+<script>window.API_BASE = "https://staging-api.acme.example/v2";</script></head>
+<body><div id="app"></div></body></html>

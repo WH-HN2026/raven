@@ -1,0 +1,7 @@
+HTTP/1.1 200 OK
+Server: nginx
+Content-Type: application/json
+X-Environment: staging
+X-Request-Id: 6f1c2a9e
+
+{"service":"orders","ok":true}

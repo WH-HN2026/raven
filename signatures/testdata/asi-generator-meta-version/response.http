@@ -1,0 +1,10 @@
+HTTP/1.1 200 OK
+Server: Apache
+Content-Type: text/html; charset=UTF-8
+
+<!DOCTYPE html>
+<html lang="en-US"><head>
+<meta charset="UTF-8">
+<meta name="generator" content="WordPress 6.4.2" />
+<title>Faculty blog</title></head>
+<body>Posts</body></html>

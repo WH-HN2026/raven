@@ -1,0 +1,7 @@
+HTTP/1.1 200 OK
+Server: HP HTTP Server; HP Color LaserJet MFP M477fdw - CF379A; Serial Number: VNB3K12345
+Content-Type: text/html
+
+<!DOCTYPE html>
+<html><head><title>HP Color LaserJet MFP M477fdw&nbsp;&nbsp;&nbsp;10.0.0.42</title></head>
+<body><div id="pgHome">Device Status</div></body></html>

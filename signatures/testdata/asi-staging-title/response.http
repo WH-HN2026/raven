@@ -1,0 +1,7 @@
+HTTP/1.1 200 OK
+Server: nginx
+Content-Type: text/html; charset=utf-8
+
+<!doctype html>
+<html><head><title>ACME Customer Portal - STAGING</title></head>
+<body><div class="banner">Staging environment</div></body></html>

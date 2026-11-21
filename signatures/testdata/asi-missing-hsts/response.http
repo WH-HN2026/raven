@@ -1,0 +1,7 @@
+HTTP/1.1 200 OK
+Server: nginx
+Content-Type: text/html; charset=utf-8
+Content-Security-Policy: default-src 'self'; frame-ancestors 'self'
+X-Frame-Options: SAMEORIGIN
+
+<!doctype html><html><head><title>Intranet</title></head><body>Intranet</body></html>

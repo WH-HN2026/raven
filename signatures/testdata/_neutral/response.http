@@ -1,0 +1,10 @@
+HTTP/1.1 200 OK
+Server: nginx
+Content-Type: text/html; charset=utf-8
+Strict-Transport-Security: max-age=31536000
+Content-Security-Policy: default-src 'self'; frame-ancestors 'none'
+X-Frame-Options: DENY
+
+<!doctype html>
+<html><head><title>Welcome</title></head>
+<body><h1>Welcome</h1><p>Nothing to see here.</p></body></html>

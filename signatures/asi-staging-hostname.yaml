@@ -1,0 +1,22 @@
+id: asi-staging-hostname
+info:
+  name: Page links to a staging hostname
+  author: asi
+  severity: low
+  description: The page references a hostname that starts with staging, dev, test, uat, qa or preprod.
+  tags: asi,staging,hostname
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}"
+    matchers:
+      - type: regex
+        part: body
+        regex:
+          - '(?i)https?://(staging|stage|dev|test|uat|qa|preprod)[.-][a-z0-9.-]*\.[a-z]{2,}'
+    extractors:
+      - type: regex
+        part: body
+        group: 1
+        regex:
+          - '(?i)https?://((?:staging|stage|dev|test|uat|qa|preprod)[.-][a-z0-9.-]*\.[a-z]{2,})'
