@@ -118,7 +118,7 @@ wait_ready() {
   local start now last=0
   start=$(date +%s)
   until curl -fsS -o /dev/null "$(raven_url)/api/healthz" 2>/dev/null &&
-    raven_compose logs raven 2>/dev/null | grep -q 'dojo bootstrap done'; do
+    raven_compose logs raven 2>/dev/null | grep 'dojo bootstrap done' >/dev/null; do
     now=$(date +%s)
     [ $((now - start)) -lt 600 ] || die "RAVEN not ready after 10 min; see: docker compose logs raven"
     if [ $((now - last)) -ge 15 ]; then
@@ -247,7 +247,7 @@ first_run() {
   id=$(profile_id "$DEMO_PROFILE")
   run=$(raven_get "/runs?profile_id=$id&limit=1&sort=id&dir=desc" | jq -c '.items[0] // empty')
   status=$(jq -r '.status // empty' <<<"$run")
-  if [ "$status" = done ]; then
+  if [ "$status" = "done" ]; then
     RUN_ID=$(jq -r .id <<<"$run")
     say "$DEMO_PROFILE already has a finished run (#$RUN_ID); not starting another"
     return

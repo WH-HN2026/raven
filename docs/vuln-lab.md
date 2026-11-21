@@ -306,6 +306,19 @@ make demo-reset                # delete RAVEN/Dojo/lab volumes and .demo-credent
 
 The README gets a short **Demo** section with these commands (V5).
 
+### 6.1 Deviations from §6 (V5)
+
+- **Run 1 only once:** step 7 starts a run only when `vuln-lab` has none yet. A re-run of `make demo` waits for a pending/running run, or skips the run when the last one is `done` and prints its numbers; further runs come from `scripts/vlab-scenario.sh … --run` or the Runs page. This keeps a second `make demo` free of side effects.
+- **`.demo-credentials` format:** dotenv lines `DEMO_EDITOR_PASSWORD=…`, `DEMO_OPERATOR_PASSWORD=…`, `DEMO_VIEWER_PASSWORD=…` (users `demo-editor`, `demo-operator`, `demo-viewer`), so scripts read them with `RAVEN_ENV_FILE=.demo-credentials raven_env DEMO_VIEWER_PASSWORD`.
+- **Pulls:** `make demo` runs `make vlab-pull` (retries on 429) before `make vlab-up`.
+- **Ports preflight** checks `RAVEN_PORT`, `DD_PORT`, `DD_TLS_PORT`, `RAVEN_DB_PORT` with `ss` only when the demo's `raven` container isn't already running (on a re-run the ports are its own).
+- **`--scale`** fails at preflight with "needs scripts/vlab-scale.sh (V4)" while V4 isn't merged; `demo-down`/`demo-reset` call `vlab-scale.sh down` only when the script exists.
+- **`demo-reset`** also runs `down -v` on `compose.vlab.yml` (all profiles) and `compose.lab.yml`.
+- **Test hooks** (for running the demo next to a stack that must not be touched; the jury needs none):
+  - `COMPOSE_PROJECT_NAME=<name>`: Compose's own variable; it overrides `name: raven` in `compose.yml`, so containers, volumes and the default network are separate;
+  - `DEMO_LAB=shared`: use the vuln lab (and L1 / scale layer) that is already running; `up` never runs `vlab-pull`/`vlab-up`/`lab-up`, and `down`/`reset` never stop or delete the labs;
+  - `DEMO_COMPOSE_OVERRIDE=<file>`: one extra compose file for the RAVEN stack, e.g. another image tag (instead of `raven:local`) and another RAVEN address in `10.77.254.0/23`.
+
 ## 7. Safety
 
 - **Every scanned address is on an `internal: true` bridge.** Docker gives `internal` networks no route out: lab containers can't reach the internet, and RAVEN's traffic to `10.77.0.0/16` never leaves the bridge. RAVEN reaches Dojo and Postgres over its own `default` network; that network is not a scan target.
