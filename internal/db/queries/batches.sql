@@ -26,6 +26,7 @@ WHERE id = $1;
 UPDATE batches SET status = 'pending', error = $2 WHERE id = $1 AND status = 'running';
 
 -- name: StopUnfinishedBatches :many
-UPDATE batches SET status = 'stopped', finished_at = now()
+UPDATE batches SET status = 'stopped', finished_at = now(),
+    duration_ms = (extract(epoch FROM now() - started_at) * 1000)::bigint  -- NULL if it never started
 WHERE run_id = $1 AND status IN ('pending', 'running')
 RETURNING id, job_id;

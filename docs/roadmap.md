@@ -56,7 +56,7 @@ M0 is sequential and blocking. Do it in **one** worktree, as fast as possible, t
 **Track S — Scanning**
 - [x] **S1 Targets & scope.** Parse manual, CSV and JSON targets (ip / cidr / domain); expand CIDRs; resolve domains (keep the domain→IP map); include/exclude filtering with the global blacklist last; unit tests with large CIDRs (/16).
 - [x] **S2 nmap scanner.** Command builder (safe flag allowlist, ports, `--max-rate`), XML → observations parser, `PerIP` filtering, fixture-based tests in `testdata/`.
-- [ ] **S3 Pipeline v1.** (needs S1, S2) Run → batches (fixed size for now) → River jobs → nmap → ingest into `hosts`/`services`/`run_observations`/`artifacts`; run/batch status and durations.
+- [x] **S3 Pipeline v1.** (needs S1, S2) Run → batches (fixed size for now) → River jobs → nmap → ingest into `hosts`/`services`/`run_observations`/`artifacts`; run/batch status and durations.
 
 **Track D — DefectDojo**
 - [x] **D1 Dojo client.** API v2: organization/asset/engagement/test get-or-create, `import-scan`/`reimport-scan` (multipart), findings list/patch, notes, tags; retries + concurrency limit; integration test against the compose Dojo (`-tags integration`).
