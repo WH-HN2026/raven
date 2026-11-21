@@ -186,8 +186,8 @@ ORDER BY
     CASE WHEN $2::text = 'hosts_up_desc' THEN r.hosts_up END DESC NULLS LAST,
     CASE WHEN $2::text = 'started_at_asc' THEN COALESCE(r.started_at, r.created_at) END ASC NULLS LAST,
     CASE WHEN $2::text = 'started_at_desc' THEN COALESCE(r.started_at, r.created_at) END DESC NULLS LAST,
-    CASE WHEN $2::text = 'duration_asc' THEN (CASE WHEN r.finished_at IS NOT NULL THEN r.finished_at WHEN r.status IN ('pending', 'running', 'suspended') THEN now() END) - r.started_at END ASC NULLS LAST,
-    CASE WHEN $2::text = 'duration_desc' THEN (CASE WHEN r.finished_at IS NOT NULL THEN r.finished_at WHEN r.status IN ('pending', 'running', 'suspended') THEN now() END) - r.started_at END DESC NULLS LAST,
+    CASE WHEN $2::text = 'duration_asc' THEN (CASE WHEN r.finished_at IS NOT NULL THEN r.finished_at WHEN r.status IN ('pending', 'running') THEN now() END) - r.started_at END ASC NULLS LAST,
+    CASE WHEN $2::text = 'duration_desc' THEN (CASE WHEN r.finished_at IS NOT NULL THEN r.finished_at WHEN r.status IN ('pending', 'running') THEN now() END) - r.started_at END DESC NULLS LAST,
     r.id DESC
 LIMIT $4 OFFSET $3
 `

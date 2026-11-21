@@ -23,7 +23,6 @@ var (
 	ServiceSorts  = []string{"ip", "port", "name", "product", "version", "state", "technologies", "cves", "first_seen", "last_seen"}
 	TechStates    = []string{"open", "gone", "all"}
 	TechSorts     = []string{"hosts", "services", "technology", "version", "cves"}
-	SortOrders    = []string{"asc", "desc"}
 )
 
 // ServiceFilter selects services for GET /api/services (and service export).
@@ -181,9 +180,9 @@ func serviceOrderBy(sort, order string) string {
 	case "name":
 		column = "lower(" + effNameExpr + ")"
 	case "product":
-		column = "lower(" + effProductExpr + ")"
+		return "lower(" + effProductExpr + ") " + dir + ", lower(" + effVersionExpr + ") " + dir + ", s.ip, s.port, s.id"
 	case "version":
-		column = "lower(" + effVersionExpr + ")"
+		return "lower(" + effVersionExpr + ") " + dir + ", lower(" + effProductExpr + ") ASC, s.ip, s.port, s.id"
 	case "state":
 		column = "s.state"
 	case "technologies":
