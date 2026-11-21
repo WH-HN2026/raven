@@ -1,0 +1,15 @@
+# Attach RAVEN to the vuln lab (docs/vuln-lab.md §2.5). Start the lab first (make vlab-up):
+#   docker compose -f compose.yml -f lab/vuln/raven.compose.yml up -d
+#   docker compose -f compose.yml -f lab/raven.compose.yml -f lab/vuln/raven.compose.yml up -d   # + L1
+# RAVEN gets the static 10.77.254.10, which is in the global blacklist (10.77.254.0/23).
+services:
+  raven:
+    networks:
+      default: {}
+      vlab:
+        ipv4_address: 10.77.254.10
+
+networks:
+  vlab:
+    external: true
+    name: raven_vlab
