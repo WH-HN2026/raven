@@ -133,6 +133,7 @@ M0 is sequential and blocking. Do it in **one** worktree, as fast as possible, t
 - [ ] **X6 Demo script + docs.** `scripts/demo.sh` (two runs with a lab change in between), README quickstart, technical docs, ≤10 slides.
 - [x] **N1 Rename to RAVEN.** Project, module, binary, env vars, DB helpers, Dojo-facing names, lab and docs renamed from ASI to RAVEN.
 - [x] **Q2 Scale test.** Fake-scanner load test of run planning, batching, ingest, Dojo push and the dashboard/hosts APIs at 10k and 65k hosts; bottlenecks fixed; numbers in docs.
+- [x] **Q4 Services & technologies page + API follow-ups.** GET /api/services, Services/Technologies page; severity and tags in the signatures API; more findings status filters; "last edited by" on hosts.
 
 ## M4 — MCP (last)
 
