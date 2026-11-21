@@ -126,7 +126,7 @@ export function SignatureEditor({ sig }: { sig: Sig | null }) {
         badges={
           sig && (
             <>
-              <Badge tone={sig.builtin ? 'outline-dark' : 'outline-dark'}>{sig.builtin ? 'Built-in' : 'Custom'}</Badge>
+              <Badge tone="outline-dark">{sig.builtin ? 'Built-in' : 'Custom'}</Badge>
               {sig.valid ? <Badge tone="new">Valid</Badge> : <Badge tone="red">Invalid</Badge>}
               {sig.enabled ? <Badge tone="new">Enabled</Badge> : <Badge tone="gone">Disabled</Badge>}
             </>
