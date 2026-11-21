@@ -48,7 +48,7 @@ func (q *Queries) MergeNucleiTechnologies(ctx context.Context, arg MergeNucleiTe
 const recordNucleiMatches = `-- name: RecordNucleiMatches :execrows
 UPDATE run_observations
 SET nuclei_matches = $1::jsonb,
-    nuclei_evidence_enc = asi_enc($2::text)
+    nuclei_evidence_enc = raven_enc($2::text)
 WHERE run_id = $3 AND ip = $4 AND port = $5 AND up
 `
 

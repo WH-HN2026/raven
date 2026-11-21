@@ -29,7 +29,7 @@ const finding: Finding = {
   false_p: false,
   risk_accepted: false,
   is_mitigated: false,
-  tags: ['asi'],
+  tags: ['raven'],
   scanner: 'nmap',
   date: '2026-11-21',
   dojo_url: 'http://dojo.local/finding/7',

@@ -71,7 +71,7 @@ function queryString(query: object | undefined): string {
   return s ? '?' + s : ''
 }
 
-export const CSRF_HEADER = 'X-ASI-CSRF'
+export const CSRF_HEADER = 'X-RAVEN-CSRF'
 
 export async function request<P extends PathsWith<M>, M extends Method>(
   method: M,

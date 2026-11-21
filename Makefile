@@ -1,10 +1,10 @@
-# ASI developer commands. See AGENTS.md "Commands".
+# RAVEN developer commands. See AGENTS.md "Commands".
 SHELL := /bin/bash
 NPM ?= npm
 SQLC := go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1
 # web/node_modules can contain Go packages, so never use ./... here.
 GO_PKGS := ./cmd/... ./internal/... ./web
-INFRA_SERVICES := asi-db nginx uwsgi celeryworker celerybeat initializer postgres valkey
+INFRA_SERVICES := raven-db nginx uwsgi celeryworker celerybeat initializer postgres valkey
 
 .PHONY: dev check check-go check-web gen build infra-up infra-down db-new test-integration lab-up lab-down cve-db
 
@@ -33,12 +33,12 @@ gen: web/node_modules
 	$(SQLC) generate
 	cd web && $(NPM) run gen
 
-## build: web build embedded into bin/asi
+## build: web build embedded into bin/raven
 build: web/node_modules
 	cd web && $(NPM) run build
-	CGO_ENABLED=0 go build -trimpath -o bin/asi ./cmd/asi
+	CGO_ENABLED=0 go build -trimpath -o bin/raven ./cmd/raven
 
-## infra-up: shared Postgres (5433) + DefectDojo (8080), everything except asi
+## infra-up: shared Postgres (5433) + DefectDojo (8080), everything except raven
 infra-up:
 	scripts/shared-env.sh
 	docker compose up -d $(INFRA_SERVICES)

@@ -3,8 +3,8 @@ import type { Schemas } from '../../api/client'
 export type ImportKind = 'results-json' | 'results-csv' | 'nmap-xml' | 'nuclei-jsonl' | 'nessus'
 
 export const importKinds: { value: ImportKind; label: string }[] = [
-  { value: 'results-json', label: 'ASI results JSON' },
-  { value: 'results-csv', label: 'ASI results CSV' },
+  { value: 'results-json', label: 'RAVEN results JSON' },
+  { value: 'results-csv', label: 'RAVEN results CSV' },
   { value: 'nmap-xml', label: 'nmap XML' },
   { value: 'nuclei-jsonl', label: 'nuclei JSONL' },
   { value: 'nessus', label: 'Nessus (.nessus)' },

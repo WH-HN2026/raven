@@ -8,7 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	pack "github.com/WH-HN2026/zadanie-agh-asi/signatures"
+	pack "github.com/WH-HN2026/raven/signatures"
 )
 
 // Pack returns the built-in templates embedded from signatures/.

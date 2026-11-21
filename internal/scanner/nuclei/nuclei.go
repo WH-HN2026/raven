@@ -13,7 +13,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner"
+	"github.com/WH-HN2026/raven/internal/scanner"
 )
 
 const (
@@ -134,7 +134,7 @@ func (s *Scanner) Run(ctx context.Context, in scanner.Input, opt scanner.Options
 		return Parse(nil)
 	}
 
-	dir, err := os.MkdirTemp("", "asi-nuclei-")
+	dir, err := os.MkdirTemp("", "raven-nuclei-")
 	if err != nil {
 		return nil, fmt.Errorf("nuclei: create workspace: %w", err)
 	}

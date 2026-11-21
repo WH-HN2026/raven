@@ -10,8 +10,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/db/gen"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner"
+	"github.com/WH-HN2026/raven/internal/db/gen"
+	"github.com/WH-HN2026/raven/internal/scanner"
 )
 
 type lifecycleStats struct {

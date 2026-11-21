@@ -18,15 +18,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/dbtest"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/dojo"
+	"github.com/WH-HN2026/raven/internal/dbtest"
+	"github.com/WH-HN2026/raven/internal/dojo"
 )
 
 // scanCols are the scan-owned host columns; an edit must leave them as they were.
 const scanCols = `SELECT hostnames::text, state, first_seen::text, last_seen::text, miss_count, COALESCE(dojo_asset_id, 0) FROM hosts WHERE ip = $1`
 
 // TestIntegrationHostEdit: user fields on a host with a Dojo asset (in its
-// own organization "asi-it-d6h-<random>" on the shared Dojo), on a host
+// own organization "raven-it-d6h-<random>" on the shared Dojo), on a host
 // without one, and service overrides. Deletes what it created in Dojo.
 func TestIntegrationHostEdit(t *testing.T) {
 	pool := dbtest.Fresh(t)
@@ -94,7 +94,7 @@ func TestIntegrationHostEdit(t *testing.T) {
 	must(pool.QueryRow(ctx, `SELECT id FROM services WHERE ip = '10.10.0.2' AND port = 80`).Scan(&svcID))
 	svcScan := func() string {
 		var s string
-		must(pool.QueryRow(ctx, `SELECT concat_ws('|', name, product, version, state, first_seen, last_seen, asi_dec(banner_enc)) FROM services WHERE id = $1`, svcID).Scan(&s))
+		must(pool.QueryRow(ctx, `SELECT concat_ws('|', name, product, version, state, first_seen, last_seen, raven_dec(banner_enc)) FROM services WHERE id = $1`, svcID).Scan(&s))
 		return s
 	}
 	sb := svcScan()
@@ -117,11 +117,11 @@ func TestIntegrationHostEdit(t *testing.T) {
 	}
 
 	// Host with a Dojo asset: description and tags are written through.
-	base := os.Getenv("ASI_DOJO_URL")
+	base := os.Getenv("RAVEN_DOJO_URL")
 	if base == "" {
-		t.Skip("ASI_DOJO_URL not set: Dojo part skipped")
+		t.Skip("RAVEN_DOJO_URL not set: Dojo part skipped")
 	}
-	token := os.Getenv("ASI_DOJO_TOKEN")
+	token := os.Getenv("RAVEN_DOJO_TOKEN")
 	if token == "" {
 		token, err = dojo.ObtainToken(ctx, base, os.Getenv("DD_ADMIN_USER"), os.Getenv("DD_ADMIN_PASSWORD"))
 		must(err)
@@ -129,13 +129,13 @@ func TestIntegrationHostEdit(t *testing.T) {
 	c := dojo.NewHTTPClient(base, token)
 	rnd := make([]byte, 4)
 	_, _ = rand.Read(rnd)
-	slug := "asi-it-d6h-" + hex.EncodeToString(rnd)
+	slug := "raven-it-d6h-" + hex.EncodeToString(rnd)
 	ip := fmt.Sprintf("198.18.%d.%d", rnd[0], rnd[1]) // RFC 2544 benchmark range, never scanned
 	t.Logf("slug %s ip %s", slug, ip)
 	org, err := c.GetOrCreateOrganization(ctx, slug)
 	must(err)
-	asiTags := dojo.AssetTags([]string{"web.lab"}) // what the push sets: asi, host:web.lab
-	asset, err := c.GetOrCreateAsset(ctx, dojo.AssetSpec{Name: ip, Description: "Host " + ip + " (managed by ASI)",
+	asiTags := dojo.AssetTags([]string{"web.lab"}) // what the push sets: raven, host:web.lab
+	asset, err := c.GetOrCreateAsset(ctx, dojo.AssetSpec{Name: ip, Description: "Host " + ip + " (managed by RAVEN)",
 		OrganizationID: org.ID, Tags: append(slices.Clone(asiTags), slug, "user:stale")})
 	must(err)
 	t.Cleanup(func() {
@@ -173,7 +173,7 @@ func TestIntegrationHostEdit(t *testing.T) {
 		t.Fatalf("mirror asset tags = %v", mirrorTags)
 	}
 
-	// Removing a user tag removes only its user: tag; ASI's tags stay.
+	// Removing a user tag removes only its user: tag; RAVEN's tags stay.
 	_, err = Edit(ctx, pool, c, &actor, netip.MustParseAddr(ip), Patch{UserTags: &[]string{"prod"}})
 	must(err)
 	a, err = c.GetAsset(ctx, asset.ID)
@@ -190,7 +190,7 @@ func sameSet(a, b []string) bool {
 	return slices.Equal(x, y)
 }
 
-// deleteDojo removes a test object (the client has no delete; ASI never deletes in Dojo).
+// deleteDojo removes a test object (the client has no delete; RAVEN never deletes in Dojo).
 func deleteDojo(t *testing.T, base, token, kind string, id int64) {
 	t.Helper()
 	req, err := http.NewRequest(http.MethodDelete, fmt.Sprintf("%s/api/v2/%s/%d/", strings.TrimRight(base, "/"), kind, id), nil)

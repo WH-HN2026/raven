@@ -17,11 +17,11 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/dbtest"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner/httpx"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner/nmap"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/targets"
+	"github.com/WH-HN2026/raven/internal/dbtest"
+	"github.com/WH-HN2026/raven/internal/scanner"
+	"github.com/WH-HN2026/raven/internal/scanner/httpx"
+	"github.com/WH-HN2026/raven/internal/scanner/nmap"
+	"github.com/WH-HN2026/raven/internal/targets"
 )
 
 // fakeScanner replays the S2 fixture (real nmap output), restricted to the
@@ -151,7 +151,7 @@ func getHost(t *testing.T, pool *pgxpool.Pool, ip string) hostRow {
 	t.Helper()
 	var h hostRow
 	err := pool.QueryRow(context.Background(), `SELECT first_seen, last_seen, state, owner, criticality,
-		COALESCE(asi_dec(notes_enc), ''), user_tags, hostnames, overrides::text FROM hosts WHERE ip = $1`, ip).
+		COALESCE(raven_dec(notes_enc), ''), user_tags, hostnames, overrides::text FROM hosts WHERE ip = $1`, ip).
 		Scan(&h.FirstSeen, &h.LastSeen, &h.State, &h.Owner, &h.Crit, &h.Notes, &h.Tags, &h.Hostnames, &h.Overrides)
 	if err != nil {
 		t.Fatalf("host %s: %v", ip, err)
@@ -203,7 +203,7 @@ func TestPipeline(t *testing.T) {
 	tlsFixture := web.PerIP(netip.MustParseAddr("172.21.0.2"))
 	var tlsRaw []byte
 	for _, line := range bytes.SplitAfter(tlsFixture, []byte("\n")) {
-		if bytes.Contains(line, []byte(`"input":"https://asi-s7-nginx:443"`)) {
+		if bytes.Contains(line, []byte(`"input":"https://raven-s7-nginx:443"`)) {
 			tlsRaw = bytes.ReplaceAll(line, []byte("172.21.0.2"), []byte("172.31.250.10"))
 		}
 	}
@@ -280,7 +280,7 @@ func TestPipeline(t *testing.T) {
 	}
 	var enc []byte
 	var dec string
-	if err := pool.QueryRow(ctx, `SELECT content_enc, asi_dec(content_enc) FROM artifacts WHERE run_id = $1 AND scanner = 'nmap' LIMIT 1`, r1.ID).Scan(&enc, &dec); err != nil {
+	if err := pool.QueryRow(ctx, `SELECT content_enc, raven_dec(content_enc) FROM artifacts WHERE run_id = $1 AND scanner = 'nmap' LIMIT 1`, r1.ID).Scan(&enc, &dec); err != nil {
 		t.Fatal(err)
 	}
 	if bytes.Contains(enc, []byte("nmaprun")) || bytes.Contains(enc, []byte("172.31.250")) {
@@ -290,7 +290,7 @@ func TestPipeline(t *testing.T) {
 		t.Fatal("decrypted artifact differs from the raw XML")
 	}
 	var banner, sshCPE, webCPE string
-	if err := pool.QueryRow(ctx, `SELECT asi_dec(banner_enc), cpe FROM services WHERE ip = '172.31.250.11' AND port = 22`).Scan(&banner, &sshCPE); err != nil || banner == "" {
+	if err := pool.QueryRow(ctx, `SELECT raven_dec(banner_enc), cpe FROM services WHERE ip = '172.31.250.11' AND port = 22`).Scan(&banner, &sshCPE); err != nil || banner == "" {
 		t.Fatalf("ssh banner not stored encrypted: %q %v", banner, err)
 	}
 	if sshCPE != "openbsd:openssh:10.0" {
@@ -306,20 +306,20 @@ func TestPipeline(t *testing.T) {
 		JOIN services s ON s.id = o.service_id
 		JOIN run_observations ro ON ro.run_id = o.run_id AND ro.ip = s.ip AND ro.port = s.port
 		WHERE o.run_id = $1 AND s.ip = '172.31.250.10' AND s.port = 443 AND ro.up
-		  AND o.status = 200 AND o.title = 'ASI TLS fixture'
-		  AND asi_dec(o.headers_enc)::jsonb->>'X-Environment' = 'staging'
-		  AND jsonb_array_length(asi_dec(o.cookies_enc)::jsonb) = 2
-		  AND asi_dec(o.tls_cert_enc)::jsonb->>'subject_cn' = 'asi-s7-nginx'
-		  AND o.redirects = '["https://asi-s7-nginx/home"]'::jsonb
+		  AND o.status = 200 AND o.title = 'RAVEN TLS fixture'
+		  AND raven_dec(o.headers_enc)::jsonb->>'X-Environment' = 'staging'
+		  AND jsonb_array_length(raven_dec(o.cookies_enc)::jsonb) = 2
+		  AND raven_dec(o.tls_cert_enc)::jsonb->>'subject_cn' = 'raven-s7-nginx'
+		  AND o.redirects = '["https://raven-s7-nginx/home"]'::jsonb
 		  AND o.technologies = '{Nginx:1.30.7}'`, r1.ID); n != 1 {
 		t.Errorf("expected one encrypted HTTP observation associated with its run and service, got %d", n)
 	}
-	if err := pool.QueryRow(ctx, `SELECT asi_dec(content_enc) FROM artifacts WHERE run_id = $1 AND scanner = 'httpx'`, r1.ID).Scan(&dec); err != nil || dec != string(tlsRaw) {
+	if err := pool.QueryRow(ctx, `SELECT raven_dec(content_enc) FROM artifacts WHERE run_id = $1 AND scanner = 'httpx'`, r1.ID).Scan(&dec); err != nil || dec != string(tlsRaw) {
 		t.Fatalf("missing or incorrect encrypted httpx artifact: %v", err)
 	}
 
 	// user edits between runs, and a service on a port outside the profile
-	if _, err := pool.Exec(ctx, `UPDATE hosts SET owner = 'it-dept', criticality = 'high', notes_enc = asi_enc('secret note'),
+	if _, err := pool.Exec(ctx, `UPDATE hosts SET owner = 'it-dept', criticality = 'high', notes_enc = raven_enc('secret note'),
 		user_tags = '{prod}', overrides = '{"os":"linux"}' WHERE ip = '172.31.250.10'`); err != nil {
 		t.Fatal(err)
 	}

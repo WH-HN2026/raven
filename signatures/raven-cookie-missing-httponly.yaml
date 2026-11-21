@@ -1,0 +1,28 @@
+id: raven-cookie-missing-httponly
+info:
+  name: Cookies set without the HttpOnly flag
+  author: raven
+  severity: info
+  description: The response sets cookies and none of them carries the HttpOnly attribute.
+  tags: raven,cookies,misconfig
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}"
+    matchers-condition: and
+    matchers:
+      - type: regex
+        part: header
+        regex:
+          - '(?mi)^set-cookie:'
+      - type: regex
+        part: header
+        negative: true
+        regex:
+          - '(?mi)^set-cookie:[^\r\n]*;[ \t]*httponly\b'
+    extractors:
+      - type: regex
+        part: header
+        group: 1
+        regex:
+          - '(?mi)^set-cookie:[ \t]*([^=\r\n]+)='

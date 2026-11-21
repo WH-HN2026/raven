@@ -87,7 +87,7 @@ export function issuesOf(body: unknown): Issue[] | null {
 export const newTemplate = `id: my-signature
 info:
   name: My signature
-  author: asi
+  author: raven
   severity: info
   tags: custom
 http:

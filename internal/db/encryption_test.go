@@ -82,13 +82,13 @@ func TestSensitiveColumnsAreEncrypted(t *testing.T) {
 		name := strings.ToLower(c.name)
 		if strings.HasSuffix(name, "_enc") {
 			if c.typ != "" && c.typ != "bytea" {
-				t.Errorf("%s: %s is %s, _enc columns must be bytea written with asi_enc", c.file, full, c.typ)
+				t.Errorf("%s: %s is %s, _enc columns must be bytea written with raven_enc", c.file, full, c.typ)
 			}
 			continue
 		}
 		if sensitiveName.MatchString(name) {
 			if _, ok := plaintextAllowed[full]; !ok {
-				t.Errorf("%s: %s looks sensitive: name it *_enc (bytea, asi_enc/asi_dec) or add it to plaintextAllowed with a reason and document it in architecture §5", c.file, full)
+				t.Errorf("%s: %s looks sensitive: name it *_enc (bytea, raven_enc/raven_dec) or add it to plaintextAllowed with a reason and document it in architecture §5", c.file, full)
 			}
 		}
 	}

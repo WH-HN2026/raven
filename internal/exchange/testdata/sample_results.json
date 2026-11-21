@@ -1,5 +1,5 @@
 {
-  "format": "asi-results",
+  "format": "raven-results",
   "version": 1,
   "scanned_at": "2026-11-21T14:00:00Z",
   "hosts": [

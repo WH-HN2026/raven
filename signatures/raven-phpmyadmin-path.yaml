@@ -1,0 +1,23 @@
+id: raven-phpmyadmin-path
+info:
+  name: phpMyAdmin panel
+  author: raven
+  severity: medium
+  description: A phpMyAdmin page is reachable at a common path.
+  tags: raven,panel,phpmyadmin,path
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/phpmyadmin/"
+      - "{{BaseURL}}/phpMyAdmin/"
+      - "{{BaseURL}}/pma/"
+    stop-at-first-match: true
+    matchers-condition: and
+    matchers:
+      - type: status
+        status:
+          - 200
+      - type: word
+        part: body
+        words:
+          - "<title>phpMyAdmin"

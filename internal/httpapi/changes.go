@@ -9,9 +9,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/auth"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/changes"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/httpx"
+	"github.com/WH-HN2026/raven/internal/auth"
+	"github.com/WH-HN2026/raven/internal/changes"
+	"github.com/WH-HN2026/raven/internal/httpx"
 )
 
 // Run diff and host timeline (task C1; UI is W6).

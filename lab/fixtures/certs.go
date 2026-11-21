@@ -33,7 +33,7 @@ func generateCert(dir, name, ip string, start, end time.Time) error {
 		return fmt.Errorf("encode %s key: %w", name, err)
 	}
 	cert := &x509.Certificate{
-		Subject:     pkix.Name{CommonName: name + ".asi.lab"},
+		Subject:     pkix.Name{CommonName: name + ".raven.lab"},
 		NotBefore:   start,
 		NotAfter:    end,
 		IPAddresses: []net.IP{net.ParseIP(ip)},

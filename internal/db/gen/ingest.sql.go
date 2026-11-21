@@ -13,7 +13,7 @@ import (
 
 const insertArtifact = `-- name: InsertArtifact :exec
 INSERT INTO artifacts (run_id, batch_id, scanner, content_enc)
-VALUES ($1, $2, $3, asi_enc($4::text))
+VALUES ($1, $2, $3, raven_enc($4::text))
 `
 
 type InsertArtifactParams struct {
@@ -132,7 +132,7 @@ func (q *Queries) UpsertScannedHost(ctx context.Context, arg UpsertScannedHostPa
 
 const upsertScannedService = `-- name: UpsertScannedService :exec
 INSERT INTO services (ip, port, proto, name, product, version, cpe, banner_enc, state, first_seen, last_seen)
-VALUES ($1, $2, $3, $4, $5, $6, $7, asi_enc(NULLIF($8::text, '')), 'open', $9, $9)
+VALUES ($1, $2, $3, $4, $5, $6, $7, raven_enc(NULLIF($8::text, '')), 'open', $9, $9)
 ON CONFLICT (ip, port, proto) DO UPDATE SET
     name = EXCLUDED.name,
     product = EXCLUDED.product,

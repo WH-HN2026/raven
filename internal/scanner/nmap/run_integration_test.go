@@ -12,17 +12,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner"
+	"github.com/WH-HN2026/raven/internal/scanner"
 )
 
-// TestRunLab runs real nmap against the IPs in ASI_NMAP_IT_TARGETS
+// TestRunLab runs real nmap against the IPs in RAVEN_NMAP_IT_TARGETS
 // (comma-separated). It needs nmap and raw-socket rights, so it is skipped
 // unless the variable is set. Only point it at a lab network you own; see
 // testdata/README.md for how it was run against an isolated docker network.
 func TestRunLab(t *testing.T) {
-	env := os.Getenv("ASI_NMAP_IT_TARGETS")
+	env := os.Getenv("RAVEN_NMAP_IT_TARGETS")
 	if env == "" {
-		t.Skip("ASI_NMAP_IT_TARGETS not set")
+		t.Skip("RAVEN_NMAP_IT_TARGETS not set")
 	}
 	if _, err := exec.LookPath("nmap"); err != nil {
 		t.Skip("nmap not in PATH")
@@ -63,9 +63,9 @@ func TestRunLab(t *testing.T) {
 
 // TestRunCancel checks that cancelling ctx kills nmap and Run reports it.
 func TestRunCancel(t *testing.T) {
-	env := os.Getenv("ASI_NMAP_IT_TARGETS")
+	env := os.Getenv("RAVEN_NMAP_IT_TARGETS")
 	if env == "" {
-		t.Skip("ASI_NMAP_IT_TARGETS not set")
+		t.Skip("RAVEN_NMAP_IT_TARGETS not set")
 	}
 	ip := netip.MustParseAddr(strings.TrimSpace(strings.Split(env, ",")[0]))
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)

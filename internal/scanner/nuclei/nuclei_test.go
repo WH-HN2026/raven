@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner"
+	"github.com/WH-HN2026/raven/internal/scanner"
 )
 
 func TestBuildArgs(t *testing.T) {
@@ -79,7 +79,7 @@ func TestBuildInput(t *testing.T) {
 		obs(ip, "http://172.30.0.17:80?query", 200),
 		obs(ip, "http://172.30.0.18:80", 200),
 		obs(outside, "http://172.30.0.18:80", 200),
-		obs(ip, "http://wordpress.asi.lab:80", 200),
+		obs(ip, "http://wordpress.raven.lab:80", 200),
 		obs(ip, "https://172.30.0.17:80", 0),
 	})
 	if !slices.Equal(in.IPs, []netip.Addr{ip}) || !slices.Equal(in.URLs, []string{"http://172.30.0.17:80"}) {

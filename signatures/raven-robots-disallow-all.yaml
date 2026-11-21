@@ -1,0 +1,22 @@
+id: raven-robots-disallow-all
+info:
+  name: robots.txt blocks all crawlers
+  author: raven
+  severity: info
+  description: robots.txt disallows the whole site for every user agent, a common staging/test marker.
+  tags: raven,staging,robots
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/robots.txt"
+    matchers-condition: and
+    matchers:
+      - type: status
+        status:
+          - 200
+      - type: regex
+        part: body
+        condition: and
+        regex:
+          - '(?im)^user-agent:\s*\*\s*$'
+          - '(?im)^disallow:\s*/\s*$'

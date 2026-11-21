@@ -13,11 +13,11 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/auth"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/changes"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/exchange"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/httpx"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/pipeline"
+	"github.com/WH-HN2026/raven/internal/auth"
+	"github.com/WH-HN2026/raven/internal/changes"
+	"github.com/WH-HN2026/raven/internal/exchange"
+	"github.com/WH-HN2026/raven/internal/httpx"
+	"github.com/WH-HN2026/raven/internal/pipeline"
 )
 
 // Import / export (task P3). Logic lives in internal/exchange.
@@ -166,7 +166,7 @@ func (a *api) exportData(w http.ResponseWriter, r *http.Request) {
 	} else {
 		w.Header().Set("Content-Type", "application/json")
 	}
-	w.Header().Set("Content-Disposition", `attachment; filename="asi-`+string(kind)+`.`+string(format)+`"`)
+	w.Header().Set("Content-Disposition", `attachment; filename="raven-`+string(kind)+`.`+string(format)+`"`)
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(buf.Bytes())
 }

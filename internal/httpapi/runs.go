@@ -8,9 +8,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/auth"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/httpx"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/pipeline"
+	"github.com/WH-HN2026/raven/internal/auth"
+	"github.com/WH-HN2026/raven/internal/httpx"
+	"github.com/WH-HN2026/raven/internal/pipeline"
 )
 
 // Runs and batches (task S3). Logic lives in internal/pipeline.

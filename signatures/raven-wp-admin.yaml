@@ -1,0 +1,22 @@
+id: raven-wp-admin
+info:
+  name: WordPress admin
+  author: raven
+  severity: info
+  description: GET /wp-admin/ redirects to (or shows) the WordPress login.
+  tags: raven,panel,wordpress,path
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/wp-admin/"
+    matchers-condition: and
+    matchers:
+      - type: status
+        status:
+          - 200
+          - 301
+          - 302
+      - type: word
+        part: all
+        words:
+          - "wp-login.php"

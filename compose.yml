@@ -1,60 +1,60 @@
-# ASI deployment (architecture §10):  scripts/gen-env.sh && docker compose up -d --build
-# Dev infra (everything except asi):    make infra-up
-name: asi
+# RAVEN deployment (architecture §10):  scripts/gen-env.sh && docker compose up -d --build
+# Dev infra (everything except raven):    make infra-up
+name: raven
 
 include:
   - path: deploy/dojo.compose.yml
     env_file: .env
 
 services:
-  asi:
+  raven:
     build:
       context: .
       dockerfile: deploy/Dockerfile
-    image: asi:local
+    image: raven:local
     restart: unless-stopped
     depends_on:
-      asi-db:
+      raven-db:
         condition: service_healthy
     cap_add: [NET_RAW, NET_ADMIN]   # nmap -sS / host discovery
     ports:
-      - "${ASI_PORT:-8000}:8000"
+      - "${RAVEN_PORT:-8000}:8000"
     environment:
-      ASI_HTTP_ADDR: ":8000"
-      ASI_DATABASE_URL: "postgres://asi:${ASI_DB_PASSWORD:?run scripts/gen-env.sh}@asi-db:5432/asi?sslmode=disable"
-      ASI_ENCRYPTION_KEY: "${ASI_ENCRYPTION_KEY:?run scripts/gen-env.sh}"
-      ASI_DOJO_URL: "${ASI_DOJO_URL:-http://nginx:8080}"
-      ASI_DOJO_PUBLIC_URL: "${ASI_DOJO_PUBLIC_URL:-http://localhost:${DD_PORT:-8080}}"
-      ASI_DOJO_TOKEN: "${ASI_DOJO_TOKEN:-}"
-      ASI_DOJO_ORGANIZATION: "${ASI_DOJO_ORGANIZATION:-ASI}"
+      RAVEN_HTTP_ADDR: ":8000"
+      RAVEN_DATABASE_URL: "postgres://raven:${RAVEN_DB_PASSWORD:?run scripts/gen-env.sh}@raven-db:5432/raven?sslmode=disable"
+      RAVEN_ENCRYPTION_KEY: "${RAVEN_ENCRYPTION_KEY:?run scripts/gen-env.sh}"
+      RAVEN_DOJO_URL: "${RAVEN_DOJO_URL:-http://nginx:8080}"
+      RAVEN_DOJO_PUBLIC_URL: "${RAVEN_DOJO_PUBLIC_URL:-http://localhost:${DD_PORT:-8080}}"
+      RAVEN_DOJO_TOKEN: "${RAVEN_DOJO_TOKEN:-}"
+      RAVEN_DOJO_ORGANIZATION: "${RAVEN_DOJO_ORGANIZATION:-RAVEN}"
       DD_ADMIN_USER: "${DD_ADMIN_USER:-admin}"
       DD_ADMIN_PASSWORD: "${DD_ADMIN_PASSWORD:?run scripts/gen-env.sh}"
-      ASI_ADMIN_USERNAME: "${ASI_ADMIN_USERNAME:-admin}"
-      ASI_ADMIN_PASSWORD: "${ASI_ADMIN_PASSWORD:?run scripts/gen-env.sh}"
-      ASI_COOKIE_SECURE: "${ASI_COOKIE_SECURE:-false}"
-      ASI_SESSION_TTL: "${ASI_SESSION_TTL:-12h}"
-      ASI_MAX_WORKERS: "${ASI_MAX_WORKERS:-2}"
+      RAVEN_ADMIN_USERNAME: "${RAVEN_ADMIN_USERNAME:-admin}"
+      RAVEN_ADMIN_PASSWORD: "${RAVEN_ADMIN_PASSWORD:?run scripts/gen-env.sh}"
+      RAVEN_COOKIE_SECURE: "${RAVEN_COOKIE_SECURE:-false}"
+      RAVEN_SESSION_TTL: "${RAVEN_SESSION_TTL:-12h}"
+      RAVEN_MAX_WORKERS: "${RAVEN_MAX_WORKERS:-2}"
     # For the organizers' lab with L2 discovery (ARP): use `network_mode: host`
-    # instead of ports and set ASI_DOJO_URL=http://localhost:8080.
+    # instead of ports and set RAVEN_DOJO_URL=http://localhost:8080.
 
-  asi-db:
+  raven-db:
     image: postgres:18.6-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
     restart: unless-stopped
-    # Statement logging must stay off: queries carry the encryption key (asi.enc_key).
+    # Statement logging must stay off: queries carry the encryption key (raven.enc_key).
     command: ["postgres", "-c", "log_statement=none", "-c", "log_min_duration_statement=-1"]
     environment:
-      POSTGRES_USER: asi
-      POSTGRES_PASSWORD: "${ASI_DB_PASSWORD:?run scripts/gen-env.sh}"
-      POSTGRES_DB: asi
+      POSTGRES_USER: raven
+      POSTGRES_PASSWORD: "${RAVEN_DB_PASSWORD:?run scripts/gen-env.sh}"
+      POSTGRES_DB: raven
     ports:
-      - "127.0.0.1:${ASI_DB_PORT:-5433}:5432"   # dev access (scripts/wt-env.sh); localhost only
+      - "127.0.0.1:${RAVEN_DB_PORT:-5433}:5432"   # dev access (scripts/wt-env.sh); localhost only
     volumes:
-      - asi-db-data:/var/lib/postgresql
+      - raven-db-data:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U asi -d asi"]
+      test: ["CMD-SHELL", "pg_isready -U raven -d raven"]
       interval: 5s
       timeout: 3s
       retries: 20
 
 volumes:
-  asi-db-data: {}
+  raven-db-data: {}

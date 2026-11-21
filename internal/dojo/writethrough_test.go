@@ -87,13 +87,13 @@ func TestMergeAssetTags(t *testing.T) {
 		have, user []string
 		want       []string
 	}{
-		{"adds prefixed user tags", []string{"asi", "host:web.lab"}, []string{"dmz", "prod"},
-			[]string{"asi", "host:web.lab", "user:dmz", "user:prod"}},
-		{"replaces old user tags", []string{"asi", "user:old", "tech:nginx", "User:Gone"}, []string{"new"},
-			[]string{"asi", "tech:nginx", "user:new"}},
-		{"no user tags removes only user tags", []string{"asi", "host:a", "panel:admin", "env:prod", "user:x", "set-in-dojo"}, nil,
-			[]string{"asi", "host:a", "panel:admin", "env:prod", "set-in-dojo"}},
-		{"dedupes", []string{"asi", "ASI"}, []string{"a", "a"}, []string{"asi", "user:a"}},
+		{"adds prefixed user tags", []string{"raven", "host:web.lab"}, []string{"dmz", "prod"},
+			[]string{"raven", "host:web.lab", "user:dmz", "user:prod"}},
+		{"replaces old user tags", []string{"raven", "user:old", "tech:nginx", "User:Gone"}, []string{"new"},
+			[]string{"raven", "tech:nginx", "user:new"}},
+		{"no user tags removes only user tags", []string{"raven", "host:a", "panel:admin", "env:prod", "user:x", "set-in-dojo"}, nil,
+			[]string{"raven", "host:a", "panel:admin", "env:prod", "set-in-dojo"}},
+		{"dedupes", []string{"raven", "RAVEN"}, []string{"a", "a"}, []string{"raven", "user:a"}},
 		{"empty asset", nil, []string{"x"}, []string{"user:x"}},
 	}
 	for _, tt := range tests {
@@ -102,7 +102,7 @@ func TestMergeAssetTags(t *testing.T) {
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Fatalf("got %v, want %v", got, tt.want)
 			}
-			// ASI's own tags always survive.
+			// RAVEN's own tags always survive.
 			for _, h := range tt.have {
 				l := strings.ToLower(h)
 				if l == TagASI || strings.HasPrefix(l, "host:") || strings.HasPrefix(l, "tech:") ||
@@ -112,7 +112,7 @@ func TestMergeAssetTags(t *testing.T) {
 						found = found || strings.EqualFold(g, h)
 					}
 					if !found {
-						t.Fatalf("ASI tag %q dropped: %v", h, got)
+						t.Fatalf("RAVEN tag %q dropped: %v", h, got)
 					}
 				}
 			}
@@ -122,11 +122,11 @@ func TestMergeAssetTags(t *testing.T) {
 
 func TestAssetDescription(t *testing.T) {
 	ip := netip.MustParseAddr("10.0.0.5")
-	if got, want := AssetDescription(HostAsset{IP: ip}), "Host 10.0.0.5 (managed by ASI)\n"; got != want {
+	if got, want := AssetDescription(HostAsset{IP: ip}), "Host 10.0.0.5 (managed by RAVEN)\n"; got != want {
 		t.Fatalf("bare: %q", got)
 	}
 	got := AssetDescription(HostAsset{IP: ip, Owner: "web team", Criticality: "high", Notes: " behind WAF \n"})
-	want := "Host 10.0.0.5 (managed by ASI)\n\n**Owner:** web team\n**Criticality:** high\n\nbehind WAF\n"
+	want := "Host 10.0.0.5 (managed by RAVEN)\n\n**Owner:** web team\n**Criticality:** high\n\nbehind WAF\n"
 	if got != want {
 		t.Fatalf("got %q, want %q", got, want)
 	}

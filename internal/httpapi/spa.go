@@ -6,7 +6,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/web"
+	"github.com/WH-HN2026/raven/web"
 )
 
 // spaHandler serves web/dist; any path that isn't a file falls back to

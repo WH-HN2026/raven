@@ -396,7 +396,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Reads only the Dojo mirror (dojo_findings, synced every 5 min from findings tagged "asi"); never calls Dojo. Sorted by severity (Critical first), then date (newest first). */
+        /** @description Reads only the Dojo mirror (dojo_findings, synced every 5 min from findings tagged "raven"); never calls Dojo. Sorted by severity (Critical first), then date (newest first). */
         get: operations["listFindings"];
         put?: never;
         post?: never;
@@ -672,7 +672,7 @@ export interface paths {
         put?: never;
         /**
          * @description Import scan results (permission `import`), multipart max 25 MiB.
-         *     Supported `kind` values: `results-json`, `results-csv` (ASI's documented formats, see `docs/exchange.md`),
+         *     Supported `kind` values: `results-json`, `results-csv` (RAVEN's documented formats, see `docs/exchange.md`),
          *     `nmap-xml`, `nuclei-jsonl`, and `nessus` (`.nessus` files split per IP and pushed to DefectDojo with the
          *     "Tenable Scan" parser). When `kind` is omitted it is detected from the filename or content.
          *     `profile` accepts a profile ID or name (defaults to `default`). Imported hosts are filtered through
@@ -1148,7 +1148,7 @@ export interface components {
             scanner?: string;
             /** Format: date */
             date?: string | null;
-            /** @description Link to the finding in the Dojo UI (ASI_DOJO_PUBLIC_URL); empty if Dojo is not configured. */
+            /** @description Link to the finding in the Dojo UI (RAVEN_DOJO_PUBLIC_URL); empty if Dojo is not configured. */
             dojo_url?: string;
         };
         FindingPatch: {
@@ -1506,7 +1506,7 @@ export interface operations {
             query?: never;
             header: {
                 /** @description Must be "1" on every unsafe request. The client in web/src/api/client.ts sends it. */
-                "X-ASI-CSRF": components["parameters"]["CSRF"];
+                "X-RAVEN-CSRF": components["parameters"]["CSRF"];
             };
             path?: never;
             cookie?: never;
@@ -1535,7 +1535,7 @@ export interface operations {
             query?: never;
             header: {
                 /** @description Must be "1" on every unsafe request. The client in web/src/api/client.ts sends it. */
-                "X-ASI-CSRF": components["parameters"]["CSRF"];
+                "X-RAVEN-CSRF": components["parameters"]["CSRF"];
             };
             path?: never;
             cookie?: never;
@@ -1578,7 +1578,7 @@ export interface operations {
             query?: never;
             header: {
                 /** @description Must be "1" on every unsafe request. The client in web/src/api/client.ts sends it. */
-                "X-ASI-CSRF": components["parameters"]["CSRF"];
+                "X-RAVEN-CSRF": components["parameters"]["CSRF"];
             };
             path?: never;
             cookie?: never;
@@ -1628,7 +1628,7 @@ export interface operations {
             query?: never;
             header: {
                 /** @description Must be "1" on every unsafe request. The client in web/src/api/client.ts sends it. */
-                "X-ASI-CSRF": components["parameters"]["CSRF"];
+                "X-RAVEN-CSRF": components["parameters"]["CSRF"];
             };
             path?: never;
             cookie?: never;
@@ -1669,7 +1669,7 @@ export interface operations {
             };
             header: {
                 /** @description Must be "1" on every unsafe request. The client in web/src/api/client.ts sends it. */
-                "X-ASI-CSRF": components["parameters"]["CSRF"];
+                "X-RAVEN-CSRF": components["parameters"]["CSRF"];
             };
             path?: never;
             cookie?: never;
@@ -1700,7 +1700,7 @@ export interface operations {
             query?: never;
             header: {
                 /** @description Must be "1" on every unsafe request. The client in web/src/api/client.ts sends it. */
-                "X-ASI-CSRF": components["parameters"]["CSRF"];
+                "X-RAVEN-CSRF": components["parameters"]["CSRF"];
             };
             path: {
                 id: components["parameters"]["Id"];
@@ -1750,7 +1750,7 @@ export interface operations {
             query?: never;
             header: {
                 /** @description Must be "1" on every unsafe request. The client in web/src/api/client.ts sends it. */
-                "X-ASI-CSRF": components["parameters"]["CSRF"];
+                "X-RAVEN-CSRF": components["parameters"]["CSRF"];
             };
             path?: never;
             cookie?: never;
@@ -1778,7 +1778,7 @@ export interface operations {
             query?: never;
             header: {
                 /** @description Must be "1" on every unsafe request. The client in web/src/api/client.ts sends it. */
-                "X-ASI-CSRF": components["parameters"]["CSRF"];
+                "X-RAVEN-CSRF": components["parameters"]["CSRF"];
             };
             path: {
                 id: components["parameters"]["Id"];
@@ -1827,7 +1827,7 @@ export interface operations {
             query?: never;
             header: {
                 /** @description Must be "1" on every unsafe request. The client in web/src/api/client.ts sends it. */
-                "X-ASI-CSRF": components["parameters"]["CSRF"];
+                "X-RAVEN-CSRF": components["parameters"]["CSRF"];
             };
             path?: never;
             cookie?: never;
@@ -1904,7 +1904,7 @@ export interface operations {
             query?: never;
             header: {
                 /** @description Must be "1" on every unsafe request. The client in web/src/api/client.ts sends it. */
-                "X-ASI-CSRF": components["parameters"]["CSRF"];
+                "X-RAVEN-CSRF": components["parameters"]["CSRF"];
             };
             path: {
                 id: components["parameters"]["Id"];
@@ -1986,7 +1986,7 @@ export interface operations {
             query?: never;
             header: {
                 /** @description Must be "1" on every unsafe request. The client in web/src/api/client.ts sends it. */
-                "X-ASI-CSRF": components["parameters"]["CSRF"];
+                "X-RAVEN-CSRF": components["parameters"]["CSRF"];
             };
             path: {
                 ip: string;
@@ -2043,7 +2043,7 @@ export interface operations {
             query?: never;
             header: {
                 /** @description Must be "1" on every unsafe request. The client in web/src/api/client.ts sends it. */
-                "X-ASI-CSRF": components["parameters"]["CSRF"];
+                "X-RAVEN-CSRF": components["parameters"]["CSRF"];
             };
             path: {
                 id: components["parameters"]["Id"];
@@ -2108,7 +2108,7 @@ export interface operations {
                 ip?: string;
                 /** @description Case-insensitive substring of the title. */
                 q?: string;
-                /** @description nmap, nuclei, asi (our INFO findings), … */
+                /** @description nmap, nuclei, raven (our INFO findings), … */
                 scanner?: string;
                 limit?: components["parameters"]["Limit"];
                 offset?: components["parameters"]["Offset"];
@@ -2136,7 +2136,7 @@ export interface operations {
             query?: never;
             header: {
                 /** @description Must be "1" on every unsafe request. The client in web/src/api/client.ts sends it. */
-                "X-ASI-CSRF": components["parameters"]["CSRF"];
+                "X-RAVEN-CSRF": components["parameters"]["CSRF"];
             };
             path: {
                 id: components["parameters"]["Id"];
@@ -2166,7 +2166,7 @@ export interface operations {
             query?: never;
             header: {
                 /** @description Must be "1" on every unsafe request. The client in web/src/api/client.ts sends it. */
-                "X-ASI-CSRF": components["parameters"]["CSRF"];
+                "X-RAVEN-CSRF": components["parameters"]["CSRF"];
             };
             path: {
                 id: components["parameters"]["Id"];
@@ -2291,7 +2291,7 @@ export interface operations {
             query?: never;
             header: {
                 /** @description Must be "1" on every unsafe request. The client in web/src/api/client.ts sends it. */
-                "X-ASI-CSRF": components["parameters"]["CSRF"];
+                "X-RAVEN-CSRF": components["parameters"]["CSRF"];
             };
             path?: never;
             cookie?: never;
@@ -2319,7 +2319,7 @@ export interface operations {
             query?: never;
             header: {
                 /** @description Must be "1" on every unsafe request. The client in web/src/api/client.ts sends it. */
-                "X-ASI-CSRF": components["parameters"]["CSRF"];
+                "X-RAVEN-CSRF": components["parameters"]["CSRF"];
             };
             path: {
                 id: components["parameters"]["Id"];
@@ -2349,7 +2349,7 @@ export interface operations {
             query?: never;
             header: {
                 /** @description Must be "1" on every unsafe request. The client in web/src/api/client.ts sends it. */
-                "X-ASI-CSRF": components["parameters"]["CSRF"];
+                "X-RAVEN-CSRF": components["parameters"]["CSRF"];
             };
             path: {
                 id: components["parameters"]["Id"];
@@ -2397,7 +2397,7 @@ export interface operations {
             query?: never;
             header: {
                 /** @description Must be "1" on every unsafe request. The client in web/src/api/client.ts sends it. */
-                "X-ASI-CSRF": components["parameters"]["CSRF"];
+                "X-RAVEN-CSRF": components["parameters"]["CSRF"];
             };
             path?: never;
             cookie?: never;
@@ -2425,7 +2425,7 @@ export interface operations {
             query?: never;
             header: {
                 /** @description Must be "1" on every unsafe request. The client in web/src/api/client.ts sends it. */
-                "X-ASI-CSRF": components["parameters"]["CSRF"];
+                "X-RAVEN-CSRF": components["parameters"]["CSRF"];
             };
             path: {
                 id: components["parameters"]["Id"];
@@ -2455,7 +2455,7 @@ export interface operations {
             query?: never;
             header: {
                 /** @description Must be "1" on every unsafe request. The client in web/src/api/client.ts sends it. */
-                "X-ASI-CSRF": components["parameters"]["CSRF"];
+                "X-RAVEN-CSRF": components["parameters"]["CSRF"];
             };
             path: {
                 id: components["parameters"]["Id"];
@@ -2503,7 +2503,7 @@ export interface operations {
             query?: never;
             header: {
                 /** @description Must be "1" on every unsafe request. The client in web/src/api/client.ts sends it. */
-                "X-ASI-CSRF": components["parameters"]["CSRF"];
+                "X-RAVEN-CSRF": components["parameters"]["CSRF"];
             };
             path?: never;
             cookie?: never;
@@ -2541,7 +2541,7 @@ export interface operations {
             query?: never;
             header: {
                 /** @description Must be "1" on every unsafe request. The client in web/src/api/client.ts sends it. */
-                "X-ASI-CSRF": components["parameters"]["CSRF"];
+                "X-RAVEN-CSRF": components["parameters"]["CSRF"];
             };
             path?: never;
             cookie?: never;
@@ -2594,7 +2594,7 @@ export interface operations {
             query?: never;
             header: {
                 /** @description Must be "1" on every unsafe request. The client in web/src/api/client.ts sends it. */
-                "X-ASI-CSRF": components["parameters"]["CSRF"];
+                "X-RAVEN-CSRF": components["parameters"]["CSRF"];
             };
             path: {
                 id: components["parameters"]["Id"];
@@ -2634,7 +2634,7 @@ export interface operations {
             query?: never;
             header: {
                 /** @description Must be "1" on every unsafe request. The client in web/src/api/client.ts sends it. */
-                "X-ASI-CSRF": components["parameters"]["CSRF"];
+                "X-RAVEN-CSRF": components["parameters"]["CSRF"];
             };
             path: {
                 id: components["parameters"]["Id"];
@@ -2659,7 +2659,7 @@ export interface operations {
             query?: never;
             header: {
                 /** @description Must be "1" on every unsafe request. The client in web/src/api/client.ts sends it. */
-                "X-ASI-CSRF": components["parameters"]["CSRF"];
+                "X-RAVEN-CSRF": components["parameters"]["CSRF"];
             };
             path: {
                 id: components["parameters"]["Id"];
@@ -2683,7 +2683,7 @@ export interface operations {
             query?: never;
             header: {
                 /** @description Must be "1" on every unsafe request. The client in web/src/api/client.ts sends it. */
-                "X-ASI-CSRF": components["parameters"]["CSRF"];
+                "X-RAVEN-CSRF": components["parameters"]["CSRF"];
             };
             path?: never;
             cookie?: never;
@@ -2771,7 +2771,7 @@ export interface operations {
             query?: never;
             header: {
                 /** @description Must be "1" on every unsafe request. The client in web/src/api/client.ts sends it. */
-                "X-ASI-CSRF": components["parameters"]["CSRF"];
+                "X-RAVEN-CSRF": components["parameters"]["CSRF"];
             };
             path?: never;
             cookie?: never;
@@ -2799,7 +2799,7 @@ export interface operations {
             query?: never;
             header: {
                 /** @description Must be "1" on every unsafe request. The client in web/src/api/client.ts sends it. */
-                "X-ASI-CSRF": components["parameters"]["CSRF"];
+                "X-RAVEN-CSRF": components["parameters"]["CSRF"];
             };
             path: {
                 id: components["parameters"]["Id"];
@@ -2823,7 +2823,7 @@ export interface operations {
             query?: never;
             header: {
                 /** @description Must be "1" on every unsafe request. The client in web/src/api/client.ts sends it. */
-                "X-ASI-CSRF": components["parameters"]["CSRF"];
+                "X-RAVEN-CSRF": components["parameters"]["CSRF"];
             };
             path: {
                 id: components["parameters"]["Id"];

@@ -16,23 +16,23 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/dbtest"
+	"github.com/WH-HN2026/raven/internal/dbtest"
 )
 
 // TestIntegrationSync: against the shared Dojo and a throwaway DB. It makes
-// its own organization "asi-it-d3-<random>" with an IP-named asset (an
-// imported nmap scan tagged "asi") and a slug-named asset, syncs, changes
+// its own organization "raven-it-d3-<random>" with an IP-named asset (an
+// imported nmap scan tagged "raven") and a slug-named asset, syncs, changes
 // Dojo (reimport closes a finding, a finding and an asset are deleted),
 // syncs again and checks the mirror. It deletes only what it created.
 func TestIntegrationSync(t *testing.T) {
-	base := os.Getenv("ASI_DOJO_URL")
+	base := os.Getenv("RAVEN_DOJO_URL")
 	if base == "" {
-		t.Skip("ASI_DOJO_URL not set")
+		t.Skip("RAVEN_DOJO_URL not set")
 	}
 	pool := dbtest.Fresh(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
-	token := os.Getenv("ASI_DOJO_TOKEN")
+	token := os.Getenv("RAVEN_DOJO_TOKEN")
 	if token == "" {
 		var err error
 		if token, err = ObtainToken(ctx, base, os.Getenv("DD_ADMIN_USER"), os.Getenv("DD_ADMIN_PASSWORD")); err != nil {
@@ -42,14 +42,14 @@ func TestIntegrationSync(t *testing.T) {
 	c := NewHTTPClient(base, token)
 	rnd := make([]byte, 4)
 	_, _ = rand.Read(rnd)
-	slug := "asi-it-d3-" + hex.EncodeToString(rnd)
+	slug := "raven-it-d3-" + hex.EncodeToString(rnd)
 	ip := fmt.Sprintf("198.18.%d.%d", rnd[0], rnd[1]) // RFC 2544 benchmark range, never scanned
 	t.Logf("slug %s ip %s", slug, ip)
 
 	org, err := c.GetOrCreateOrganization(ctx, slug)
 	must(t, err)
 	t.Cleanup(func() { deleteObj(t, c, "organizations", org.ID) })
-	hostAsset, err := c.GetOrCreateAsset(ctx, AssetSpec{Name: ip, Description: "D3 integration test", OrganizationID: org.ID, Tags: []string{"asi", slug}})
+	hostAsset, err := c.GetOrCreateAsset(ctx, AssetSpec{Name: ip, Description: "D3 integration test", OrganizationID: org.ID, Tags: []string{"raven", slug}})
 	must(t, err)
 	t.Cleanup(func() { deleteObj(t, c, "assets", hostAsset.ID) })
 	otherAsset, err := c.GetOrCreateAsset(ctx, AssetSpec{Name: slug, Description: "D3 integration test", OrganizationID: org.ID})
@@ -61,7 +61,7 @@ func TestIntegrationSync(t *testing.T) {
 		}
 	})
 
-	eng, err := c.GetOrCreateEngagement(ctx, EngagementSpec{AssetID: hostAsset.ID, Name: "ASI: it"})
+	eng, err := c.GetOrCreateEngagement(ctx, EngagementSpec{AssetID: hostAsset.ID, Name: "RAVEN: it"})
 	must(t, err)
 	test, err := c.GetOrCreateTest(ctx, TestSpec{EngagementID: eng.ID, ScanType: "Nmap Scan", Title: "nmap"})
 	must(t, err)
@@ -69,7 +69,7 @@ func TestIntegrationSync(t *testing.T) {
 		t.Helper()
 		_, err := c.ReimportScan(ctx, ImportRequest{
 			ScanType: "Nmap Scan", TestID: test.ID, FileName: "nmap.xml", File: open(t, file),
-			CloseOldFindings: true, Tags: []string{"asi", slug}, TagFindings: true, ScanDate: time.Now(),
+			CloseOldFindings: true, Tags: []string{"raven", slug}, TagFindings: true, ScanDate: time.Now(),
 		})
 		must(t, err)
 	}

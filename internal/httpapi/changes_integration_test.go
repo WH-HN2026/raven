@@ -13,10 +13,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/auth"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/changes"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/db/gen"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/dbtest"
+	"github.com/WH-HN2026/raven/internal/auth"
+	"github.com/WH-HN2026/raven/internal/changes"
+	"github.com/WH-HN2026/raven/internal/db/gen"
+	"github.com/WH-HN2026/raven/internal/dbtest"
 )
 
 const nmapRun1 = `<?xml version="1.0"?><nmaprun start="1700000000">
@@ -77,7 +77,7 @@ func TestChangesAPI(t *testing.T) {
 		($2, '10.40.0.2', NULL, false),
 		($2, '10.40.0.3', NULL, true), ($2, '10.40.0.3', 25, true),
 		($2, '10.40.0.4', NULL, true), ($2, '10.40.0.4', 3306, true)`, r1, r2)
-	exec(`INSERT INTO artifacts (run_id, scanner, content_enc) VALUES ($1, 'nmap', asi_enc($2)), ($3, 'nmap', asi_enc($4))`,
+	exec(`INSERT INTO artifacts (run_id, scanner, content_enc) VALUES ($1, 'nmap', raven_enc($2)), ($3, 'nmap', raven_enc($4))`,
 		r1, nmapRun1, r2, nmapRun2)
 	exec(`INSERT INTO hosts (ip) VALUES ('10.40.0.1')`)
 	exec(`INSERT INTO services (ip, port, proto, name) VALUES ('10.40.0.1', 80, 'tcp', 'http')`)

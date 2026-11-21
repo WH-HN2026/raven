@@ -200,7 +200,7 @@ func (q *Queries) ListRunHTTPObservations(ctx context.Context, runID *int64) ([]
 }
 
 const listRunNmapArtifacts = `-- name: ListRunNmapArtifacts :many
-SELECT asi_dec(content_enc)::text AS content FROM artifacts
+SELECT raven_dec(content_enc)::text AS content FROM artifacts
 WHERE run_id = $1 AND scanner = 'nmap' ORDER BY id
 `
 

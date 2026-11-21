@@ -1,14 +1,14 @@
 openapi: 3.1.0
 info:
-  title: ASI — Attack Surface Intelligence API
+  title: RAVEN — Recon of Assets, Versions, Exposures & Networks API
   version: 0.1.0
   description: |
     The HTTP contract between the Go backend and the SPA (architecture §7).
     Conventions:
     - JSON everywhere; lists take `?limit=&offset=` and return `{items, total}`.
     - Errors return `{error: {code, message}}`.
-    - Auth: session cookie `asi_session` (HttpOnly, SameSite=Strict) from POST /api/auth/login.
-    - Every POST/PUT/PATCH/DELETE must send the header `X-ASI-CSRF: 1` (login included).
+    - Auth: session cookie `raven_session` (HttpOnly, SameSite=Strict) from POST /api/auth/login.
+    - Every POST/PUT/PATCH/DELETE must send the header `X-RAVEN-CSRF: 1` (login included).
     - 401 = no session, 403 = missing permission (or missing CSRF header).
     - Paths marked "stub" are mounted with their permission but answer 501 until their task lands.
     Editing rules: add paths/schemas inside your area's section (grouped by tag); run `make gen`.
@@ -471,7 +471,7 @@ paths:
       tags: [findings]
       operationId: listFindings
       description: >-
-        Reads only the Dojo mirror (dojo_findings, synced every 5 min from findings tagged "asi");
+        Reads only the Dojo mirror (dojo_findings, synced every 5 min from findings tagged "raven");
         never calls Dojo. Sorted by severity (Critical first), then date (newest first).
       parameters:
         - name: severity
@@ -483,7 +483,7 @@ paths:
         - { name: active, in: query, schema: { type: boolean } }
         - { name: ip, in: query, description: An IP address or a CIDR., schema: { type: string } }
         - { name: q, in: query, description: Case-insensitive substring of the title., schema: { type: string } }
-        - { name: scanner, in: query, description: "nmap, nuclei, asi (our INFO findings), …", schema: { type: string } }
+        - { name: scanner, in: query, description: "nmap, nuclei, raven (our INFO findings), …", schema: { type: string } }
         - { $ref: "#/components/parameters/Limit" }
         - { $ref: "#/components/parameters/Offset" }
       responses:
@@ -853,7 +853,7 @@ paths:
       operationId: importResults
       description: |
         Import scan results (permission `import`), multipart max 25 MiB.
-        Supported `kind` values: `results-json`, `results-csv` (ASI's documented formats, see `docs/exchange.md`),
+        Supported `kind` values: `results-json`, `results-csv` (RAVEN's documented formats, see `docs/exchange.md`),
         `nmap-xml`, `nuclei-jsonl`, and `nessus` (`.nessus` files split per IP and pushed to DefectDojo with the
         "Tenable Scan" parser). When `kind` is omitted it is detected from the filename or content.
         `profile` accepts a profile ID or name (defaults to `default`). Imported hosts are filtered through
@@ -974,11 +974,11 @@ components:
     session:
       type: apiKey
       in: cookie
-      name: asi_session
+      name: raven_session
 
   parameters:
     CSRF:
-      name: X-ASI-CSRF
+      name: X-RAVEN-CSRF
       in: header
       required: true
       description: Must be "1" on every unsafe request. The client in web/src/api/client.ts sends it.
@@ -1427,7 +1427,7 @@ components:
         tags: { type: array, items: { type: string } }
         scanner: { type: string }
         date: { type: [string, "null"], format: date }
-        dojo_url: { type: string, description: "Link to the finding in the Dojo UI (ASI_DOJO_PUBLIC_URL); empty if Dojo is not configured." }
+        dojo_url: { type: string, description: "Link to the finding in the Dojo UI (RAVEN_DOJO_PUBLIC_URL); empty if Dojo is not configured." }
     FindingPatch:
       type: object
       properties:

@@ -12,12 +12,12 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/db/gen"
+	"github.com/WH-HN2026/raven/internal/db/gen"
 )
 
-// ProfileTagPrefix is the Dojo engagement tag prefix selecting the ASI scan
-// profile for a planned engagement under "ASI Planning" (architecture §4, D9).
-const ProfileTagPrefix = "asi-profile:"
+// ProfileTagPrefix is the Dojo engagement tag prefix selecting the RAVEN scan
+// profile for a planned engagement under "RAVEN Planning" (architecture §4, D9).
+const ProfileTagPrefix = "raven-profile:"
 
 // DefaultScheduleTimezone matches schedules.timezone's DB default.
 const DefaultScheduleTimezone = "Europe/Warsaw"
@@ -26,8 +26,8 @@ const DefaultScheduleTimezone = "Europe/Warsaw"
 // Dojo answers 404 for an engagement so we stop retrying a deleted one.
 const engagementStatusNotFound = "not_found"
 
-// PlanningPoller polls the "ASI Planning" asset for "Not Started" engagements
-// tagged "asi-profile:<name>" into schedules(source='dojo') and mirrors run
+// PlanningPoller polls the "RAVEN Planning" asset for "Not Started" engagements
+// tagged "raven-profile:<name>" into schedules(source='dojo') and mirrors run
 // status back to Dojo engagement status ("In Progress" / "Completed").
 type PlanningPoller struct {
 	Client          Client
@@ -78,7 +78,7 @@ func (p *PlanningPoller) Run(ctx context.Context, interval time.Duration) {
 // PollOnce runs one full planning pass:
 //  1. Sync status of runs tied to Dojo schedules back to their engagements
 //     (In Progress / Completed), PATCHing only when the status changes.
-//  2. List "Not Started" engagements of ASI Planning tagged asi-profile:<name>.
+//  2. List "Not Started" engagements of RAVEN Planning tagged raven-profile:<name>.
 //  3. In one transaction, upsert matching schedules and disable Dojo schedules
 //     whose engagement disappeared / is no longer Not Started and has no run.
 func (p *PlanningPoller) PollOnce(ctx context.Context) (PlanningStats, error) {
@@ -185,7 +185,7 @@ func (p *PlanningPoller) syncRunStatuses(ctx context.Context, st *PlanningStats)
 	return errors.Join(errs...)
 }
 
-// targetEngagementStatus maps an ASI run status to the Dojo engagement status
+// targetEngagementStatus maps an RAVEN run status to the Dojo engagement status
 // it should mirror, or "" when no status transition should be sent yet.
 func targetEngagementStatus(runStatus string) string {
 	switch runStatus {
@@ -212,7 +212,7 @@ func nextEngagementStatus(runStatus, sentStatus string) (string, bool) {
 }
 
 // parseProfileTag extracts the profile name from the first tag starting with
-// "asi-profile:" (case-insensitive prefix; Dojo forces tags to lowercase).
+// "raven-profile:" (case-insensitive prefix; Dojo forces tags to lowercase).
 func parseProfileTag(tags []string) (string, bool) {
 	for _, raw := range tags {
 		t := strings.TrimSpace(raw)
@@ -304,7 +304,7 @@ func parseEngagementTime(raw string, endOfDay bool, loc *time.Location) (*time.T
 func mapPlannedEngagement(e Engagement, profiles profileIndex, tz string, loc *time.Location) (gen.UpsertDojoScheduleParams, string) {
 	profName, ok := parseProfileTag(e.Tags)
 	if !ok {
-		return gen.UpsertDojoScheduleParams{}, "missing asi-profile:<name> tag"
+		return gen.UpsertDojoScheduleParams{}, "missing raven-profile:<name> tag"
 	}
 	profID, ok := profiles.resolve(profName)
 	if !ok {

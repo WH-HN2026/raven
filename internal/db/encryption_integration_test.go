@@ -14,16 +14,16 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/audit"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/db/gen"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/dbtest"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/pipeline"
+	"github.com/WH-HN2026/raven/internal/audit"
+	"github.com/WH-HN2026/raven/internal/db/gen"
+	"github.com/WH-HN2026/raven/internal/dbtest"
+	"github.com/WH-HN2026/raven/internal/pipeline"
 )
 
 // TestEncryptedColumnsAtRest writes a distinct marker into every *_enc column
 // (through the real ingest path where one exists), then checks the raw bytes
-// in the DB don't contain it, asi_dec returns it, and a connection without
-// asi.enc_key can neither decrypt nor encrypt. Architecture §5 "Encryption".
+// in the DB don't contain it, raven_dec returns it, and a connection without
+// raven.enc_key can neither decrypt nor encrypt. Architecture §5 "Encryption".
 func TestEncryptedColumnsAtRest(t *testing.T) {
 	pool := dbtest.Fresh(t)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
@@ -138,7 +138,7 @@ func TestEncryptedColumnsAtRest(t *testing.T) {
 		"artifacts":         "run_id = " + strconv.FormatInt(runID, 10),
 		"run_observations":  "nuclei_evidence_enc IS NOT NULL AND run_id = " + strconv.FormatInt(runID, 10),
 	}
-	noKey, err := pgx.Connect(ctx, pool.Config().ConnString()) // plain connection: asi.enc_key not set
+	noKey, err := pgx.Connect(ctx, pool.Config().ConnString()) // plain connection: raven.enc_key not set
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -146,7 +146,7 @@ func TestEncryptedColumnsAtRest(t *testing.T) {
 
 	for col, marker := range markers {
 		table, column, _ := strings.Cut(col, ".")
-		sel := `SELECT ` + column + `, asi_dec(` + column + `) FROM ` + table + ` WHERE ` + where[table]
+		sel := `SELECT ` + column + `, raven_dec(` + column + `) FROM ` + table + ` WHERE ` + where[table]
 		var raw []byte
 		var plain string
 		if err := pool.QueryRow(ctx, sel).Scan(&raw, &plain); err != nil {
@@ -157,22 +157,22 @@ func TestEncryptedColumnsAtRest(t *testing.T) {
 			t.Errorf("%s: raw bytes contain the plaintext (%d bytes)", col, len(raw))
 		}
 		if plain != marker {
-			t.Errorf("%s: asi_dec = %q, want %q", col, plain, marker)
+			t.Errorf("%s: raven_dec = %q, want %q", col, plain, marker)
 		}
 		// Without the key the ciphertext is unreadable.
-		if err := noKey.QueryRow(ctx, `SELECT asi_dec(`+column+`) FROM `+table+` WHERE `+where[table]).Scan(&plain); err == nil {
-			t.Errorf("%s: decrypted without asi.enc_key: %q", col, plain)
+		if err := noKey.QueryRow(ctx, `SELECT raven_dec(`+column+`) FROM `+table+` WHERE `+where[table]).Scan(&plain); err == nil {
+			t.Errorf("%s: decrypted without raven.enc_key: %q", col, plain)
 		}
 	}
 
 	// Without the key nothing can be written encrypted either.
 	var ct []byte
-	if err := noKey.QueryRow(ctx, `SELECT asi_enc('x')`).Scan(&ct); err == nil {
-		t.Error("asi_enc worked without asi.enc_key")
+	if err := noKey.QueryRow(ctx, `SELECT raven_enc('x')`).Scan(&ct); err == nil {
+		t.Error("raven_enc worked without raven.enc_key")
 	}
 	// The pool's connections really carry the key (set in AfterConnect), and it is the configured one.
 	var key string
-	if err := pool.QueryRow(ctx, `SELECT current_setting('asi.enc_key')`).Scan(&key); err != nil || key != dbtest.Key {
-		t.Errorf("asi.enc_key on pool = %q, %v", key, err)
+	if err := pool.QueryRow(ctx, `SELECT current_setting('raven.enc_key')`).Scan(&key); err != nil || key != dbtest.Key {
+		t.Errorf("raven.enc_key on pool = %q, %v", key, err)
 	}
 }

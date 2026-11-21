@@ -1,0 +1,21 @@
+id: raven-hikvision-camera
+info:
+  name: Hikvision camera / NVR
+  author: raven
+  severity: low
+  description: Hikvision web server banner or its login redirect (doc/page/login.asp).
+  tags: raven,iot,camera,hikvision
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}"
+    matchers-condition: or
+    matchers:
+      - type: word
+        part: header
+        words:
+          - "Hikvision-Webs"
+      - type: word
+        part: body
+        words:
+          - "doc/page/login.asp"

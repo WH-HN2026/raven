@@ -14,26 +14,26 @@ import (
 )
 
 // Push (architecture §3.7–3.8, §4): per responding IP, the chain
-// Asset "<ip>" → Engagement "ASI: <profile>" → Test per scanner, a reimport of
+// Asset "<ip>" → Engagement "RAVEN: <profile>" → Test per scanner, a reimport of
 // the scanner output filtered to that IP, and on the first push of an IP an
-// INFO "New device found" finding in the "ASI lifecycle" test. The run-finished
+// INFO "New device found" finding in the "RAVEN lifecycle" test. The run-finished
 // job records "Host offline" in that test when the miss threshold is reached.
 
 const (
-	TagASI = "asi" // on every asset/engagement/test/finding we push; D3 syncs findings tagged with it
+	TagASI = "raven" // on every asset/engagement/test/finding we push; D3 syncs findings tagged with it
 
 	GenericScanType    = "Generic Findings Import"
-	LifecycleTestTitle = "ASI lifecycle"
+	LifecycleTestTitle = "RAVEN lifecycle"
 )
 
 // EngagementName is the long-lived engagement of one (IP, profile).
-func EngagementName(profile string) string { return "ASI: " + profile }
+func EngagementName(profile string) string { return "RAVEN: " + profile }
 
 // TestTitle is the test of one (IP, profile, scanner) inside the engagement.
-func TestTitle(scanner string) string { return "ASI: " + scanner }
+func TestTitle(scanner string) string { return "RAVEN: " + scanner }
 
 // NewDeviceUID is the stable unique_id_from_tool of the "New device found" finding.
-func NewDeviceUID(ip netip.Addr) string { return "asi-new-device:" + ip.String() }
+func NewDeviceUID(ip netip.Addr) string { return "raven-new-device:" + ip.String() }
 
 // PushHost is one responding IP of a batch, as our DB knows it after ingest.
 type PushHost struct {
@@ -106,7 +106,7 @@ func (p *Pusher) Push(ctx context.Context, b PushBatch) []HostResult {
 	return out
 }
 
-// AssetTags are the tags ASI puts on an IP's asset.
+// AssetTags are the tags RAVEN puts on an IP's asset.
 func AssetTags(hostnames []string) []string {
 	tags := []string{TagASI}
 	for _, h := range hostnames {
@@ -126,7 +126,7 @@ func (p *Pusher) lockHost(ip netip.Addr) func() {
 func (p *Pusher) ensureAsset(ctx context.Context, h PushHost) (*Asset, error) {
 	tags := missingTags(nil, append(AssetTags(h.Hostnames), h.tags...))
 	asset, err := p.Client.GetOrCreateAsset(ctx, AssetSpec{
-		Name: h.IP.String(), Description: "Host " + h.IP.String() + " (managed by ASI)",
+		Name: h.IP.String(), Description: "Host " + h.IP.String() + " (managed by RAVEN)",
 		OrganizationID: p.OrganizationID, Tags: tags,
 	})
 	if err != nil {
@@ -171,7 +171,7 @@ func (p *Pusher) pushHost(ctx context.Context, b PushBatch, h PushHost) (assetID
 	if err != nil {
 		return 0, false, err
 	}
-	if err := p.pushLifecycle(ctx, eng.ID, b.ScanDate, "asi-new-device.json", doc); err != nil {
+	if err := p.pushLifecycle(ctx, eng.ID, b.ScanDate, "raven-new-device.json", doc); err != nil {
 		return 0, false, err
 	}
 	return asset.ID, true, nil
@@ -232,7 +232,7 @@ func NewDeviceReport(h PushHost) ([]byte, error) {
 		sort.SliceStable(ps, func(i, j int) bool { return portNum(ps[i]) < portNum(ps[j]) })
 		ports = strings.Join(ps, ", ")
 	}
-	desc := fmt.Sprintf("ASI saw %s for the first time.\n\n**First seen:** %s\n**Hostnames:** %s\n**Open ports:** %s\n",
+	desc := fmt.Sprintf("RAVEN saw %s for the first time.\n\n**First seen:** %s\n**Hostnames:** %s\n**Open ports:** %s\n",
 		h.IP, h.FirstSeen.UTC().Format(time.RFC3339), names, ports)
 	return json.Marshal(map[string]any{"findings": []genericFinding{{
 		Title: "New device found: " + h.IP.String(), Description: desc, Severity: "Info",

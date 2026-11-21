@@ -9,11 +9,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner"
+	"github.com/WH-HN2026/raven/internal/scanner"
 )
 
 // testdata/lab.xml is real nmap 7.99 output: BuildArgs' exact command (ports
-// 22,80,443,8080, --max-rate 100) run in the asi image against containers on
+// 22,80,443,8080, --max-rate 100) run in the raven image against containers on
 // an isolated --internal docker network (see testdata/README.md):
 //
 //	.10 nginx on 80 + 443 (self-signed TLS), .11 OpenSSH, .12 both, .20 no host.
@@ -67,7 +67,7 @@ func keys(obs []scanner.Observation) []key {
 
 func TestParseLab(t *testing.T) {
 	res := loadLab(t)
-	const title = "ASI S2 Test Page"
+	const title = "RAVEN S2 Test Page"
 	want := []key{
 		{Kind: scanner.ObsHost, IP: "172.31.250.20", Up: false},
 		{Kind: scanner.ObsHost, IP: "172.31.250.10", Up: true},

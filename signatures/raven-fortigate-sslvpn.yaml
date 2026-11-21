@@ -1,0 +1,20 @@
+id: raven-fortigate-sslvpn
+info:
+  name: FortiGate SSL VPN portal
+  author: raven
+  severity: low
+  description: The FortiGate landing page that redirects to the SSL VPN login (/remote/login).
+  tags: raven,panel,vpn,fortinet
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}"
+    matchers-condition: and
+    matchers:
+      - type: status
+        status:
+          - 200
+      - type: word
+        part: body
+        words:
+          - 'top.location="/remote/login"'

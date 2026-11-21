@@ -2,7 +2,7 @@
 -- hosts.dojo_asset_id plus the run's stats.dojo_push counters.
 
 -- name: GetBatchArtifact :one
-SELECT asi_dec(content_enc)::text AS content FROM artifacts
+SELECT raven_dec(content_enc)::text AS content FROM artifacts
 WHERE batch_id = @batch_id AND scanner = @scanner
 ORDER BY id DESC LIMIT 1;
 

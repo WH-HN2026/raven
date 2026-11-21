@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/db/gen"
+	"github.com/WH-HN2026/raven/internal/db/gen"
 )
 
 func TestParseProfileTag(t *testing.T) {
@@ -19,14 +19,14 @@ func TestParseProfileTag(t *testing.T) {
 		want   string
 		wantOK bool
 	}{
-		{"exact", []string{"asi-profile:default"}, "default", true},
-		{"among other tags", []string{"lab", "asi-profile:web-fast", "nightly"}, "web-fast", true},
-		{"uppercase prefix", []string{"ASI-PROFILE:Default"}, "Default", true},
-		{"trimmed", []string{"  asi-profile: fast  "}, "fast", true},
-		{"empty name skipped", []string{"asi-profile:", "asi-profile:   "}, "", false},
-		{"empty then valid", []string{"asi-profile:", "asi-profile:corp"}, "corp", true},
-		{"substring not prefix", []string{"my-asi-profile:default"}, "", false},
-		{"unrelated tags", []string{"asi", "host:a"}, "", false},
+		{"exact", []string{"raven-profile:default"}, "default", true},
+		{"among other tags", []string{"lab", "raven-profile:web-fast", "nightly"}, "web-fast", true},
+		{"uppercase prefix", []string{"RAVEN-PROFILE:Default"}, "Default", true},
+		{"trimmed", []string{"  raven-profile: fast  "}, "fast", true},
+		{"empty name skipped", []string{"raven-profile:", "raven-profile:   "}, "", false},
+		{"empty then valid", []string{"raven-profile:", "raven-profile:corp"}, "corp", true},
+		{"substring not prefix", []string{"my-raven-profile:default"}, "", false},
+		{"unrelated tags", []string{"raven", "host:a"}, "", false},
 		{"empty slice", nil, "", false},
 	}
 	for _, tc := range tests {
@@ -210,7 +210,7 @@ func TestMapPlannedEngagement(t *testing.T) {
 	e := Engagement{
 		ID: 99, Name: "Weekend scan", Status: EngagementNotStarted,
 		TargetStart: "2026-12-01", TargetEnd: "2026-12-02",
-		Tags: []string{"asi", "asi-profile:default"},
+		Tags: []string{"raven", "raven-profile:default"},
 	}
 	p, reason := mapPlannedEngagement(e, idx, "UTC", time.UTC)
 	if reason != "" {
@@ -226,7 +226,7 @@ func TestMapPlannedEngagement(t *testing.T) {
 	}
 
 	// Unknown profile → skipped cleanly.
-	_, reason = mapPlannedEngagement(Engagement{ID: 100, Tags: []string{"asi-profile:nope"}}, idx, "UTC", time.UTC)
+	_, reason = mapPlannedEngagement(Engagement{ID: 100, Tags: []string{"raven-profile:nope"}}, idx, "UTC", time.UTC)
 	if !strings.Contains(reason, "unknown profile") {
 		t.Fatalf("unknown profile reason = %q", reason)
 	}
@@ -239,7 +239,7 @@ func TestMapPlannedEngagement(t *testing.T) {
 
 	// Invalid window → skipped cleanly.
 	_, reason = mapPlannedEngagement(Engagement{
-		ID: 102, Tags: []string{"asi-profile:default"}, TargetStart: "2026-12-05", TargetEnd: "2026-12-01",
+		ID: 102, Tags: []string{"raven-profile:default"}, TargetStart: "2026-12-05", TargetEnd: "2026-12-01",
 	}, idx, "UTC", time.UTC)
 	if !strings.Contains(reason, "not after") {
 		t.Fatalf("invalid window reason = %q", reason)
@@ -251,13 +251,13 @@ func TestEngagementClientMethodsHTTP(t *testing.T) {
 	mux.HandleFunc("GET /api/v2/engagements/", func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
 		if q.Get("product") != "12" || q.Get("status") != "Not Started" ||
-			q.Get("tag") != "asi-profile:" || q.Get("tags") != "a,b" || q.Get("o") != "created" {
+			q.Get("tag") != "raven-profile:" || q.Get("tags") != "a,b" || q.Get("o") != "created" {
 			t.Errorf("unexpected query: %s", r.URL.RawQuery)
 		}
-		_, _ = w.Write([]byte(`{"count":1,"results":[{"id":55,"name":"Plan 1","product":12,"status":"Not Started","target_start":"2026-12-01","target_end":"2026-12-02","tags":["asi-profile:default"]}]}`))
+		_, _ = w.Write([]byte(`{"count":1,"results":[{"id":55,"name":"Plan 1","product":12,"status":"Not Started","target_start":"2026-12-01","target_end":"2026-12-02","tags":["raven-profile:default"]}]}`))
 	})
 	mux.HandleFunc("GET /api/v2/engagements/55/", func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte(`{"id":55,"name":"Plan 1","product":12,"status":"In Progress","target_start":"2026-12-01","target_end":"2026-12-02","tags":["asi-profile:default"]}`))
+		_, _ = w.Write([]byte(`{"id":55,"name":"Plan 1","product":12,"status":"In Progress","target_start":"2026-12-01","target_end":"2026-12-02","tags":["raven-profile:default"]}`))
 	})
 	mux.HandleFunc("PATCH /api/v2/engagements/55/", func(w http.ResponseWriter, r *http.Request) {
 		var body map[string]string

@@ -253,7 +253,7 @@ func (c *HTTPClient) GetOrCreateOrganization(ctx context.Context, name string) (
 	defer c.lock("org/" + name)()
 	o, err := getOrCreate(ctx, c, "/api/v2/organizations/", url.Values{"name": {name}},
 		func(o *Organization) bool { return o.Name == name },
-		map[string]any{"name": name, "description": "Created by ASI"})
+		map[string]any{"name": name, "description": "Created by RAVEN"})
 	if err != nil {
 		return nil, fmt.Errorf("dojo organization %q: %w", name, err)
 	}
@@ -308,7 +308,7 @@ func (c *HTTPClient) GetOrCreateTest(ctx context.Context, t TestSpec) (*Test, er
 		}
 	}
 	// Tests have no unique key in Dojo, so the in-process lock is all the
-	// race protection there is; ASI is the only writer of its tests.
+	// race protection there is; RAVEN is the only writer of its tests.
 	var types Page[struct {
 		ID   int64  `json:"id"`
 		Name string `json:"name"`

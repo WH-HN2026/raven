@@ -1,4 +1,4 @@
-# ASI — UI design reference
+# RAVEN — UI design reference
 
 **Source of truth:** the Claude Design canvas https://claude.ai/artifact/PESJcHPukpJRU98snr4Zon (private; ask a teammate to share it with you). This folder is a snapshot of it, so agents can read the design without access to the canvas. If the canvas changes, re-export it here.
 
@@ -61,7 +61,7 @@ Fonts: Roboto 300/400/500/700 and Roboto Mono 400/500. Self-host them (e.g. `@fo
 
 - **Square corners everywhere:** buttons, inputs, badges, cards, bars, heatmap cells. No shadows, no gradients.
 - **Page frame:**
-  - black top bar (80px: logo, ASI wordmark, nav, DefectDojo link, user + role badge);
+  - black top bar (80px: logo, RAVEN wordmark, nav, DefectDojo link, user + role badge);
   - black page header (breadcrumb, 64px Roboto Light title, actions, squares band on the right);
   - content;
   - footer: the mirrored squares band across the white/black edge, then one status line.

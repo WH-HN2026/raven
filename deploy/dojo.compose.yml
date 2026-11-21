@@ -6,7 +6,7 @@
 #   - DD_ADMIN_PASSWORD, DD_SECRET_KEY and DD_CREDENTIAL_AES_256_KEY come from
 #     .env (scripts/gen-env.sh) with no insecure defaults;
 #   - the ./docker/extra_settings bind mounts are dropped (we have no extra settings);
-#   - uwsgi + celeryworker get ASI's dedup settings (task D2): "Nmap Scan" matches
+#   - uwsgi + celeryworker get RAVEN's dedup settings (task D2): "Nmap Scan" matches
 #     reimported findings on title + endpoints (upstream: legacy title+severity, so a
 #     severity edit in our UI would close the finding and open a new one), and
 #     "Generic Findings Import" (our INFO lifecycle findings) matches on

@@ -39,17 +39,17 @@ func TestPushNessus(t *testing.T) {
 		}
 	}
 
-	if a := f.assets[ip1.String()]; a == nil || a.OrganizationID != 11 || !slices.Equal(a.Tags, []string{"asi", "host:web.lab"}) {
+	if a := f.assets[ip1.String()]; a == nil || a.OrganizationID != 11 || !slices.Equal(a.Tags, []string{"raven", "host:web.lab"}) {
 		t.Fatalf("ip1 asset = %+v", a)
 	}
 	for _, e := range f.engs {
-		if e.Name != "ASI: default" {
+		if e.Name != "RAVEN: default" {
 			t.Fatalf("engagement = %+v", e)
 		}
 	}
 	for _, ts := range f.tests {
-		if ts.ScanType != TenableScanType || ts.Title != "ASI: nessus" {
-			t.Fatalf("test = %+v, want scan_type=%q title=%q", ts, TenableScanType, "ASI: nessus")
+		if ts.ScanType != TenableScanType || ts.Title != "RAVEN: nessus" {
+			t.Fatalf("test = %+v, want scan_type=%q title=%q", ts, TenableScanType, "RAVEN: nessus")
 		}
 	}
 	for _, ip := range []netip.Addr{ip1, ip2} {
@@ -57,7 +57,7 @@ func TestPushNessus(t *testing.T) {
 		if len(rs) != 1 {
 			t.Fatalf("%s: got %d Tenable imports, want 1", ip, len(rs))
 		}
-		if rs[0].FileName != ip.String()+".nessus" || !rs[0].CloseOldFindings || !rs[0].TagFindings || !slices.Equal(rs[0].Tags, []string{"asi"}) {
+		if rs[0].FileName != ip.String()+".nessus" || !rs[0].CloseOldFindings || !rs[0].TagFindings || !slices.Equal(rs[0].Tags, []string{"raven"}) {
 			t.Fatalf("%s: reimport req = %+v", ip, rs[0].ImportRequest)
 		}
 		if !strings.Contains(rs[0].Body, ip.String()) {

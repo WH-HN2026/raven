@@ -14,24 +14,24 @@ import (
 	"testing"
 	"time"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/cve"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/dbtest"
+	"github.com/WH-HN2026/raven/internal/cve"
+	"github.com/WH-HN2026/raven/internal/dbtest"
 )
 
 // TestIntegrationCVE runs the C3 path end to end: services in a real DB →
-// match pass → cve_matches → push to the shared Dojo into "ASI CVE match",
+// match pass → cve_matches → push to the shared Dojo into "RAVEN CVE match",
 // then checks dedup on a second pass and that a version change closes the
 // old finding. IPs are random 198.18.R.x (benchmark range, never scanned),
-// under the organization "asi-it-c3-<rand>", deleted afterwards.
+// under the organization "raven-it-c3-<rand>", deleted afterwards.
 func TestIntegrationCVE(t *testing.T) {
-	base := os.Getenv("ASI_DOJO_URL")
+	base := os.Getenv("RAVEN_DOJO_URL")
 	if base == "" {
-		t.Skip("ASI_DOJO_URL not set")
+		t.Skip("RAVEN_DOJO_URL not set")
 	}
 	pool := dbtest.Fresh(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
-	token := os.Getenv("ASI_DOJO_TOKEN")
+	token := os.Getenv("RAVEN_DOJO_TOKEN")
 	if token == "" {
 		var err error
 		if token, err = ObtainToken(ctx, base, os.Getenv("DD_ADMIN_USER"), os.Getenv("DD_ADMIN_PASSWORD")); err != nil {
@@ -41,7 +41,7 @@ func TestIntegrationCVE(t *testing.T) {
 	c := NewHTTPClient(base, token)
 	rnd := make([]byte, 4)
 	_, _ = rand.Read(rnd)
-	slug := "asi-it-c3-" + hex.EncodeToString(rnd)
+	slug := "raven-it-c3-" + hex.EncodeToString(rnd)
 	net := fmt.Sprintf("198.18.%d.", rnd[0])
 	web, ssh, down := netip.MustParseAddr(net+"10"), netip.MustParseAddr(net+"11"), netip.MustParseAddr(net+"12")
 	t.Logf("slug %s ips %s %s %s", slug, web, ssh, down)
@@ -59,7 +59,7 @@ func TestIntegrationCVE(t *testing.T) {
 	exec(`INSERT INTO hosts (ip, state) VALUES ($1, 'active'), ($2, 'active'), ($3, 'inactive')`, web, ssh, down)
 	exec(`INSERT INTO services (ip, port, proto, name, product, version, cpe, banner_enc) VALUES
 		($1, 80, 'tcp', 'http', 'Apache httpd', '2.4.49', 'apache:http_server:2.4.49', NULL),
-		($2, 22, 'tcp', 'ssh', 'OpenSSH', '7.4p1 Debian 10+deb9u7', 'openbsd:openssh:7.4p1', asi_enc('SSH-2.0-OpenSSH_7.4p1 Debian-10+deb9u7')),
+		($2, 22, 'tcp', 'ssh', 'OpenSSH', '7.4p1 Debian 10+deb9u7', 'openbsd:openssh:7.4p1', raven_enc('SSH-2.0-OpenSSH_7.4p1 Debian-10+deb9u7')),
 		($3, 80, 'tcp', 'http', 'Apache httpd', '2.4.49', 'apache:http_server:2.4.49', NULL),
 		($1, 443, 'tcp', 'https', 'nginx', '', 'igor_sysoev:nginx', NULL)`, web, ssh, down)
 
@@ -133,7 +133,7 @@ func TestIntegrationCVE(t *testing.T) {
 		t.Fatalf("active %q = %d, want 1 (all: %v)", ap.Title(), len(act), titles(fs))
 	}
 	apacheID := act[0].ID
-	if act[0].Severity != "Critical" || !contains(act[0].Tags, "asi") {
+	if act[0].Severity != "Critical" || !contains(act[0].Tags, "raven") {
 		t.Errorf("apache finding: severity %s tags %v", act[0].Severity, act[0].Tags)
 	}
 	var detail struct {

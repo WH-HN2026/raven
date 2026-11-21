@@ -15,17 +15,17 @@ import (
 	"strings"
 	"time"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner/nmap"
+	"github.com/WH-HN2026/raven/internal/scanner"
+	"github.com/WH-HN2026/raven/internal/scanner/nmap"
 )
 
 // ResultsFormatName and ResultsFormatVersion identify our native scan-results JSON schema.
 const (
-	ResultsFormatName    = "asi-results"
+	ResultsFormatName    = "raven-results"
 	ResultsFormatVersion = 1
 )
 
-// ResultsDocument is ASI's extensible JSON/CSV scan-results interchange format.
+// ResultsDocument is RAVEN's extensible JSON/CSV scan-results interchange format.
 // See docs/exchange.md for the schema and examples.
 type ResultsDocument struct {
 	Format    string       `json:"format,omitempty"`
@@ -113,8 +113,8 @@ func EncodeResultsJSON(doc *ResultsDocument) ([]byte, error) {
 	return append(b, '\n'), nil
 }
 
-// ParseResultsJSON parses ASI's results JSON document:
-//   - standard envelope: {"format":"asi-results","version":1,"hosts":[...]}
+// ParseResultsJSON parses RAVEN's results JSON document:
+//   - standard envelope: {"format":"raven-results","version":1,"hosts":[...]}
 //   - flat array of hosts or exported service rows: [{"ip":...}, ...]
 func ParseResultsJSON(raw []byte) (*ResultsDocument, error) {
 	trimmed := bytes.TrimSpace(bytes.TrimPrefix(raw, []byte("\ufeff")))
@@ -268,7 +268,7 @@ var resultsCSVHeader = []string{
 	"match_template_id", "match_name", "match_severity", "match_tags", "match_matcher", "match_url", "match_tech", "match_extracted",
 }
 
-// EncodeResultsCSV writes doc in ASI's flat results-csv format.
+// EncodeResultsCSV writes doc in RAVEN's flat results-csv format.
 // Each host/service/http/match combination is written as self-contained rows
 // so ParseResultsCSV reconstructs the document without duplicates.
 func EncodeResultsCSV(w io.Writer, doc *ResultsDocument) error {
@@ -331,7 +331,7 @@ func EncodeResultsCSV(w io.Writer, doc *ResultsDocument) error {
 	return cw.Error()
 }
 
-// ParseResultsCSV parses ASI's header-driven results-csv format (and also
+// ParseResultsCSV parses RAVEN's header-driven results-csv format (and also
 // accepts exported services/hosts CSV files because columns are matched by
 // header name).
 func ParseResultsCSV(r io.Reader) (*ResultsDocument, error) {

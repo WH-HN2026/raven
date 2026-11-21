@@ -13,9 +13,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/pipeline"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner/nmap"
+	"github.com/WH-HN2026/raven/internal/pipeline"
+	"github.com/WH-HN2026/raven/internal/scanner"
+	"github.com/WH-HN2026/raven/internal/scanner/nmap"
 )
 
 // fakeClient records the push calls; methods the push doesn't use panic via
@@ -223,14 +223,14 @@ func TestPush(t *testing.T) {
 		t.Fatalf("assets = %v", f.assets)
 	}
 	web := f.assets[ipWeb.String()]
-	if web == nil || web.OrganizationID != 7 || !slices.Equal(web.Tags, []string{"asi", "host:web.lab"}) {
+	if web == nil || web.OrganizationID != 7 || !slices.Equal(web.Tags, []string{"raven", "host:web.lab"}) {
 		t.Fatalf("web asset = %+v", web)
 	}
 	if out[0].AssetID != web.ID {
 		t.Fatalf("result asset id %d, want %d", out[0].AssetID, web.ID)
 	}
 	for _, e := range f.engs {
-		if e.Name != "ASI: lab" || !slices.Equal(e.Tags, []string{"asi"}) {
+		if e.Name != "RAVEN: lab" || !slices.Equal(e.Tags, []string{"raven"}) {
 			t.Fatalf("engagement = %+v", e)
 		}
 	}
@@ -238,8 +238,8 @@ func TestPush(t *testing.T) {
 	for _, x := range f.tests {
 		titles[x.Title] = x.ScanType
 	}
-	if titles["ASI: nmap"] != "Nmap Scan" || titles["ASI lifecycle"] != "Generic Findings Import" || len(f.tests) != 3 {
-		t.Fatalf("tests = %v (want ASI: nmap per IP + one lifecycle)", titles)
+	if titles["RAVEN: nmap"] != "Nmap Scan" || titles["RAVEN lifecycle"] != "Generic Findings Import" || len(f.tests) != 3 {
+		t.Fatalf("tests = %v (want RAVEN: nmap per IP + one lifecycle)", titles)
 	}
 
 	// nmap reimport per IP: its own XML only, close_old_findings, tags on findings.
@@ -249,7 +249,7 @@ func TestPush(t *testing.T) {
 			t.Fatalf("%s: %d nmap reimports", ip, len(rs))
 		}
 		r := rs[0]
-		if !r.CloseOldFindings || !r.TagFindings || !slices.Equal(r.Tags, []string{"asi"}) || !r.ScanDate.Equal(date) {
+		if !r.CloseOldFindings || !r.TagFindings || !slices.Equal(r.Tags, []string{"raven"}) || !r.ScanDate.Equal(date) {
 			t.Fatalf("%s: reimport = %+v", ip, r.ImportRequest)
 		}
 		if !strings.Contains(r.Body, `addr="`+ip.String()+`"`) || strings.Contains(r.Body, `addr="`+ipDown.String()+`"`) {
@@ -262,7 +262,7 @@ func TestPush(t *testing.T) {
 	if len(nd) != 1 || len(f.importsOf(ipSSH.String(), GenericScanType)) != 0 {
 		t.Fatalf("new-device imports: web %d, ssh %d", len(nd), len(f.importsOf(ipSSH.String(), GenericScanType)))
 	}
-	if nd[0].CloseOldFindings || !nd[0].TagFindings || !slices.Equal(nd[0].Tags, []string{"asi"}) {
+	if nd[0].CloseOldFindings || !nd[0].TagFindings || !slices.Equal(nd[0].Tags, []string{"raven"}) {
 		t.Fatalf("new-device import = %+v", nd[0].ImportRequest)
 	}
 	var doc struct {
@@ -273,7 +273,7 @@ func TestPush(t *testing.T) {
 	}
 	g := doc.Findings[0]
 	if len(doc.Findings) != 1 || g.Title != "New device found: 172.31.250.10" || g.Severity != "Info" ||
-		g.UniqueIDForTool != "asi-new-device:172.31.250.10" ||
+		g.UniqueIDForTool != "raven-new-device:172.31.250.10" ||
 		!strings.Contains(g.Description, "80/tcp, 443/tcp") || !strings.Contains(g.Description, "Web.Lab") ||
 		!strings.Contains(g.Description, "2026-11-21T10:00:00Z") {
 		t.Fatalf("new-device finding = %+v", g)
@@ -317,7 +317,7 @@ func TestPushFailureIsPerIP(t *testing.T) {
 func TestPushKeepsUserAssetTags(t *testing.T) {
 	res := labResult(t)
 	f := newFake()
-	f.assets[ipWeb.String()] = &Asset{ID: 50, Name: ipWeb.String(), Tags: []string{"asi", "owner:it"}}
+	f.assets[ipWeb.String()] = &Asset{ID: 50, Name: ipWeb.String(), Tags: []string{"raven", "owner:it"}}
 	p := &Pusher{Client: f}
 	b := PushBatch{Profile: "lab", Scanner: "nmap", ScanType: "Nmap Scan",
 		Hosts: []PushHost{{IP: ipWeb, Hostnames: []string{"web.lab", "WEB.LAB"}, AssetID: 50, Report: res.PerIP(ipWeb),
@@ -326,7 +326,7 @@ func TestPushKeepsUserAssetTags(t *testing.T) {
 	if out[0].Err != nil {
 		t.Fatal(out[0].Err)
 	}
-	if got := f.setTags[50]; !slices.Equal(got, []string{"asi", "owner:it", "host:web.lab", "tech:nginx", "user:team"}) {
+	if got := f.setTags[50]; !slices.Equal(got, []string{"raven", "owner:it", "host:web.lab", "tech:nginx", "user:team"}) {
 		t.Fatalf("asset tags = %v", got)
 	}
 	delete(f.setTags, 50)
@@ -365,7 +365,7 @@ func TestHostOfflineOnceAcrossRetriesAndProfiles(t *testing.T) {
 	if len(doc.Findings) != 1 {
 		t.Fatalf("offline report contains %d findings", len(doc.Findings))
 	}
-	if g := doc.Findings[0]; g.UniqueIDForTool != "asi-host-offline:172.31.250.10" || g.Title != "Host offline: 172.31.250.10" || g.Severity != "Info" || !g.Active {
+	if g := doc.Findings[0]; g.UniqueIDForTool != "raven-host-offline:172.31.250.10" || g.Title != "Host offline: 172.31.250.10" || g.Severity != "Info" || !g.Active {
 		t.Fatalf("offline finding = %+v", g)
 	}
 }

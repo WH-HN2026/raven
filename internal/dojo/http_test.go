@@ -51,7 +51,7 @@ func TestRetries(t *testing.T) {
 			}))
 			defer srv.Close()
 			c := testClient(srv.URL, Options{MaxAttempts: tc.attempts})
-			page, err := c.ListFindings(context.Background(), FindingQuery{Tags: []string{"asi"}})
+			page, err := c.ListFindings(context.Background(), FindingQuery{Tags: []string{"raven"}})
 			if calls.Load() != tc.wantCalls {
 				t.Errorf("calls = %d, want %d", calls.Load(), tc.wantCalls)
 			}
@@ -184,7 +184,7 @@ func TestImportMultipart(t *testing.T) {
 				t.Errorf("field %s = %v, want %q", k, got, v)
 			}
 		}
-		if got := f["tags"]; len(got) != 2 || got[0] != "asi" || got[1] != "ip:10.0.0.1" {
+		if got := f["tags"]; len(got) != 2 || got[0] != "raven" || got[1] != "ip:10.0.0.1" {
 			t.Errorf("tags = %v", got)
 		}
 		if _, ok := f["engagement"]; ok {
@@ -208,7 +208,7 @@ func TestImportMultipart(t *testing.T) {
 	defer srv.Close()
 	res, err := testClient(srv.URL, Options{}).ReimportScan(context.Background(), ImportRequest{
 		ScanType: "Nmap Scan", TestID: 42, FileName: "nmap.xml", File: strings.NewReader("<nmaprun/>"),
-		CloseOldFindings: true, Tags: []string{"asi", "ip:10.0.0.1"}, TagFindings: true,
+		CloseOldFindings: true, Tags: []string{"raven", "ip:10.0.0.1"}, TagFindings: true,
 		ScanDate: time.Date(2026, 11, 20, 23, 0, 0, 0, time.UTC),
 	})
 	if err != nil {
@@ -278,14 +278,14 @@ func TestGetOrCreateEngagementSerialised(t *testing.T) {
 	mux.HandleFunc("GET /api/v2/engagements/", func(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()
 		defer mu.Unlock()
-		if r.URL.Query().Get("product") != "3" || r.URL.Query().Get("name") != "ASI: default" {
+		if r.URL.Query().Get("product") != "3" || r.URL.Query().Get("name") != "RAVEN: default" {
 			t.Errorf("query = %s", r.URL.RawQuery)
 		}
 		if len(created) == 0 {
 			_, _ = w.Write([]byte(`{"count":0,"results":[]}`))
 			return
 		}
-		_, _ = w.Write([]byte(`{"count":1,"results":[{"id":8,"name":"ASI: default","product":3}]}`))
+		_, _ = w.Write([]byte(`{"count":1,"results":[{"id":8,"name":"RAVEN: default","product":3}]}`))
 	})
 	mux.HandleFunc("POST /api/v2/engagements/", func(w http.ResponseWriter, r *http.Request) {
 		b, _ := io.ReadAll(r.Body)
@@ -294,7 +294,7 @@ func TestGetOrCreateEngagementSerialised(t *testing.T) {
 		mu.Unlock()
 		time.Sleep(10 * time.Millisecond)
 		w.WriteHeader(http.StatusCreated)
-		_, _ = w.Write([]byte(`{"id":8,"name":"ASI: default","product":3}`))
+		_, _ = w.Write([]byte(`{"id":8,"name":"RAVEN: default","product":3}`))
 	})
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -304,7 +304,7 @@ func TestGetOrCreateEngagementSerialised(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			e, err := c.GetOrCreateEngagement(context.Background(), EngagementSpec{AssetID: 3, Name: "ASI: default"})
+			e, err := c.GetOrCreateEngagement(context.Background(), EngagementSpec{AssetID: 3, Name: "RAVEN: default"})
 			if err != nil || e.ID != 8 {
 				t.Errorf("e=%+v err=%v", e, err)
 			}

@@ -7,7 +7,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/signatures"
+	"github.com/WH-HN2026/raven/internal/signatures"
 )
 
 func TestCustomTemplates(t *testing.T) {

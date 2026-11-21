@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner"
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/targets"
+	"github.com/WH-HN2026/raven/internal/scanner"
+	"github.com/WH-HN2026/raven/internal/targets"
 )
 
 // BuildInput builds root URLs only for HTTP(S) services discovered in this batch.

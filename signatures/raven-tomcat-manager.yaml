@@ -1,0 +1,21 @@
+id: raven-tomcat-manager
+info:
+  name: Tomcat Manager
+  author: raven
+  severity: medium
+  description: GET /manager/html asks for Tomcat Manager credentials (none are sent).
+  tags: raven,panel,tomcat,path
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/manager/html"
+    matchers-condition: and
+    matchers:
+      - type: status
+        status:
+          - 401
+          - 403
+      - type: word
+        part: all
+        words:
+          - "Tomcat Manager"

@@ -20,14 +20,14 @@ import (
 var migrations embed.FS
 
 // Open creates a pool whose connections all carry the pgcrypto key in the
-// asi.enc_key setting, which asi_enc/asi_dec read (architecture §5, D8).
+// raven.enc_key setting, which raven_enc/raven_dec read (architecture §5, D8).
 func Open(ctx context.Context, url, encKey string) (*pgxpool.Pool, error) {
 	cfg, err := pgxpool.ParseConfig(url)
 	if err != nil {
 		return nil, fmt.Errorf("parse database url: %w", err)
 	}
 	cfg.AfterConnect = func(ctx context.Context, c *pgx.Conn) error {
-		_, err := c.Exec(ctx, "SELECT set_config('asi.enc_key', $1, false)", encKey)
+		_, err := c.Exec(ctx, "SELECT set_config('raven.enc_key', $1, false)", encKey)
 		return err
 	}
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)

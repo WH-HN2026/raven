@@ -1,0 +1,16 @@
+id: raven-cookie-jsessionid
+info:
+  name: Java servlet session cookie
+  author: raven
+  severity: info
+  description: The response sets JSESSIONID, the Java servlet container session cookie.
+  tags: raven,cookies,tech,java
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}"
+    matchers:
+      - type: regex
+        part: header
+        regex:
+          - '(?mi)^set-cookie:[ \t]*JSESSIONID='

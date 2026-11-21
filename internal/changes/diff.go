@@ -18,7 +18,7 @@ import (
 	"net/netip"
 	"slices"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner"
+	"github.com/WH-HN2026/raven/internal/scanner"
 )
 
 // SvcKey identifies a service within a run. run_observations has no proto

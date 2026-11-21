@@ -1,6 +1,6 @@
-# ASI image (architecture §10): web build → Go build → runtime with nmap,
+# RAVEN image (architecture §10): web build → Go build → runtime with nmap,
 # httpx and nuclei (pinned releases) and nuclei-templates (pinned tag, baked in).
-# Build from the repo root: docker compose build asi
+# Build from the repo root: docker compose build raven
 
 # ── 1. web ──
 FROM node:22-alpine3.24 AS web
@@ -20,7 +20,7 @@ COPY internal/ internal/
 COPY signatures/ signatures/
 COPY web/embed.go web/
 COPY --from=web /src/web/dist web/dist
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/asi ./cmd/asi
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/raven ./cmd/raven
 
 # ── 3. httpx + nuclei + templates ──
 FROM alpine:3.24.4 AS scanners
@@ -50,14 +50,14 @@ RUN apk add --no-cache ca-certificates tzdata nmap nmap-scripts
 COPY --from=scanners /usr/local/bin/httpx /usr/local/bin/httpx
 COPY --from=scanners /usr/local/bin/nuclei /usr/local/bin/nuclei
 COPY --from=scanners /opt/nuclei-templates /opt/nuclei-templates
-COPY --from=go /out/asi /usr/local/bin/asi
+COPY --from=go /out/raven /usr/local/bin/raven
 # Templates are baked into the image; nuclei must never update itself or the
 # templates at runtime (the scanner also passes -duc / -disable-update-check).
-ENV ASI_NUCLEI_TEMPLATES=/opt/nuclei-templates \
+ENV RAVEN_NUCLEI_TEMPLATES=/opt/nuclei-templates \
     DISABLE_NUCLEI_TEMPLATES_PUBLIC_DOWNLOAD=true \
-    HOME=/var/lib/asi
-RUN mkdir -p /var/lib/asi
-WORKDIR /var/lib/asi
+    HOME=/var/lib/raven
+RUN mkdir -p /var/lib/raven
+WORKDIR /var/lib/raven
 # Runs as root inside the container: nmap -sS needs raw sockets (cap NET_RAW/NET_ADMIN in compose.yml).
 EXPOSE 8000
-ENTRYPOINT ["/usr/local/bin/asi"]
+ENTRYPOINT ["/usr/local/bin/raven"]

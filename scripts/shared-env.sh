@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The shared dev infra (`make infra-up`, compose project "asi") has ONE set of
+# The shared dev infra (`make infra-up`, compose project "raven") has ONE set of
 # secrets: the .env of the main checkout. This script creates it there if it
 # is missing, and in a linked worktree makes ./.env a symlink to it, so
 # `docker compose` behaves the same from every checkout.

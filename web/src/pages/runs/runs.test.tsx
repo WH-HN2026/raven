@@ -151,7 +151,7 @@ describe('RunsPage', () => {
     expect(within(alert).getByRole('link', { name: 'run #7' })).toHaveAttribute('href', '/runs/7')
     const post = fetchMock.mock.calls.find(([, i]) => i?.method === 'POST')!
     expect(post[0]).toBe('/api/runs')
-    expect((post[1]?.headers as Record<string, string>)['X-ASI-CSRF']).toBe('1')
+    expect((post[1]?.headers as Record<string, string>)['X-RAVEN-CSRF']).toBe('1')
     expect(JSON.parse(post[1]?.body as string)).toEqual({ profile_id: 1 })
   })
 })

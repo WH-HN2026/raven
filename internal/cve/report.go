@@ -9,7 +9,7 @@ import (
 )
 
 // TestTitle is the per-IP Dojo test the CVE findings live in (§11).
-const TestTitle = "ASI CVE match"
+const TestTitle = "RAVEN CVE match"
 
 // descriptionCVEs caps the CVE table in a finding's description; the full
 // list is always in vulnerability_ids.
@@ -35,9 +35,9 @@ type genericFinding struct {
 	DynamicFinding    bool     `json:"dynamic_finding"`
 }
 
-// FindingTags are the per-finding tags; "asi" is what D3's sync pulls by.
+// FindingTags are the per-finding tags; "raven" is what D3's sync pulls by.
 func (m *Match) FindingTags() []string {
-	tags := []string{"asi", "cve-match"}
+	tags := []string{"raven", "cve-match"}
 	if m.Distro {
 		tags = append(tags, TagDistroBuild)
 	}

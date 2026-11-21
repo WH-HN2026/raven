@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner"
+	"github.com/WH-HN2026/raven/internal/scanner"
 )
 
 // NessusService is an open port discovered in a .nessus ReportHost.
@@ -247,7 +247,7 @@ func nessusPerIP(raw []byte, spans []nessusHostSpan, ip netip.Addr) []byte {
 }
 
 // BuildObservations turns the parsed Nessus hosts and open ports into
-// scanner.Observations so hosts and services appear in ASI's database.
+// scanner.Observations so hosts and services appear in RAVEN's database.
 func (d *NessusDocument) BuildObservations(seen time.Time) (*scanner.Result, []netip.Addr, map[netip.Addr][]string) {
 	if seen.IsZero() {
 		seen = time.Now().UTC()

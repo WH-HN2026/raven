@@ -5,12 +5,12 @@ import (
 	"testing"
 )
 
-const goodTemplate = `id: asi-test-good
+const goodTemplate = `id: raven-test-good
 info:
   name: Good template
-  author: asi
+  author: raven
   severity: info
-  tags: asi,test
+  tags: raven,test
 http:
   - method: GET
     path:
@@ -31,11 +31,11 @@ http:
 // req builds a template whose single request has the given extra lines
 // (indented 4 spaces), with a valid path and matcher.
 func req(extra string) string {
-	return `id: asi-test
+	return `id: raven-test
 info:
   name: T
   severity: info
-  tags: asi
+  tags: raven
 http:
   - path:
       - "{{BaseURL}}/"
@@ -48,16 +48,16 @@ http:
 func TestValidateGood(t *testing.T) {
 	cases := map[string]string{
 		"basic": goodTemplate,
-		"head + list tags + favicon dsl": `id: asi-fav
+		"head + list tags + favicon dsl": `id: raven-fav
 info:
   name: Fav
   severity: info
-  tags: [asi, favicon]
+  tags: [raven, favicon]
 http:
   - method: HEAD
     path: ["{{BaseURL}}/favicon.ico", "{{RootURL}}/x?y=1"]
     headers:
-      User-Agent: asi
+      User-Agent: raven
     matchers:
       - type: dsl
         dsl:
@@ -131,9 +131,9 @@ func TestValidateEvil(t *testing.T) {
 		{"missing name", strings.Replace(goodTemplate, "  name: Good template\n", "", 1), "info.name is required", 3},
 		{"missing severity", strings.Replace(goodTemplate, "  severity: info\n", "", 1), "info.severity is required", 3},
 		{"bad severity", strings.Replace(goodTemplate, "severity: info", "severity: extreme", 1), "info.severity must be one of", 5},
-		{"missing tags", strings.Replace(goodTemplate, "  tags: asi,test\n", "", 1), "info.tags is required", 3},
-		{"missing id", strings.Replace(goodTemplate, "id: asi-test-good\n", "", 1), "id is required", 0},
-		{"bad id", strings.Replace(goodTemplate, "asi-test-good", "../etc/passwd", 1), "must be lowercase", 1},
+		{"missing tags", strings.Replace(goodTemplate, "  tags: raven,test\n", "", 1), "info.tags is required", 3},
+		{"missing id", strings.Replace(goodTemplate, "id: raven-test-good\n", "", 1), "id is required", 0},
+		{"bad id", strings.Replace(goodTemplate, "raven-test-good", "../etc/passwd", 1), "must be lowercase", 1},
 		{"no matchers", strings.Replace(goodTemplate, goodTemplate[strings.Index(goodTemplate, "    matchers-condition"):], "", 1), "needs matchers or extractors", 8},
 		{"internal extractor", req("    extractors:\n      - type: regex\n        internal: true\n        regex: ['x']\n"), "internal extractors", 14},
 		{"xpath extractor", req("    extractors:\n      - type: xpath\n        xpath: ['/a']\n"), "extractor key xpath is not allowed", 14},

@@ -1,0 +1,10 @@
+services:
+  raven:
+    networks:
+      - default
+      - lab
+
+networks:
+  lab:
+    external: true
+    name: raven_lab

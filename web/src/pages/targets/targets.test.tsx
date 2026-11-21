@@ -66,7 +66,7 @@ describe('ManualForm', () => {
 
     const [url, init] = fetchMock.mock.calls[0]!
     expect(url).toBe('/api/targets')
-    expect((init?.headers as Record<string, string>)['X-ASI-CSRF']).toBe('1')
+    expect((init?.headers as Record<string, string>)['X-RAVEN-CSRF']).toBe('1')
     expect(JSON.parse(init?.body as string)).toEqual({
       targets: [
         { value: '10.0.0.1', tags: ['lab', 'web'] },
@@ -110,7 +110,7 @@ describe('UploadPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Import 2 valid entries' }))
     expect(await screen.findByRole('status')).toHaveTextContent('Imported 2 targets (1 bad lines skipped)')
     expect(fetchMock.mock.calls[1]![0]).toBe('/api/targets/upload')
-    expect((fetchMock.mock.calls[1]![1]?.headers as Record<string, string>)['X-ASI-CSRF']).toBe('1')
+    expect((fetchMock.mock.calls[1]![1]?.headers as Record<string, string>)['X-RAVEN-CSRF']).toBe('1')
   })
 })
 

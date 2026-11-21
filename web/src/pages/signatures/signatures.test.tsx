@@ -11,12 +11,12 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-const yaml = `id: asi-admin-path
+const yaml = `id: raven-admin-path
 info:
   name: "Admin page at /admin"
-  author: asi
+  author: raven
   severity: low
-  tags: asi,panel,admin
+  tags: raven,panel,admin
 http:
   - method: GET
     path:
@@ -25,7 +25,7 @@ http:
 
 const builtin: Schemas['Signature'] = {
   id: 7,
-  name: 'asi-admin-path',
+  name: 'raven-admin-path',
   template_yaml: yaml,
   enabled: true,
   valid: true,
@@ -38,7 +38,7 @@ const custom: Schemas['Signature'] = {
   ...builtin,
   id: 9,
   name: 'my-check',
-  template_yaml: yaml.replace('asi-admin-path', 'my-check'),
+  template_yaml: yaml.replace('raven-admin-path', 'my-check'),
   builtin: false,
   created_by: 1,
 }
@@ -56,10 +56,10 @@ function mockApi(routes: Record<string, () => Response>) {
 describe('parseMeta / parseValidationError', () => {
   it('reads the template header', () => {
     expect(parseMeta(yaml)).toEqual({
-      id: 'asi-admin-path',
+      id: 'raven-admin-path',
       name: 'Admin page at /admin',
       severity: 'low',
-      tags: ['asi', 'panel', 'admin'],
+      tags: ['raven', 'panel', 'admin'],
     })
     expect(parseMeta('id: x\ninfo:\n  severity: HIGH\n  tags:\n    - a\n    - "b"\nhttp: []\n')).toEqual({
       id: 'x',
@@ -97,7 +97,7 @@ describe('list', () => {
     // an invalid, disabled signature can't be enabled
     expect(within(rows[2]!).getByRole('checkbox')).toBeDisabled()
 
-    fireEvent.click(within(rows[1]!).getByRole('checkbox', { name: 'Enabled asi-admin-path' }))
+    fireEvent.click(within(rows[1]!).getByRole('checkbox', { name: 'Enabled raven-admin-path' }))
     await waitFor(() => expect(fetchMock.mock.calls.some(([u, i]) => u === '/api/signatures/7' && i?.method === 'PUT')).toBe(true))
     const put = fetchMock.mock.calls.find(([u, i]) => u === '/api/signatures/7' && i?.method === 'PUT')!
     expect(JSON.parse(put[1]!.body as string)).toEqual({ enabled: false })
@@ -158,7 +158,7 @@ describe('editor', () => {
     expect(screen.queryByRole('button', { name: 'Save' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull()
     expect(screen.getByRole('button', { name: 'Validate' })).toBeInTheDocument()
-    expect(screen.getByRole('checkbox', { name: 'Enabled asi-admin-path' })).toBeChecked()
+    expect(screen.getByRole('checkbox', { name: 'Enabled raven-admin-path' })).toBeChecked()
   })
 
   it('disables Test with "Not available yet" when the API answers 501', async () => {

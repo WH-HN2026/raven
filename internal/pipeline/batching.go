@@ -6,7 +6,7 @@ import (
 	"math"
 	"net/netip"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/db/gen"
+	"github.com/WH-HN2026/raven/internal/db/gen"
 )
 
 const (

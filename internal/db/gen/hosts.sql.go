@@ -17,7 +17,7 @@ import (
 const getHost = `-- name: GetHost :one
 
 SELECT ip, hostnames, state, first_seen, last_seen, miss_count, dojo_asset_id,
-    owner, criticality, COALESCE(asi_dec(notes_enc), '')::text AS notes, user_tags, overrides
+    owner, criticality, COALESCE(raven_dec(notes_enc), '')::text AS notes, user_tags, overrides
 FROM hosts WHERE ip = $1
 `
 
@@ -38,7 +38,7 @@ type GetHostRow struct {
 
 // Hosts read path (W3). The filtered list query is built in internal/hosts
 // (filters are optional); these are the detail queries. Encrypted columns are
-// decrypted here with asi_dec and must never be logged.
+// decrypted here with raven_dec and must never be logged.
 func (q *Queries) GetHost(ctx context.Context, ip netip.Addr) (GetHostRow, error) {
 	row := q.db.QueryRow(ctx, getHost, ip)
 	var i GetHostRow
@@ -100,7 +100,7 @@ func (q *Queries) ListHostRunObservations(ctx context.Context, arg ListHostRunOb
 
 const listHostServices = `-- name: ListHostServices :many
 SELECT id, ip, port, proto, name, product, version, cpe,
-    COALESCE(asi_dec(banner_enc), '')::text AS banner,
+    COALESCE(raven_dec(banner_enc), '')::text AS banner,
     state, first_seen, last_seen, overrides
 FROM services WHERE ip = $1
 ORDER BY state = 'gone', port, proto
@@ -160,9 +160,9 @@ func (q *Queries) ListHostServices(ctx context.Context, ip netip.Addr) ([]ListHo
 const listLatestHTTPObservations = `-- name: ListLatestHTTPObservations :many
 SELECT DISTINCT ON (o.service_id, o.url)
     o.id, o.service_id, o.url, o.status, o.title,
-    COALESCE(asi_dec(o.headers_enc), '')::text AS headers,
-    COALESCE(asi_dec(o.cookies_enc), '')::text AS cookies,
-    COALESCE(asi_dec(o.tls_cert_enc), '')::text AS tls_cert,
+    COALESCE(raven_dec(o.headers_enc), '')::text AS headers,
+    COALESCE(raven_dec(o.cookies_enc), '')::text AS cookies,
+    COALESCE(raven_dec(o.tls_cert_enc), '')::text AS tls_cert,
     o.redirects, o.technologies, o.favicon_hash, o.run_id, o.observed_at
 FROM http_observations o
 JOIN services s ON s.id = o.service_id

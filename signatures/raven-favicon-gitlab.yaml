@@ -1,0 +1,17 @@
+id: raven-favicon-gitlab
+info:
+  name: GitLab favicon
+  author: raven
+  severity: info
+  description: The favicon mmh3 hash is the GitLab favicon (1265477436).
+  tags: raven,favicon,panel,gitlab
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/favicon.ico"
+    redirects: true
+    max-redirects: 2
+    matchers:
+      - type: dsl
+        dsl:
+          - 'status_code==200 && ("1265477436" == mmh3(base64_py(body)))'

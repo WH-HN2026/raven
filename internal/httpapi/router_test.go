@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/WH-HN2026/zadanie-agh-asi/internal/auth"
+	"github.com/WH-HN2026/raven/internal/auth"
 )
 
 func TestRouter(t *testing.T) {
