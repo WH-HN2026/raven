@@ -75,6 +75,7 @@ M0 is sequential and blocking. Do it in **one** worktree, as fast as possible, t
 - [ ] **S4 nuclei scanner.** (needs S7) Command builder with the template policy (allowed tags, exclusions, `-no-interactsh`, rate limit), run on the URLs httpx found alive; JSONL parser → matches (technologies, panels, signature hits) attached to the service/URL; wire into the pipeline after httpx.
 - [ ] **S5 Adaptive batching + rate limits.** Batch size from measured throughput, per-profile `--max-rate` / nuclei `-rl`, global concurrency cap.
 - [ ] **S6 Unstable hosts & lifecycle.** End-of-run re-probe of hosts that were up last run and are down now; `miss_count` and the `active → unstable → inactive` state machine; profile `miss_threshold`.
+- [ ] **S8 Keep CPEs.** (needs S2) Add `CPE` to `scanner.Observation` (and a `cpe` column on `services`). The nmap parser keeps `<cpe>` values, normalized to `vendor:product` + version. Fixture tests. httpx/nuclei fill it in S7/S4 via the mapping from C3.
 
 **Track D — DefectDojo**
 - [ ] **D4 Push httpx + nuclei + lifecycle findings.** (needs S7, S4, S6) Reimport httpx ("httpx Scan") and nuclei per IP, one Test per scanner; push "Host offline" once the threshold is hit; tags (`tech:*`, `panel:*`, `env:*`, `host:*`) on Assets.
@@ -89,7 +90,21 @@ M0 is sequential and blocking. Do it in **one** worktree, as fast as possible, t
 
 **Track C — Changes & fingerprinting**
 - [ ] **C1 Run diff.** `internal/changes`: compare two runs → new / gone / changed hosts and services (a changed product/version/title/tech counts as changed); API `GET /api/changes?from=&to=`.
-- [ ] **C2 Signature validator + built-ins.** Safe-subset validator (architecture §9), API to CRUD + validate signatures, built-in templates in `signatures/`: staging/test env markers, admin panels, interesting headers/cookies, IoT banners, favicon hashes, version in footer. Add the organizers' sample signatures when we get them.
+- [ ] **C2 Signature validator + built-in pack.** Safe-subset validator (architecture §9) and an API to CRUD, validate and test signatures. A built-in pack of **about 30–40 nuclei templates** in `signatures/`, each with a lab fixture or a recorded response proving it matches:
+  - headers: version leaks (`Server`, `X-Powered-By`, `X-AspNet-Version`), `X-Environment`/debug headers, missing HSTS/CSP/X-Frame-Options;
+  - cookies: known session cookies (`PHPSESSID`, `JSESSIONID`, `ASP.NET_SessionId`, `laravel_session`, `wordpress_*`), missing Secure/HttpOnly;
+  - favicon mmh3 hashes of common panels (Jenkins, Grafana, GitLab, phpMyAdmin, Tomcat manager, Fortinet, Hikvision/Dahua cameras, printers);
+  - GET-only admin/login/version paths (`/admin`, `/login`, `/wp-admin/`, `/phpmyadmin/`, `/manager/html`, `/version`, `/actuator/health`, `/server-status`);
+  - staging/test markers (title, header, hostname, robots.txt);
+  - version string in the page footer;
+  - IoT/printer/router page titles.
+
+  **Organizers' format:** when their sample signatures arrive, write a converter to our nuclei subset (or accept their format directly) and add all their samples plus their "interesting artefacts" list to the pack.
+- [ ] **C3 Offline CVE matching.** (needs S8; uses S7/S4 output once merged) Architecture §11:
+  - `make cve-db` fetches NVD CVE 2.0 for the curated `internal/cve/products.txt`, plus CISA KEV and EPSS, into committed gzip data;
+  - CPE mapping for httpx/nuclei technology names, and a version-range matcher with table tests (`8.9p1`, `2.4.49`, distro suffixes);
+  - confidence and the distro cap; one finding per product instance pushed as "ASI CVE match" (Generic Findings Import with `vulnerability_ids`);
+  - feeds the interest score (X2).
 
 **Track W — Web UI**
 - [ ] **W4 Dashboard.** Key findings by severity, new/gone/changed since the last run, new devices (shadow IT), unstable hosts, top technologies, last runs with durations.
@@ -106,13 +121,12 @@ M0 is sequential and blocking. Do it in **one** worktree, as fast as possible, t
   - remove explanatory copy.
 
 **Track L — Lab**
-- [ ] **L1 Local test lab.** `compose.lab.yml` on an isolated docker network: WordPress, Joomla or Drupal, nginx with `/admin`, an app with `X-Environment: staging`, Tomcat, a fake IoT banner (e.g. a small Go service), a TLS service with a self-signed/expired cert, and **one flapping container** (toggled by a script) for unstable-host testing. Until the organizers' lab arrives, **all dev scans target only this network.**
+- [ ] **L1 Local test lab.** `compose.lab.yml` on an isolated docker network: WordPress, Joomla or Drupal, nginx with `/admin`, an app with `X-Environment: staging`, Tomcat, a fake IoT banner (e.g. a small Go service), a TLS service with a self-signed/expired cert, **two or three services that only announce known-vulnerable versions** (e.g. a tiny Go server sending `Server: Apache/2.4.49`, an SSH banner `OpenSSH_7.4`) so CVE matching can be demoed without real vulnerable software, and **one flapping container** (toggled by a script) for unstable-host testing. Until the organizers' lab arrives, **all dev scans target only this network.**
 
 ## M3 — Polish & extras
 
 - [ ] **X1 Time-of-day presence.** Heatmap of host/service presence by hour from `run_observations`; mark hosts as "time-dependent".
 - [ ] **X2 Interestingness score.** Weighted score per host (admin panel, staging, outdated version, new device, CVE match, interesting cookie/header, unusual port); sort the dashboard by it.
-- [ ] **X3 Offline CVE matching.** Local CPE/version match against an NVD/OSV snapshot bundled in the image; push as findings with `vuln_id_from_tool`.
 - [ ] **X4 Grouping & tags.** Group similar services (same tech + version / same favicon hash / same title); tag management UI.
 - [ ] **X5 Export observations to Dojo.** Select observations in the UI → push as INFO findings, with evidence attached.
 - [ ] **X6 Demo script + docs.** `scripts/demo.sh` (two runs with a lab change in between), README quickstart, technical docs, ≤10 slides.
@@ -131,7 +145,7 @@ M0: F0 → F1 → F2 → F3 → F4
 M1:     ├─ S1 ─┬─ S3 ─┬─ D2          W1 (S1)  W2/W3 (S3)
         │  S2 ─┘      │
         └─ D1 ────────┴─ D3
-M2:  S7 (S3) → S4 · S5, S6 (S3) · D4 (S7,S4,S6) · D5 (D1) · D6 (D3) · P1..P4 · C1 (S3) · C2 · W4..W11 · L1 (anytime)
+M2:  S7 (S3) → S4 · S5, S6 (S3) · D4 (S7,S4,S6) · S8 (S2) · D5 (D1) · D6 (D3) · P1..P4 · C1 (S3) · C2 · C3 (S8) · W4..W11 · L1 (anytime)
 M3:  after the relevant M2 parts     M4: after P2
 ```
 
