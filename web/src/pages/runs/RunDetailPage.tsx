@@ -47,7 +47,7 @@ function StopButton({ run }: { run: Run }) {
       ) : (
         <div role="dialog" aria-label="Confirm stop" className="rounded border border-accent bg-accent-light p-3 text-sm">
           <p className="mb-2 text-accent-dark">
-            Stop run #{run.id}? Unfinished batches are cancelled and the run ends as <b>stopped</b>.
+            Stop run #{run.id}?
           </p>
           <div className="flex justify-end gap-2">
             <button className={btnSecondary} onClick={() => setConfirming(false)} disabled={stop.isPending}>
@@ -131,7 +131,7 @@ export function RunDetailPage() {
         </Link>
         <h1 className="text-2xl font-semibold text-ink">Run #{Number.isFinite(id) ? id : '?'}</h1>
         {run && <StatusBadge status={run.status} />}
-        {active && <span className="text-xs text-muted">live, refreshing every few seconds</span>}
+        {active && <span className="text-xs text-muted">live</span>}
       </div>
       {runQ.error && (
         <p className="text-sm text-danger">
@@ -221,7 +221,7 @@ export function RunDetailPage() {
                 {batchesQ.data && batches.length === 0 && (
                   <tr>
                     <td className={td + ' text-muted'} colSpan={7}>
-                      No batches (empty scan list).
+                      No batches.
                     </td>
                   </tr>
                 )}

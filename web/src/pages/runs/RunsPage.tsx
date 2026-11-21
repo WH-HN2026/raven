@@ -88,7 +88,7 @@ export function StartRunForm() {
       </form>
       {profiles.error && <p className="mt-2 text-sm text-danger">Cannot load profiles: {profiles.error.message}</p>}
       {profiles.data && enabled.length === 0 && (
-        <p className="mt-2 text-sm text-muted">No enabled profiles. Create or enable one on the Profiles page.</p>
+        <p className="mt-2 text-sm text-muted">No enabled profiles.</p>
       )}
       {err && (
         <p role="alert" className="mt-3 rounded bg-accent-light px-3 py-2 text-sm text-accent-dark">
@@ -105,7 +105,7 @@ export function StartRunForm() {
                   )
                 </>
               )}
-              . Wait for it to finish or stop it first.
+              .
             </>
           ) : (
             <>Cannot start the run: {err.message}</>
