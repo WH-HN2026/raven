@@ -75,10 +75,15 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description stub */
         get: operations["listTargets"];
         put?: never;
-        /** @description stub. Manual entry of one or more targets (permission targets:write). */
+        /**
+         * @description Manual entry of one or more targets (permission targets:write). Kind is auto-detected
+         *     (ip / cidr / domain); if `kind` is given it must match. All items must be valid, otherwise
+         *     nothing is written and the 400 response lists `errors` (line = 1-based item index).
+         *     Re-adding an existing target merges its tags. Target rules: IPv4 only; no loopback,
+         *     link-local, multicast or unspecified addresses; CIDRs at most a /16.
+         */
         post: operations["createTargets"];
         delete?: never;
         options?: never;
@@ -95,7 +100,26 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description stub. CSV or JSON upload (permission import); `dry_run=true` returns a preview. */
+        /**
+         * @description CSV or JSON upload (permission import), multipart field `file`, max 10 MiB.
+         *     `dry_run=true` only parses and returns a preview (nothing is written); otherwise the valid
+         *     entries are stored (tags merged into existing targets) and the bad lines are reported.
+         *     The format comes from the file name (`.json`, `.csv`/`.txt`), else a leading `[` means JSON.
+         *
+         *     CSV: columns `value,tags,note`; the header row is optional (first cell `value`); tags are
+         *     separated by `;` or `|`; tags and note may be omitted; blank lines and `#` lines are skipped.
+         *     ```
+         *     value,tags,note
+         *     10.0.0.0/24,lab;web,main lab net
+         *     wordpress.lab,cms,
+         *     10.0.0.7
+         *     ```
+         *     JSON: an array of `{value, tags?, note?, kind?}`; error lines point at the line where the
+         *     bad element starts.
+         *     ```
+         *     [{"value": "10.0.0.0/24", "tags": ["lab"], "note": "main lab net"}, {"value": "wordpress.lab"}]
+         *     ```
+         */
         post: operations["uploadTargets"];
         delete?: never;
         options?: never;
@@ -115,7 +139,6 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** @description stub */
         delete: operations["deleteTarget"];
         options?: never;
         head?: never;
@@ -129,10 +152,15 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description stub */
         get: operations["listScope"];
         put?: never;
-        /** @description stub. Global entries (profile_id null) need scope:global. */
+        /**
+         * @description Global entries (profile_id null: the global include list and the global blacklist) need
+         *     scope:global on top of scope:write. Kind is auto-detected. Scope CIDRs have no size cap.
+         *     A run applies: the include entries (global + profile; if there are none, the targets themselves
+         *     are the include set), then all exclude entries last; exclusions always win. Domain entries match
+         *     their resolved IPs and any host name equal to or under the domain. 409 = duplicate entry.
+         */
         post: operations["createScopeEntry"];
         delete?: never;
         options?: never;
@@ -152,7 +180,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** @description stub */
+        /** @description Global entries need scope:global. */
         delete: operations["deleteScopeEntry"];
         options?: never;
         head?: never;
@@ -666,6 +694,20 @@ export interface components {
             value: string;
             kind?: components["schemas"]["TargetKind"];
             tags?: string[];
+            note?: string;
+        };
+        TargetInputErrors: {
+            error: {
+                /** @example invalid_targets */
+                code: string;
+                message: string;
+            };
+            errors: components["schemas"]["LineError"][];
+        };
+        LineError: {
+            /** @description 1-based input line (JSON - line where the element starts; manual POST - item index) */
+            line: number;
+            message: string;
         };
         Target: {
             /** Format: int64 */
@@ -675,6 +717,9 @@ export interface components {
             /** @enum {string} */
             source: "manual" | "csv" | "json" | "dojo";
             tags: string[];
+            note?: string;
+            /** Format: int64 */
+            created_by?: number | null;
             /** Format: date-time */
             created_at?: string;
         };
@@ -683,14 +728,24 @@ export interface components {
             total: number;
         };
         TargetUploadResult: {
-            targets: components["schemas"]["TargetInput"][];
-            errors: {
-                line: number;
-                message: string;
-            }[];
+            /** @description Parsed valid entries (de-duplicated, kind detected, values normalized). */
+            targets: components["schemas"]["ParsedTarget"][];
+            errors: components["schemas"]["LineError"][];
+            /** @enum {string} */
+            source: "csv" | "json";
+            dry_run: boolean;
+            /** @description targets written (0 on dry_run) */
+            created: number;
+        };
+        ParsedTarget: {
+            kind: components["schemas"]["TargetKind"];
+            value: string;
+            tags: string[];
+            note?: string;
         };
         ScopeEntryInput: {
-            kind: components["schemas"]["TargetKind"];
+            /** @description optional; auto-detected */
+            kind?: components["schemas"]["TargetKind"];
             value: string;
             /** @enum {string} */
             list: "include" | "exclude";
@@ -704,6 +759,8 @@ export interface components {
         ScopeEntry: components["schemas"]["ScopeEntryInput"] & {
             /** Format: int64 */
             id: number;
+            /** Format: int64 */
+            created_by?: number | null;
             /** Format: date-time */
             created_at?: string;
         };
@@ -1142,13 +1199,22 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Created targets. */
+            /** @description Created (or merged) targets. */
             201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["TargetList"];
+                };
+            };
+            /** @description Invalid targets; nothing was written. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TargetInputErrors"];
                 };
             };
             default: components["responses"]["Error"];

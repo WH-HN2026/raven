@@ -87,8 +87,8 @@ func TestAuthFlow(t *testing.T) {
 	if r := do("POST", "/api/targets", viewer, "{}"); r.StatusCode != 403 {
 		t.Fatalf("viewer POST /api/targets = %d, want 403", r.StatusCode)
 	}
-	if r := do("POST", "/api/targets", admin, "{}"); r.StatusCode != 501 {
-		t.Fatalf("admin POST /api/targets = %d, want 501 (stub)", r.StatusCode)
+	if r := do("POST", "/api/targets", admin, "{}"); r.StatusCode != 400 {
+		t.Fatalf("admin POST /api/targets {} = %d, want 400 (passes RBAC, fails validation)", r.StatusCode)
 	}
 	if r := do("POST", "/api/auth/logout", admin, ""); r.StatusCode != 204 {
 		t.Fatalf("logout = %d", r.StatusCode)
