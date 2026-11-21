@@ -19,6 +19,7 @@ import (
 
 	"github.com/WH-HN2026/zadanie-agh-asi/internal/dbtest"
 	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner"
+	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner/httpx"
 	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner/nmap"
 	"github.com/WH-HN2026/zadanie-agh-asi/internal/targets"
 )
@@ -76,6 +77,27 @@ func (f *fakeScanner) set(block chan struct{}, drop map[string]bool) {
 	f.mu.Lock()
 	f.block, f.drop = block, drop
 	f.mu.Unlock()
+}
+
+// replayHTTPX presents the real fixture's HTTP response as coming from the
+// matching nmap fixture service. No network probes are used by this test.
+type replayHTTPX struct {
+	raw   []byte
+	calls atomic.Int32
+}
+
+func (*replayHTTPX) Name() string         { return "httpx" }
+func (*replayHTTPX) DojoScanType() string { return "httpx Scan" }
+
+func (f *replayHTTPX) Run(_ context.Context, in scanner.Input, opt scanner.Options) (*scanner.Result, error) {
+	f.calls.Add(1)
+	if opt.RateLimit != 50 || len(in.IPs) != 1 {
+		return nil, errors.New("httpx: expected the profile rate and only an HTTP host")
+	}
+	if !slices.Contains(in.URLs, "https://172.31.250.10:443") {
+		return &scanner.Result{}, nil
+	}
+	return httpx.Parse(f.raw)
 }
 
 func waitRun(t *testing.T, s *Service, id int64) Run {
@@ -170,7 +192,23 @@ func TestPipeline(t *testing.T) {
 		t.Fatal(err)
 	}
 	fake := &fakeScanner{raw: raw}
-	s, err := New(pool, Config{Scanner: fake, Resolver: net.DefaultResolver, BatchSize: 2, Workers: 2})
+	httpRaw, err := os.ReadFile("../scanner/httpx/testdata/nginx.jsonl")
+	if err != nil {
+		t.Fatal(err)
+	}
+	web, err := httpx.Parse(httpRaw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tlsFixture := web.PerIP(netip.MustParseAddr("172.21.0.2"))
+	var tlsRaw []byte
+	for _, line := range bytes.SplitAfter(tlsFixture, []byte("\n")) {
+		if bytes.Contains(line, []byte(`"input":"https://asi-s7-nginx:443"`)) {
+			tlsRaw = bytes.ReplaceAll(line, []byte("172.21.0.2"), []byte("172.31.250.10"))
+		}
+	}
+	httpReplay := &replayHTTPX{raw: tlsRaw}
+	s, err := New(pool, Config{Scanner: fake, HTTPX: httpReplay, Resolver: net.DefaultResolver, BatchSize: 2, Workers: 2})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -237,12 +275,12 @@ func TestPipeline(t *testing.T) {
 		t.Fatalf("port observations = %d, want 6", n)
 	}
 	// artifacts: encrypted at rest, decryptable with the key
-	if n := count(t, pool, `SELECT count(*) FROM artifacts WHERE run_id = $1`, r1.ID); n != 2 {
+	if n := count(t, pool, `SELECT count(*) FROM artifacts WHERE run_id = $1 AND scanner = 'nmap'`, r1.ID); n != 2 {
 		t.Fatalf("artifacts = %d, want 2 (one per batch)", n)
 	}
 	var enc []byte
 	var dec string
-	if err := pool.QueryRow(ctx, `SELECT content_enc, asi_dec(content_enc) FROM artifacts WHERE run_id = $1 LIMIT 1`, r1.ID).Scan(&enc, &dec); err != nil {
+	if err := pool.QueryRow(ctx, `SELECT content_enc, asi_dec(content_enc) FROM artifacts WHERE run_id = $1 AND scanner = 'nmap' LIMIT 1`, r1.ID).Scan(&enc, &dec); err != nil {
 		t.Fatal(err)
 	}
 	if bytes.Contains(enc, []byte("nmaprun")) || bytes.Contains(enc, []byte("172.31.250")) {
@@ -260,6 +298,24 @@ func TestPipeline(t *testing.T) {
 	}
 	if err := pool.QueryRow(ctx, `SELECT cpe FROM services WHERE ip = '172.31.250.10' AND port = 80`).Scan(&webCPE); err != nil || webCPE != "igor_sysoev:nginx" {
 		t.Fatalf("172.31.250.10:80 cpe = %q (err=%v), want igor_sysoev:nginx", webCPE, err)
+	}
+	if n := httpReplay.calls.Load(); n != 2 {
+		t.Errorf("httpx invoked %d times for two HTTP-containing batches", n)
+	}
+	if n := count(t, pool, `SELECT count(*) FROM http_observations o
+		JOIN services s ON s.id = o.service_id
+		JOIN run_observations ro ON ro.run_id = o.run_id AND ro.ip = s.ip AND ro.port = s.port
+		WHERE o.run_id = $1 AND s.ip = '172.31.250.10' AND s.port = 443 AND ro.up
+		  AND o.status = 200 AND o.title = 'ASI TLS fixture'
+		  AND asi_dec(o.headers_enc)::jsonb->>'X-Environment' = 'staging'
+		  AND jsonb_array_length(asi_dec(o.cookies_enc)::jsonb) = 2
+		  AND asi_dec(o.tls_cert_enc)::jsonb->>'subject_cn' = 'asi-s7-nginx'
+		  AND o.redirects = '["https://asi-s7-nginx/home"]'::jsonb
+		  AND o.technologies = '{Nginx:1.30.7}'`, r1.ID); n != 1 {
+		t.Errorf("expected one encrypted HTTP observation associated with its run and service, got %d", n)
+	}
+	if err := pool.QueryRow(ctx, `SELECT asi_dec(content_enc) FROM artifacts WHERE run_id = $1 AND scanner = 'httpx'`, r1.ID).Scan(&dec); err != nil || dec != string(tlsRaw) {
+		t.Fatalf("missing or incorrect encrypted httpx artifact: %v", err)
 	}
 
 	// user edits between runs, and a service on a port outside the profile

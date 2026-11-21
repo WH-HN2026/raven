@@ -1,8 +1,6 @@
-// Package pipeline orchestrates scan runs (architecture §3 steps 1–3 and 5):
+// Package pipeline orchestrates scan runs (architecture §3):
 // a run's scan list is split into batches, each batch is one River job that
-// runs nmap and ingests the result into hosts / services / run_observations /
-// artifacts in one transaction. The HTTP handlers and the MCP server call
-// Service.
+// runs nmap and httpx and ingests their results in one transaction.
 package pipeline
 
 import (
@@ -25,6 +23,7 @@ import (
 	"github.com/WH-HN2026/zadanie-agh-asi/internal/auth"
 	"github.com/WH-HN2026/zadanie-agh-asi/internal/db/gen"
 	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner"
+	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner/httpx"
 	"github.com/WH-HN2026/zadanie-agh-asi/internal/targets"
 )
 
@@ -62,6 +61,7 @@ func (nopHook) AfterBatch(context.Context, BatchResult) error { return nil }
 // Config wires the pipeline's collaborators.
 type Config struct {
 	Scanner   scanner.Scanner  // nmap
+	HTTPX     scanner.Scanner  // nil = ProjectDiscovery httpx from PATH
 	Resolver  targets.Resolver // net.DefaultResolver in production
 	Hook      BatchHook        // nil = no-op
 	BatchSize int              // 0 = BatchSize
@@ -76,6 +76,9 @@ type Service struct {
 
 // New builds the service and its River client (not started yet).
 func New(pool *pgxpool.Pool, cfg Config) (*Service, error) {
+	if cfg.HTTPX == nil {
+		cfg.HTTPX = &httpx.Scanner{}
+	}
 	if cfg.Hook == nil {
 		cfg.Hook = nopHook{}
 	}

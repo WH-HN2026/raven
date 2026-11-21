@@ -13,6 +13,7 @@ import (
 
 	"github.com/WH-HN2026/zadanie-agh-asi/internal/db/gen"
 	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner"
+	"github.com/WH-HN2026/zadanie-agh-asi/internal/scanner/httpx"
 )
 
 // BatchArgs is the River job of one batch. The IPs live in batches.ips;
@@ -88,11 +89,18 @@ func (s *Service) runBatch(ctx context.Context, a BatchArgs, attempt, maxAttempt
 			hostnames[ip] = v
 		}
 	}
-	res, err := s.cfg.Scanner.Run(ctx, scanner.Input{IPs: b.Ips, Hostnames: hostnames},
+	in := scanner.Input{IPs: b.Ips, Hostnames: hostnames}
+	res, err := s.cfg.Scanner.Run(ctx, in,
 		scanner.Options{Ports: prof.Ports, MaxRate: int(prof.NmapMaxRate)})
+	var web *scanner.Result
+	if err == nil {
+		if webIn := httpx.BuildInput(in, res.Observations); len(webIn.URLs) > 0 {
+			web, err = s.cfg.HTTPX.Run(ctx, webIn, scanner.Options{RateLimit: int(prof.NucleiRate)})
+		}
+	}
 	if err == nil {
 		var plan Plan
-		plan, err = s.ingestBatch(ctx, b, prof, hostnames, res, start)
+		plan, err = s.ingestBatch(ctx, b, prof, hostnames, res, web, start)
 		if err == nil {
 			s.afterBatch(ctx, b, prof, plan, res)
 			return nil
@@ -107,7 +115,7 @@ func (s *Service) runBatch(ctx context.Context, a BatchArgs, attempt, maxAttempt
 // ingestBatch writes the batch result, marks the batch done and, if it was
 // the last one, finishes the run, all in one transaction under the run lock.
 func (s *Service) ingestBatch(ctx context.Context, b gen.Batch, prof gen.Profile,
-	hostnames map[netip.Addr][]string, res *scanner.Result, start time.Time) (Plan, error) {
+	hostnames map[netip.Addr][]string, res, web *scanner.Result, start time.Time) (Plan, error) {
 	ports, err := ParsePorts(prof.Ports)
 	if err != nil {
 		return Plan{}, err
@@ -128,6 +136,11 @@ func (s *Service) ingestBatch(ctx context.Context, b gen.Batch, prof gen.Profile
 			Plan: plan, Ports: ports, Seen: now,
 		}); err != nil {
 			return err
+		}
+		if web != nil {
+			if err := s.ingestHTTP(ctx, q, b, web, now); err != nil {
+				return err
+			}
 		}
 		dur := now.Sub(start).Milliseconds()
 		if err := q.FinishBatch(ctx, gen.FinishBatchParams{
