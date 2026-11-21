@@ -90,11 +90,17 @@ function mockApi(override?: (c: Call) => Response | undefined) {
 
 describe('ProfilesPage', () => {
   it('lists profiles and schedules with source badges', async () => {
-    mockApi()
+    const customProfile = { ...profile, id: 4, name: 'nmap-only', stages: ['nmap'] as const }
+    mockApi((c) => (c.url.startsWith('/api/profiles') ? json({ items: [profile, customProfile], total: 2 }) : undefined))
     renderAs('editor', <ProfilesPage />, { path: '/profiles' })
     expect(await screen.findByRole('link', { name: 'lab-quick' })).toHaveAttribute('href', '/profiles/3')
+    expect(screen.getByRole('columnheader', { name: 'Workflow' })).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'Batch duration' })).toBeInTheDocument()
     const rows = await screen.findAllByRole('row')
+    const defaultRow = rows.find((r) => within(r).queryByRole('link', { name: 'lab-quick' }))!
+    const customRow = rows.find((r) => within(r).queryByRole('link', { name: 'nmap-only' }))!
+    expect(within(defaultRow).getByText('Default')).toBeInTheDocument()
+    expect(within(customRow).getByText('nmap')).toBeInTheDocument()
     const ui = rows.find((r) => within(r).queryByText('#7'))!
     const dojo = rows.find((r) => within(r).queryByText('#8'))!
     expect(within(ui).getByText('Nightly lab')).toBeInTheDocument()
@@ -181,7 +187,27 @@ describe('ProfileEditorPage', () => {
     expect(await screen.findByRole('status')).toHaveTextContent('Saved')
     const put = calls.find((c) => c.method === 'PUT')!
     expect(put.url).toBe('/api/profiles/3')
-    expect(put.body).toMatchObject({ name: 'lab-quick', nmap_max_rate: 150, nuclei_tags: ['tech', 'panel'] })
+    expect(put.body).toMatchObject({ name: 'lab-quick', nmap_max_rate: 150, nuclei_tags: ['tech', 'panel'], stages: ['nmap', 'httpx', 'nuclei'] })
+  })
+
+  it('submits edited workflow stages and shows stage 400 errors', async () => {
+    const calls = mockApi((c) => {
+      if (c.method === 'POST') return json({ error: { code: 'bad_request', message: 'invalid input: stage nuclei requires httpx' } }, 400)
+      if (c.method === 'PUT') return json({ ...(c.body as object), id: 3 })
+    })
+    renderAs('editor', <ProfileEditorPage />, { path: '/profiles/3', route: '/profiles/:id' })
+    const nuclei = await screen.findByRole('switch', { name: 'nuclei' })
+    fireEvent.click(nuclei)
+    fireEvent.click(screen.getByRole('button', { name: 'Save profile' }))
+    expect(await screen.findByRole('status')).toHaveTextContent('Saved')
+    expect(calls.find((c) => c.method === 'PUT')?.body).toMatchObject({ stages: ['nmap', 'httpx'] })
+
+    cleanup()
+    renderAs('editor', <ProfileEditorPage />, { path: '/profiles/new', route: '/profiles/new' })
+    fireEvent.change(await screen.findByLabelText('Name'), { target: { value: 'bad-wf' } })
+    fireEvent.change(screen.getByLabelText('Ports'), { target: { value: '80' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Create profile' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('stage nuclei requires httpx')
   })
 
   it.each([[null, 61], ['2.5', 150]])('saves batch duration in seconds when the minute value is %s', async (minutes, seconds) => {

@@ -5,6 +5,7 @@ import { useParams } from 'react-router'
 import { api, ApiError } from '../../api/client'
 import { useCan } from '../../auth/hooks'
 import { PageHeader } from '../../components/PageHeader'
+import { StageChips } from '../../components/StageChips'
 import {
   Alert,
   Button,
@@ -162,7 +163,10 @@ export function RunDetailPage() {
       {run && (
         <Section label="Run" className="flex flex-col gap-8">
           <div className="flex flex-wrap items-end justify-between gap-4">
-            <SectionHeading>{profileName ?? `profile ${run.profile_id}`}</SectionHeading>
+            <div className="flex flex-wrap items-center gap-3">
+              <SectionHeading>{profileName ?? `profile ${run.profile_id}`}</SectionHeading>
+              <StageChips stages={run.stages} />
+            </div>
             {canControl && active && <StopButton run={run} />}
           </div>
           <div>

@@ -6,7 +6,8 @@ import { useCan } from '../../auth/hooks'
 import { PageHeader } from '../../components/PageHeader'
 import { Alert, Button, ErrorText, Field, Section, SectionHeading, inputClass } from '../../components/ui'
 import { ScopeList } from '../targets/ScopeEditor'
-import { NUCLEI_TAGS, PROFILE_DEFAULTS, batchMinutes, checkPorts, profileScopeKey, profilesKey, useProfiles, type Profile } from './ui'
+import { NUCLEI_TAGS, PROFILE_DEFAULTS, batchMinutes, checkPorts, profileScopeKey, profilesKey, useProfiles, type Profile, type StageName } from './ui'
+import { WorkflowBuilder } from './WorkflowBuilder'
 
 type Input = Schemas['ProfileInput']
 
@@ -63,6 +64,9 @@ function ProfileForm({ profile }: { profile?: Profile }) {
   const [miss, setMiss] = useState(String(profile?.miss_threshold ?? PROFILE_DEFAULTS.miss_threshold))
   const [batch, setBatch] = useState(String(batchMinutes(profile?.target_batch_seconds ?? PROFILE_DEFAULTS.target_batch_seconds)))
   const [enabled, setEnabled] = useState(profile?.enabled ?? true)
+  const [stages, setStages] = useState<StageName[]>(
+    profile?.stages && profile.stages.length > 0 ? profile.stages : [...PROFILE_DEFAULTS.stages],
+  )
   const [clientErr, setClientErr] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
 
@@ -105,6 +109,7 @@ function ProfileForm({ profile }: { profile?: Profile }) {
       miss_threshold: Number(miss),
       target_batch_seconds: batchSeconds,
       enabled,
+      stages,
     })
   }
 
@@ -162,6 +167,10 @@ function ProfileForm({ profile }: { profile?: Profile }) {
           Profile enabled
         </label>
       </fieldset>
+      <div className="flex flex-col gap-3 border-t border-line pt-5">
+        <SectionHeading size="sm">Workflow</SectionHeading>
+        <WorkflowBuilder value={stages} onChange={setStages} disabled={!canWrite} />
+      </div>
       {(clientErr || serverMsg) && <Alert>{clientErr ?? serverMsg}</Alert>}
       {saved && <Alert tone="ok">Saved</Alert>}
       {canWrite && (

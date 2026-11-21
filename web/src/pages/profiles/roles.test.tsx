@@ -39,8 +39,14 @@ describe('ProfileEditorPage controls per role', () => {
     expect(await screen.findByText('172.30.0.99')).toBeInTheDocument()
     const w = canWrite[role]
     await waitFor(() => expect(screen.getByLabelText('Ports')).toHaveValue('22,80,443,8000-8100'))
+    await screen.findByRole('switch', { name: 'nmap' })
     if (w) expect(screen.getByLabelText('Ports')).toBeEnabled()
-    else expect(screen.getByLabelText('Ports')).toBeDisabled()
+    else {
+      expect(screen.getByLabelText('Ports')).toBeDisabled()
+      for (const sw of screen.getAllByRole('switch')) {
+        expect(sw).toBeDisabled()
+      }
+    }
     expect(has('Save profile')).toBe(w)
     expect(has('Delete profile')).toBe(w)
     expect(has('Add exclusion')).toBe(w)

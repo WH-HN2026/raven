@@ -2,7 +2,8 @@ import { SortTh, useTableSort } from '../../components/SortTh'
 import { Link } from 'react-router'
 import { useCan } from '../../auth/hooks'
 import { PageHeader } from '../../components/PageHeader'
-import { Badge, Chip, EmptyRow, ErrorText, Section, SectionHeading, Table, Td, THeadRow, Tr, buttonClass } from '../../components/ui'
+import { Badge, Chip, EmptyRow, ErrorText, Section, SectionHeading, Table, Td, Th, THeadRow, Tr, buttonClass } from '../../components/ui'
+import { StageChips } from '../../components/StageChips'
 import { Schedules } from './Schedules'
 import { batchMinutes, useProfiles } from './ui'
 
@@ -18,6 +19,7 @@ function ProfilesTable() {
         <thead>
           <THeadRow>
             <SortTh sort={sort} col="name">Name</SortTh>
+            <Th>Workflow</Th>
             <SortTh sort={sort} col="ports">Ports</SortTh>
             <SortTh sort={sort} col="nmap_rate" className="text-right">nmap rate</SortTh>
             <SortTh sort={sort} col="nuclei_rate" className="text-right">nuclei rate</SortTh>
@@ -32,6 +34,9 @@ function ProfilesTable() {
             <Tr key={p.id}>
               <Td className="font-medium">
                 <Link to={`/profiles/${p.id}`}>{p.name}</Link>
+              </Td>
+              <Td>
+                <StageChips stages={p.stages} />
               </Td>
               <Td className="max-w-[280px] font-mono text-[13px] break-all">{p.ports}</Td>
               <Td className="text-right tabular-nums">{p.nmap_max_rate} pps</Td>
@@ -51,7 +56,7 @@ function ProfilesTable() {
               <Td>{p.enabled ? <Badge tone="new">On</Badge> : <Badge tone="gone">Off</Badge>}</Td>
             </Tr>
           ))}
-          {q.data && items.length === 0 && <EmptyRow colSpan={8}>No profiles</EmptyRow>}
+          {q.data && items.length === 0 && <EmptyRow colSpan={9}>No profiles</EmptyRow>}
         </tbody>
       </Table>
     </Section>

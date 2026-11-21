@@ -1,5 +1,21 @@
 // Test data for the profiles pages (only imported by tests).
-import type { Profile, Schedule } from './ui'
+import type { Profile, Schedule, StagesResponse } from './ui'
+
+export const stagesResponse: StagesResponse = {
+  stages: [
+    { name: 'nmap', needs: [], aggressive: false, available: true },
+    { name: 'httpx', needs: ['nmap'], aggressive: false, available: true },
+    { name: 'nuclei', needs: ['httpx'], aggressive: false, available: true },
+    { name: 'nuclei_active', needs: ['httpx'], aggressive: true, available: false },
+    { name: 'nikto', needs: ['httpx'], aggressive: true, available: false },
+    { name: 'wpscan', needs: ['httpx'], aggressive: true, available: false },
+    { name: 'zap', needs: ['httpx'], aggressive: true, available: false },
+  ],
+  presets: {
+    default: ['nmap', 'httpx', 'nuclei'],
+    aggressive: ['nmap', 'httpx', 'nuclei', 'nuclei_active', 'nikto', 'wpscan', 'zap'],
+  },
+}
 
 export const profile: Profile = {
   id: 3,
@@ -45,6 +61,7 @@ export const scopeEntry = { id: 11, kind: 'ip', value: '172.30.0.99', list: 'exc
 
 /** fetch mock: answers every list endpoint the profiles pages use. */
 export function route(url: string) {
+  if (url.startsWith('/api/stages')) return stagesResponse
   if (url.startsWith('/api/profiles')) return { items: [profile], total: 1 }
   if (url.startsWith('/api/schedules')) return { items: [uiSchedule, dojoSchedule], total: 2 }
   if (url.startsWith('/api/scope')) return { items: [scopeEntry], total: 1 }
