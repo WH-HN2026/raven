@@ -17,32 +17,82 @@ Read before working:
   - nmap and nuclei flags come only from the allowlists in `internal/scanner/*`. No intrusive scripts or templates, no login attempts, rate limits always set.
 - **No secrets in git.** Use `.env.local`, which is gitignored; keep `.env.example` up to date when you add a variable.
 
-## Workflow (Orca worktrees, no human review)
+## Workflow (Orca coordinator + workers, no human review)
 
-Repo: https://github.com/WH-HN2026/zadanie-agh-asi. One roadmap task = one worktree = one branch = one PR, and **you merge your own PR**; there are no human reviews. Rules (by convention: the org is on GitHub Free, so branch protection isn't available on this private repo):
-- the CI check `check` (`.github/workflows/check.yml`, which runs `make check`) must be green before merging; the merge command below waits for it;
-- squash merge only (repo setting), and the remote branch is deleted automatically after merge (repo setting);
+Repo: https://github.com/WH-HN2026/zadanie-agh-asi. One roadmap task = one worktree = one branch = one PR. There are no human reviews. Rules (by convention: the org is on GitHub Free, so branch protection isn't available on this private repo):
+- the CI check `check` (`.github/workflows/check.yml`, which runs `make check`) must be green before merging;
+- squash merge only, and the remote branch is deleted automatically after merge (both are repo settings);
 - **never push to `main` directly.**
 
-1. **Pick a task** in `docs/roadmap.md` whose dependencies are `[x]`. Run `gh pr list --state open` first; an open PR titled `<ID>: …` means the task is taken.
-2. **Create the worktree** from up-to-date `origin/main`. Branch name: `t/<id>-<slug>`, e.g. `t/s2-nmap`.
-3. **Claim it immediately** with a draft PR: make an empty commit, push, open the PR. Don't edit the roadmap for the claim; the draft PR *is* the claim.
+Each person runs one **coordinator** agent. The coordinator doesn't write feature code itself: it dispatches **workers** through Orca orchestration, each in its own child worktree, then **verifies** each worker's PR and merges it. Working solo without a coordinator is also allowed; then follow the worker steps and merge yourself after the verification checklist.
+
+Orca CLI: use `$ORCA_CLI_COMMAND` if it is set, otherwise `orca` inside Orca terminals. Never run bare `orca` outside Orca on Linux (that's the GNOME screen reader). Load the version-matched guide **once per session** before the first orchestration command: `orca skills get orchestration`. The flags below come from it; if they disagree, the guide wins.
+
+### Coordinator (the main agent, in the main checkout on `main`)
+
+The coordinator's checkout stays on `main` and only runs `git pull`. It never edits code; every change, docs included, goes through a worker PR.
+
+1. **Turn the request into tasks.** If the user names a roadmap ID, use it. Otherwise find the matching roadmap task, or add a new roadmap line in the worker's spec. Before dispatching, check `gh pr list --state open`: an open PR titled `<ID>: …` means someone else has the task.
+2. **Write a self-contained spec** (template below) and start the worker in a new child worktree:
+   ```
+   orca orchestration worker-start --worktree new-child --name t-<id>-<slug> --agent <agent> --spec "<spec>"
+   ```
+   `<agent>` = the agent you run as, unless the user names another. Up to ~4 workers at once, only for tasks whose dependencies are `[x]` and that don't touch the same files. Start parallel workers from one shell command (see the guide's `references/parallel-start.md`). Then **end your turn**: Orca wakes you when a worker asks something or reports. Don't poll and don't type into worker terminals.
+3. **Answer questions** with `orchestration reply` when the spec or this file answers them; otherwise ask the user.
+4. **Verify** each `worker_done` against the checklist below. If anything fails, send a concrete list of fixes to the same worker (`orca orchestration send --to dispatch:<id> --subject "fixes" --body "…"`) and end your turn. Repeat until it passes.
+5. **Merge:** `gh pr merge <n> --squash`, then `git pull` on `main`. If the merge conflicts because `main` moved, send the worker "rebase on origin/main, re-run make check, push" and verify again (CI green + a quick diff look).
+6. **Clean up:** after the merge, remove the worker's worktree with the Orca CLI (`orca worktree --help`). Report to the user per task: PR link, what was verified and how, follow-ups.
+
+**Verification checklist** (the coordinator does all of it; CI only covers the first item):
+- [ ] `gh pr checks <n>` is green, and the PR is ready (not draft) and rebased on current `main`.
+- [ ] `gh pr diff <n>` does what the spec asked, and nothing outside its scope. No unrelated refactors, no hand-edited generated files, no edits to merged migrations, no secrets or `.env*` files.
+- [ ] AGENTS.md rules are followed:
+  - every new route has `auth.Require`, and mutations write `audit_log`;
+  - sensitive fields use `_enc`;
+  - scanner flags come from the allowlists;
+  - scans only write scan-owned columns;
+  - deploy files (`compose.yml`, `deploy/Dockerfile`, `.env.example`) are updated if the task needs it;
+  - the task is marked `[x]` in the roadmap.
+- [ ] The worker's evidence is real and matches the claims: test names and output, the URL and pages it checked in the browser, scan output.
+- [ ] **One hands-on check by the coordinator itself**, picked to hit the riskiest claim:
+  - backend: run the most relevant test package in the worker's worktree (`go test ./internal/<pkg>/...`);
+  - UI: open the worker's URL in the Orca browser and click through the changed pages as `admin` and `viewer`;
+  - scanning/Dojo: run one lab scan or the integration test and look at the result in our DB or Dojo.
+
+**Worker spec template** (paste it, fill it in; a worker can't see your conversation):
+```
+Task <ID>: <task name>  — repo zadanie-agh-asi, read AGENTS.md and docs/architecture.md first.
+Goal: <the roadmap text for the task, plus anything the user added>.
+In scope: <packages/dirs the worker may edit>. Out of scope: <what not to touch>.
+Contract: <API paths / tables / interfaces it must provide or use>.
+Done when: <concrete, checkable evidence, e.g. "go test ./internal/scanner/nmap passes with fixtures
+from testdata/; /api/targets accepts the CSV in testdata and returns 4 entries; page /targets shows them">.
+Follow the worker steps in AGENTS.md; stop after the PR is ready with green CI. Do NOT merge.
+Report with worker_done: PR URL, summary, evidence (commands + results), known gaps.
+```
+
+### Worker (dispatched by a coordinator, or a solo session)
+
+1. **Branch:** you start in a fresh child worktree. Rename the branch to `t/<id>-<slug>` (`git branch -m t/<id>-<slug>`), and make sure it's based on current `origin/main` (`git fetch origin && git rebase origin/main`).
+2. **Claim it with a draft PR right away.** Don't edit the roadmap for the claim; the draft PR *is* the claim.
    `git commit --allow-empty -m "<ID>: start" && git push -u origin HEAD && gh pr create --draft --title "<ID>: <task name>" --body "Roadmap task <ID>."`
-   If someone else's PR for the same ID appeared in the meantime, close yours and pick another task.
-4. **Set up the env:** `scripts/wt-env.sh`. It writes `.env.local` with a per-worktree database (`asi_<slug>`) and free ports for the Go server and Vite, then prints the URLs.
-5. **Work in small commits:** `<ID>: <what>` (e.g. `S2: parse nmap service versions`). Push often.
+   If another open PR for the same ID already exists, stop and tell your coordinator (`ask`), or the user if you're solo.
+3. **Set up the env:** `scripts/wt-env.sh`. It writes `.env.local` with a per-worktree database (`asi_<slug>`) and free ports for the Go server and Vite, then prints the URLs. Put those URLs in your report.
+4. **Work in small commits:** `<ID>: <what>` (e.g. `S2: parse nmap service versions`). Push often. Stay inside the spec's scope; if the task needs more, `ask` before widening it.
+5. **Verify your own work** as described in "Verify your change" below, and save the evidence (commands, output, pages visited).
 6. **Finish:**
    ```bash
    # mark the task [x] in docs/roadmap.md, commit
    git fetch origin && git rebase origin/main   # resolve conflicts (table below)
-   make check                                   # must pass locally too
+   make check                                   # must pass locally
    git push --force-with-lease
    gh pr ready
-   gh pr checks --watch --fail-fast && gh pr merge --squash   # remote branch auto-deleted by repo setting
+   gh pr checks --watch --fail-fast             # must end green; if red, fix and push again
    ```
-   Fill in the PR body: what changed, how it was verified (test / browser / real scan), and any follow-ups. `gh pr checks --watch` exits non-zero if CI fails, so the merge only runs on green. **If CI fails, fix it on the same branch and run the last line again**; never merge red, and never leave a PR red and walk away. If `gh pr merge` reports a conflict because `main` moved, rebase again and repeat.
-7. If a task grows too big, merge what works (behind a disabled button or an unused code path if needed) and add a new roadmap line for the rest. **Merge at least once per day.**
-8. After the merge, remove the worktree and its local branch (`git worktree remove …`, `git branch -D t/…`). The next task starts from a fresh `origin/main`.
+   Fill in the PR body: what changed, how it was verified, known gaps.
+   - **Dispatched worker:** report with `worker_done` (PR URL + evidence) and **don't merge**; the coordinator verifies and merges. If you get fixes via `send`, apply them on the same branch, repeat step 6, and report again.
+   - **Solo:** go through the verification checklist above yourself, then `gh pr merge --squash`.
+7. If a task grows too big, finish a mergeable part (behind a disabled button or an unused code path if needed) and propose a new roadmap line for the rest in your report. **Something should merge at least once per day.**
 
 ### Avoiding / resolving conflicts
 
