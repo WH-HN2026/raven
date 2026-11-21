@@ -121,7 +121,7 @@ M0 is sequential and blocking. Do it in **one** worktree, as fast as possible, t
   - remove explanatory copy.
 
 **Track L — Lab**
-- [ ] **L1 Local test lab.** `compose.lab.yml` on an isolated docker network: WordPress, Joomla or Drupal, nginx with `/admin`, an app with `X-Environment: staging`, Tomcat, a fake IoT banner (e.g. a small Go service), a TLS service with a self-signed/expired cert, **two or three services that only announce known-vulnerable versions** (e.g. a tiny Go server sending `Server: Apache/2.4.49`, an SSH banner `OpenSSH_7.4`) so CVE matching can be demoed without real vulnerable software, and **one flapping container** (toggled by a script) for unstable-host testing. Until the organizers' lab arrives, **all dev scans target only this network.**
+- [x] **L1 Local test lab.** `compose.lab.yml` on an isolated docker network: WordPress, Joomla or Drupal, nginx with `/admin`, an app with `X-Environment: staging`, Tomcat, a fake IoT banner (e.g. a small Go service), a TLS service with a self-signed/expired cert, **two or three services that only announce known-vulnerable versions** (e.g. a tiny Go server sending `Server: Apache/2.4.49`, an SSH banner `OpenSSH_7.4`) so CVE matching can be demoed without real vulnerable software, and **one flapping container** (toggled by a script) for unstable-host testing. Until the organizers' lab arrives, **all dev scans target only this network.**
 
 ## M3 — Polish & extras
 
