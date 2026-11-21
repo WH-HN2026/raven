@@ -96,7 +96,7 @@ func TestSensitiveColumnsAreEncrypted(t *testing.T) {
 	for _, want := range []string{
 		"hosts.notes_enc", "services.banner_enc", "http_observations.headers_enc",
 		"http_observations.cookies_enc", "http_observations.tls_cert_enc", "artifacts.content_enc",
-		"users.password_hash", "targets.note", "batches.error",
+		"run_observations.nuclei_evidence_enc", "users.password_hash", "targets.note", "batches.error",
 	} {
 		if !seen[want] {
 			t.Errorf("migration parser missed column %s", want)

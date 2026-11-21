@@ -136,7 +136,8 @@ services(id, ip, port, proto, name, product, version, banner_enc,
 http_observations(id, service_id, url, status, title, headers_enc, cookies_enc,
                   tls_cert_enc, redirects jsonb, technologies text[], favicon_hash,
                   run_id, observed_at)
-run_observations(run_id, ip, port NULL, up bool, observed_at)          -- diff + time-of-day
+run_observations(run_id, ip, port NULL, up bool, observed_at,          -- diff + time-of-day
+                 nuclei_matches jsonb, nuclei_evidence_enc)
 signatures(id, name, template_yaml, enabled, valid, validation_error, created_by)
 artifacts(id, run_id, batch_id, scanner, content_enc bytea)
 dojo_assets(id, name, ip, tags[], synced_at)
@@ -170,7 +171,7 @@ audit_log(id, user_id, action, object, object_id, diff jsonb, at)
 
 **Rules that keep it true (enforced by tests).**
 - A column whose name looks sensitive (`note(s)`, `banner`, `header(s)`, `cookie(s)`, `cert`, `content`, `body`, `password`, `token`, `secret`, `key`) must end in `_enc` and be `bytea`, unless it is in the documented allowlist below. `internal/db/encryption_test.go` parses every migration and fails otherwise.
-- `internal/db/encryption_integration_test.go` writes a marker into every `_enc` column (banner and artifact through the real `pipeline.Ingest`), reads the raw bytes, asserts the marker is absent and `asi_dec` returns it, and that a connection without the key can neither decrypt nor encrypt. It also fails when the schema gains an `_enc` column the test doesn't cover.
+- `internal/db/encryption_integration_test.go` writes a marker into every `_enc` column (banner and artifact through the real `pipeline.Ingest`; notes, HTTP observations and nuclei evidence through the generated queries the host edit and the httpx/nuclei ingest call), reads the raw bytes, asserts the marker is absent and `asi_dec` returns it, and that a connection without the key can neither decrypt nor encrypt. It also fails when the schema gains an `_enc` column the test doesn't cover.
 - `audit_log.diff` is plaintext jsonb, so `audit.Log` redacts the values of sensitive keys (`notes`, `banner`, `headers`, `cookies`, `tls_cert`, `cert`, `content`, `password`, `token`, `secret`, `key`, `*_enc`, and `*_<one of those>`) to `"[redacted]"`. Boolean values are kept (`"password_reset": true`). Callers should still log only that a field changed, never its value.
 - Decrypted values are never passed to `slog`. As of P4 no log call carries a banner, header, note, artifact or credential: logs carry IDs, IPs, counts and wrapped errors.
 - `asi-db` runs with `log_statement=none` and `log_min_duration_statement=-1` (`compose.yml`). Statements use bind parameters, so even error logging (`log_min_error_statement`, default `error`) shows `$n`, not plaintext. `log_parameter_max_length_on_error` stays at its default 0.
@@ -183,6 +184,8 @@ audit_log(id, user_id, action, object, object_id, diff jsonb, at)
 | `services.banner_enc` | S | `_enc` | raw service banner, can carry internal names and versions beyond the fingerprint |
 | `http_observations.headers_enc`, `cookies_enc`, `tls_cert_enc` | S | `_enc` | response headers, session cookies, certificate subject/SANs |
 | `artifacts.content_enc` | S | `_enc` | raw nmap/nuclei/httpx output, superset of all of the above |
+| `run_observations.nuclei_evidence_enc` | S | `_enc` | nuclei extraction results per open service (S4): can carry tokens, versions, internal names |
+| `run_observations.nuclei_matches` | I | plaintext | template id/name/severity/tags, matcher, URL without query, CPE/version: diffed and pushed to Dojo |
 | `users.password_hash` | S | plaintext (allowlisted) | argon2id hash; encrypting a hash adds nothing |
 | `sessions.token_hash`, `api_tokens.token_hash` | S | plaintext (allowlisted) | SHA-256 of a random token; it's the lookup key |
 | `targets.note`, `scope_entries.note` | I | plaintext (allowlisted) | short operator label from the import file, shown in lists like a tag; not meant for secrets |
