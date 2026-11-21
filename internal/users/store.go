@@ -135,7 +135,7 @@ func (s *Store) Update(ctx context.Context, actor *auth.User, id int64, p Patch)
 			diff["disabled"] = map[string]bool{"from": cur.Disabled, "to": next.Disabled}
 		}
 		if p.Password != nil {
-			diff["password"] = "reset"
+			diff["password_reset"] = true
 		}
 		return audit.Log(ctx, q, &actor.ID, "user.update", "user", fmt.Sprint(id), diff)
 	})
