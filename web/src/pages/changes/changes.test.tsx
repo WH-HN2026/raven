@@ -13,6 +13,12 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
+function at<T>(a: T[], i: number): T {
+  const v = a[i]
+  if (v === undefined) throw new Error('missing item ' + i)
+  return v
+}
+
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
 const apiErr = (status: number, message: string) =>
@@ -132,23 +138,23 @@ describe('ChangesPage', () => {
     const fetch = mockApi(() => json(diff))
     renderAt('/changes')
     const table = await screen.findByRole('table', { name: 'Changes' })
-    expect(String(fetch.mock.calls[0][0])).toBe('/api/changes')
+    expect(String(at(fetch.mock.calls, 0)[0])).toBe('/api/changes')
     expect(screen.getByRole('heading', { name: /Run #1 → run #2/ })).toBeTruthy()
     const rows = within(table).getAllByRole('row').slice(1)
     expect(rows).toHaveLength(4)
-    expect(within(rows[0]).getByText('+ New')).toBeTruthy()
-    expect(within(rows[0]).getByText('not scanned')).toBeTruthy()
-    expect(within(rows[0]).getByText('up · 22, 80')).toBeTruthy()
-    expect(within(rows[0]).getByRole('link', { name: '172.30.0.20' }).getAttribute('href')).toBe('/hosts/172.30.0.20')
-    expect(within(rows[0]).getByRole('link', { name: 'Timeline' }).getAttribute('href')).toBe(
+    expect(within(at(rows, 0)).getByText('+ New')).toBeTruthy()
+    expect(within(at(rows, 0)).getByText('not scanned')).toBeTruthy()
+    expect(within(at(rows, 0)).getByText('up · 22, 80')).toBeTruthy()
+    expect(within(at(rows, 0)).getByRole('link', { name: '172.30.0.20' }).getAttribute('href')).toBe('/hosts/172.30.0.20')
+    expect(within(at(rows, 0)).getByRole('link', { name: 'Timeline' }).getAttribute('href')).toBe(
       '/changes/hosts/172.30.0.20',
     )
     // changed row: only the version line is highlighted, before and after
-    const changed = rows[2]
+    const changed = at(rows, 2)
     const hits = changed.querySelectorAll('[data-changed]')
     expect(hits).toHaveLength(2)
-    expect(hits[0].textContent).toContain('1.24')
-    expect(hits[1].textContent).toContain('1.25')
+    expect(at([...hits], 0).textContent).toContain('1.24')
+    expect(at([...hits], 1).textContent).toContain('1.25')
     expect(within(changed).getAllByText('WordPress')).toHaveLength(2)
     // pickers show the resolved runs; only done runs are offered
     await waitFor(() => expect((screen.getByLabelText('From (baseline)') as HTMLSelectElement).value).toBe('1'))
@@ -163,16 +169,16 @@ describe('ChangesPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Gone 1' }))
     const rows = within(table).getAllByRole('row').slice(1)
     expect(rows).toHaveLength(1)
-    expect(within(rows[0]).getByText('− Gone')).toBeTruthy()
-    expect(within(rows[0]).getByText('up · 3306')).toBeTruthy()
-    expect(within(rows[0]).getByText('down')).toBeTruthy()
+    expect(within(at(rows, 0)).getByText('− Gone')).toBeTruthy()
+    expect(within(at(rows, 0)).getByText('up · 3306')).toBeTruthy()
+    expect(within(at(rows, 0)).getByText('down')).toBeTruthy()
   })
 
   it('syncs from/to with the URL', async () => {
     const fetch = mockApi(() => json(diff))
     renderAt('/changes?from=1&to=2')
     await screen.findByRole('table', { name: 'Changes' })
-    expect(String(fetch.mock.calls[0][0])).toBe('/api/changes?from=1&to=2')
+    expect(String(at(fetch.mock.calls, 0)[0])).toBe('/api/changes?from=1&to=2')
     await waitFor(() => expect(within(screen.getByLabelText('To')).getByText(/Run #1/)).toBeTruthy())
     fireEvent.change(screen.getByLabelText('From (baseline)'), { target: { value: '2' } })
     fireEvent.change(screen.getByLabelText('To'), { target: { value: '1' } })
@@ -222,12 +228,12 @@ describe('HostTimelinePage', () => {
     const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(json(tl))
     renderAt('/changes/hosts/172.30.0.10')
     const table = await screen.findByRole('table', { name: 'Timeline' })
-    expect(String(fetch.mock.calls[0][0])).toBe('/api/changes/hosts/172.30.0.10?runs=20')
+    expect(String(at(fetch.mock.calls, 0)[0])).toBe('/api/changes/hosts/172.30.0.10?runs=20')
     const rows = within(table).getAllByRole('row').slice(1)
-    expect(within(rows[0]).getByText('up')).toBeTruthy()
-    expect(within(rows[0]).getByRole('img', { name: '80 open' })).toBeTruthy()
-    expect(within(rows[0]).getByRole('img', { name: '22 closed' })).toBeTruthy()
-    expect(within(rows[1]).getByText('down')).toBeTruthy()
+    expect(within(at(rows, 0)).getByText('up')).toBeTruthy()
+    expect(within(at(rows, 0)).getByRole('img', { name: '80 open' })).toBeTruthy()
+    expect(within(at(rows, 0)).getByRole('img', { name: '22 closed' })).toBeTruthy()
+    expect(within(at(rows, 1)).getByText('down')).toBeTruthy()
     expect(screen.getByRole('link', { name: 'Host detail' }).getAttribute('href')).toBe('/hosts/172.30.0.10')
   })
 })
