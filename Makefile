@@ -70,3 +70,33 @@ lab-up:
 
 lab-down:
 	docker compose -f compose.lab.yml down
+
+## vuln lab (docs/vuln-lab.md): organizers' stacks on the internal raven_vlab network, 10.77.0.0/16
+VLAB := docker compose -f compose.vlab.yml
+.PHONY: vlab-pull vlab-up vlab-down vlab-ps
+
+## vlab-pull: pull the vuln lab images that are missing, retrying on Docker Hub rate limits (docker login helps)
+vlab-pull:
+	@for i in 1 2 3 4 5 6; do \
+	  missing=$$($(VLAB) --profile scenario --profile init config --images | sort -u | while read -r img; do \
+	    docker image inspect "$$img" >/dev/null 2>&1 || echo "$$img"; done); \
+	  [ -z "$$missing" ] && { echo "vlab-pull: all images present"; exit 0; }; \
+	  for img in $$missing; do docker pull -q "$$img" || true; done; \
+	  [ $$i -lt 6 ] && { echo "vlab-pull: attempt $$i incomplete, retrying in 120 s (docker login raises the Docker Hub pull limit)"; sleep 120; }; \
+	done; echo "vlab-pull: images still missing" >&2; exit 1
+
+## vlab-up: start the vuln lab, wait for health, install the WordPress sites and the Toxiproxy proxy
+vlab-up:
+	lab/vuln/preflight.sh
+	$(VLAB) up -d --wait
+	$(VLAB) run --rm vlab-init
+
+## vlab-down: detach other containers (e.g. RAVEN) from raven_vlab, then stop the lab; volumes are kept
+vlab-down:
+	@for c in $$(docker network inspect -f '{{range .Containers}}{{.Name}} {{end}}' raven_vlab 2>/dev/null); do \
+	  case $$c in raven-vlab-*) ;; *) echo "disconnect $$c"; docker network disconnect -f raven_vlab $$c;; esac; \
+	done
+	$(VLAB) --profile scenario --profile tools --profile init down
+
+vlab-ps:
+	$(VLAB) --profile scenario --profile tools ps

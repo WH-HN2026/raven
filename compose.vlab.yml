@@ -1,0 +1,342 @@
+# vuln lab: the organizers' four example stacks, made RAVEN-safe (docs/vuln-lab.md §2).
+# One internal network, static IPs, pinned images, no published ports.
+# Never add `ports:` here: nothing in this lab may be reachable from the host or the LAN.
+# Credentials below are the organizers' disposable lab values; RAVEN never uses them.
+name: raven-vlab
+
+x-health: &health
+  interval: 5s
+  timeout: 4s
+  retries: 30
+  start_period: 20s
+
+x-php-http-health: &php-http-health
+  <<: *health
+  test: [CMD, php, -r, 'exit(@fsockopen("127.0.0.1", 80) ? 0 : 1);']
+
+x-wordpress-env: &wordpress-env
+  # Home URL follows the Host header, so the site answers 200 on its own IP and behind Traefik/Toxiproxy.
+  WORDPRESS_CONFIG_EXTRA: |
+    define('AUTOMATIC_UPDATER_DISABLED', true);
+    define('WP_HTTP_BLOCK_EXTERNAL', true);
+    if (isset($$_SERVER['HTTP_HOST'])) { define('WP_HOME', 'http://' . $$_SERVER['HTTP_HOST']); define('WP_SITEURL', 'http://' . $$_SERVER['HTTP_HOST']); }
+
+x-mariadb-health: &mariadb-health
+  <<: *health
+  test: [CMD, healthcheck.sh, --connect, --innodb_initialized]
+
+services:
+  # ── modern (10.77.1.0/24) ──
+  modern-wordpress:
+    image: wordpress:7.1.5-php8.3-apache
+    environment:
+      <<: *wordpress-env
+      WORDPRESS_DB_HOST: 10.77.1.11
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: wordpresspass
+      WORDPRESS_DB_NAME: wordpress
+    depends_on:
+      modern-mariadb: { condition: service_healthy }
+    healthcheck: *php-http-health
+    volumes: [modern_wordpress:/var/www/html]
+    networks:
+      vlab: { ipv4_address: 10.77.1.10 }
+
+  modern-mariadb:
+    image: mariadb:11.8.9
+    environment:
+      MARIADB_ROOT_PASSWORD: rootpass
+      MARIADB_DATABASE: wordpress
+      MARIADB_USER: wordpress
+      MARIADB_PASSWORD: wordpresspass
+    healthcheck: *mariadb-health
+    volumes: [modern_mariadb:/var/lib/mysql]
+    networks:
+      vlab: { ipv4_address: 10.77.1.11 }
+
+  modern-phpmyadmin:
+    image: phpmyadmin:5.2.3
+    environment:
+      PMA_HOST: 10.77.1.11
+    healthcheck: *php-http-health
+    networks:
+      vlab: { ipv4_address: 10.77.1.12 }
+
+  modern-redis:
+    image: redis:7.4.12
+    healthcheck:
+      <<: *health
+      test: [CMD, redis-cli, ping]
+    networks:
+      vlab: { ipv4_address: 10.77.1.13 }
+
+  modern-npm:
+    image: jc21/nginx-proxy-manager:2.17.1
+    healthcheck:
+      <<: *health
+      start_period: 60s
+      test: [CMD, /usr/bin/check-health]
+    volumes:
+      - modern_npm_data:/data
+      - modern_npm_letsencrypt:/etc/letsencrypt
+    networks:
+      vlab: { ipv4_address: 10.77.1.14 }
+
+  # ── modern-proxy (10.77.2.0/24): Traefik → Toxiproxy → WordPress ──
+  proxy-traefik:
+    image: traefik:v3.1.7
+    command:
+      - --api.dashboard=true
+      - --api.insecure=true
+      - --ping=true
+      - --global.checknewversion=false
+      - --global.sendanonymoususage=false
+      - --providers.file.directory=/etc/traefik/dynamic
+      - --providers.file.watch=true
+      - --entrypoints.web.address=:80
+    healthcheck:
+      <<: *health
+      test: [CMD, traefik, healthcheck, --ping]
+    volumes:
+      - ./lab/vuln/traefik:/etc/traefik/dynamic:ro
+    networks:
+      vlab: { ipv4_address: 10.77.2.10 }
+
+  proxy-toxiproxy:
+    image: ghcr.io/shopify/toxiproxy:2.12.0@sha256:9378ed52a28bc50edc1350f936f518f31fa95f0d15917d6eb40b8e376d1a214e
+    healthcheck:
+      <<: *health
+      test: [CMD, /toxiproxy-cli, list]
+    networks:
+      vlab: { ipv4_address: 10.77.2.11 }
+
+  proxy-wordpress:
+    image: wordpress:7.1.5-php8.3-apache
+    environment:
+      <<: *wordpress-env
+      WORDPRESS_DB_HOST: 10.77.2.13
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: wordpresspass
+      WORDPRESS_DB_NAME: wordpress
+    depends_on:
+      proxy-mariadb: { condition: service_healthy }
+    healthcheck: *php-http-health
+    volumes: [proxy_wordpress:/var/www/html]
+    networks:
+      vlab: { ipv4_address: 10.77.2.12 }
+
+  proxy-mariadb:
+    image: mariadb:11.8.9
+    environment:
+      MARIADB_ROOT_PASSWORD: rootpass
+      MARIADB_DATABASE: wordpress
+      MARIADB_USER: wordpress
+      MARIADB_PASSWORD: wordpresspass
+    command: [--character-set-server=utf8mb4, --collation-server=utf8mb4_unicode_ci]
+    healthcheck: *mariadb-health
+    volumes: [proxy_mariadb:/var/lib/mysql]
+    networks:
+      vlab: { ipv4_address: 10.77.2.13 }
+
+  proxy-redis:
+    image: redis:7.4.12-alpine
+    command: [redis-server, --appendonly, "yes"]
+    healthcheck:
+      <<: *health
+      test: [CMD, redis-cli, ping]
+    volumes: [proxy_redis:/data]
+    networks:
+      vlab: { ipv4_address: 10.77.2.14 }
+
+  # ── vulnerable (10.77.3.0/24) ──
+  vuln-wordpress:
+    image: wordpress:4.7.5-php5.6-apache
+    environment:
+      <<: *wordpress-env
+      WORDPRESS_DB_HOST: 10.77.3.11
+      WORDPRESS_DB_USER: wpuser
+      WORDPRESS_DB_PASSWORD: wppass
+      WORDPRESS_DB_NAME: wordpress
+    depends_on:
+      vuln-mysql: { condition: service_healthy }
+    healthcheck: *php-http-health
+    volumes: [vuln_wordpress:/var/www/html]
+    networks:
+      vlab: { ipv4_address: 10.77.3.10 }
+
+  vuln-mysql:
+    image: mysql:5.7.44
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: wordpress
+      MYSQL_USER: wpuser
+      MYSQL_PASSWORD: wppass
+    healthcheck:
+      <<: *health
+      # TCP, not the socket: the init-time server runs with networking off.
+      test: [CMD-SHELL, 'mysqladmin ping -h 127.0.0.1 -uroot -p"$$MYSQL_ROOT_PASSWORD" --silent']
+    volumes: [vuln_mysql:/var/lib/mysql]
+    networks:
+      vlab: { ipv4_address: 10.77.3.11 }
+
+  vuln-adminer:
+    image: adminer:6.3.0
+    healthcheck:
+      <<: *health
+      test: [CMD, php, -r, 'exit(@fsockopen("127.0.0.1", 8080) ? 0 : 1);']
+    networks:
+      vlab: { ipv4_address: 10.77.3.12 }
+
+  vuln-ftp:
+    image: fauria/vsftpd@sha256:6d71d7c7f1b0ab2844ec7dc7999a30aef6d758b6d8179cf5967513f87c79c177
+    environment:
+      FTP_USER: test
+      FTP_PASS: test123
+      PASV_ADDRESS: 10.77.3.13
+      PASV_MIN_PORT: 21000
+      PASV_MAX_PORT: 21010
+    healthcheck:
+      <<: *health
+      test: [CMD, bash, -c, 'exec 3<>/dev/tcp/127.0.0.1/21']
+    networks:
+      vlab: { ipv4_address: 10.77.3.13 }
+
+  vuln-dvwa:
+    image: vulnerables/web-dvwa@sha256:dae203fe11646a86937bf04db0079adef295f426da68a92b40e3b181f337daa7
+    healthcheck: *php-http-health
+    networks:
+      vlab: { ipv4_address: 10.77.3.14 }
+
+  # ── custom-network (10.77.4.0/24) ──
+  custom-api:
+    image: kennethreitz/httpbin@sha256:599fe5e5073102dbb0ee3dbb65f049dab44fa9fc251f6835c9990f8fb196a72b
+    healthcheck:
+      <<: *health
+      test: [CMD, python3, -c, 'import socket; socket.create_connection(("127.0.0.1", 80), 2)']
+    networks:
+      vlab: { ipv4_address: 10.77.4.10 }
+
+  custom-postgres:
+    image: postgres:16.16
+    environment:
+      POSTGRES_DB: appdb
+      POSTGRES_USER: appuser
+      POSTGRES_PASSWORD: StrongPassword123
+    healthcheck:
+      <<: *health
+      test: [CMD, pg_isready, -h, 127.0.0.1, -U, appuser, -d, appdb]
+    volumes: [custom_postgres:/var/lib/postgresql/data]
+    networks:
+      vlab: { ipv4_address: 10.77.4.11 }
+
+  custom-rabbitmq:
+    image: rabbitmq:3.13.7-management
+    hostname: vlab-rabbitmq
+    healthcheck:
+      <<: *health
+      interval: 10s
+      timeout: 10s
+      start_period: 30s
+      test: [CMD, rabbitmq-diagnostics, -q, ping]
+    volumes: [custom_rabbitmq:/var/lib/rabbitmq]
+    networks:
+      vlab: { ipv4_address: 10.77.4.12 }
+
+  # App host: one address (10.77.4.20) for Gitea (3000, 22) and the "flask-app" nginx (8787),
+  # so a scenario can stop 8787 while the other ports stay (organizers' quickstart.sh).
+  apphost:
+    image: busybox:1.37
+    command: [sh, -c, 'trap "exit 0" TERM; while :; do sleep 3600 & wait; done']
+    healthcheck:
+      <<: *health
+      test: [CMD, "true"]
+    networks:
+      vlab: { ipv4_address: 10.77.4.20 }
+
+  gitea:
+    image: gitea/gitea:28.4.0
+    network_mode: service:apphost
+    environment:
+      GITEA__security__INSTALL_LOCK: "true"
+      GITEA__database__DB_TYPE: sqlite3
+      GITEA__server__DOMAIN: 10.77.4.20
+      GITEA__server__SSH_DOMAIN: 10.77.4.20
+      GITEA__server__ROOT_URL: http://10.77.4.20:3000/
+      GITEA__server__OFFLINE_MODE: "true"
+      GITEA__cron.update_checker__ENABLED: "false"
+      APP_NAME: RAVEN vlab Gitea # read by the image's app.ini template on first start
+    depends_on:
+      apphost: { condition: service_healthy }
+    healthcheck:
+      <<: *health
+      test: [CMD, curl, -fsS, -o, /dev/null, http://127.0.0.1:3000/api/healthz]
+    volumes: [custom_gitea:/data]
+
+  flask-app:
+    # Old on purpose (CVE-2021-23017); `scripts/vlab-scenario.sh upgrade` sets VLAB_FLASK_NGINX_TAG.
+    image: nginx:${VLAB_FLASK_NGINX_TAG:-1.20.0-alpine}
+    network_mode: service:apphost
+    depends_on:
+      apphost: { condition: service_healthy }
+    healthcheck:
+      <<: *health
+      test: [CMD, wget, -q, -O, /dev/null, http://127.0.0.1:8787/]
+    volumes:
+      - ./lab/vuln/flask-app.conf:/etc/nginx/conf.d/default.conf:ro
+
+  # ── scenario hosts (10.77.9.0/24), absent at baseline ──
+  device:
+    image: httpd:2.4.49-alpine
+    profiles: [scenario]
+    healthcheck:
+      <<: *health
+      test: [CMD, wget, -q, -O, /dev/null, http://127.0.0.1/]
+    networks:
+      vlab: { ipv4_address: 10.77.9.50 }
+
+  # ── lab tooling (blacklisted 10.77.254.0/23) ──
+  # One-shot provisioning: installs the three WordPress sites and creates the Toxiproxy proxy.
+  # Run by `make vlab-up` with `docker compose run --rm vlab-init` (dynamic IP).
+  vlab-init:
+    image: curlimages/curl:8.10.1
+    profiles: [init]
+    entrypoint: [sh, /init/vlab-init.sh]
+    volumes:
+      - ./lab/vuln/init:/init:ro
+    networks: [vlab]
+
+  tools:
+    image: raven-lab-tools:local
+    build: ./lab/tools
+    profiles: [tools]
+    command: [sh, -c, 'trap "exit 0" TERM; while :; do sleep 3600 & wait; done']
+    healthcheck:
+      <<: *health
+      test: [CMD, "true"]
+    networks:
+      vlab: { ipv4_address: 10.77.254.20 }
+
+networks:
+  vlab:
+    name: raven_vlab
+    driver: bridge
+    internal: true
+    ipam:
+      config:
+        - subnet: 10.77.0.0/16
+          gateway: 10.77.0.1
+          ip_range: 10.77.255.0/24
+
+volumes:
+  modern_wordpress:
+  modern_mariadb:
+  modern_npm_data:
+  modern_npm_letsencrypt:
+  proxy_wordpress:
+  proxy_mariadb:
+  proxy_redis:
+  vuln_wordpress:
+  vuln_mysql:
+  custom_postgres:
+  custom_rabbitmq:
+  custom_gitea:
