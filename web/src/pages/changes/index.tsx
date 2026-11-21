@@ -1,11 +1,13 @@
-import { Placeholder } from '../../components/Placeholder'
 import type { AppRoute } from '../types'
+import { ChangesPage } from './ChangesPage'
+import { HostTimelinePage } from './HostTimeline'
 
 export const routes: AppRoute[] = [
   {
     path: '/changes',
-    element: <Placeholder title="Changes" task="W6" />,
+    element: <ChangesPage />,
     perm: 'read',
     nav: { label: 'Changes', order: 35 },
   },
+  { path: '/changes/hosts/:ip', element: <HostTimelinePage />, perm: 'read' },
 ]
