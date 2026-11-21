@@ -31,6 +31,7 @@ export const PROFILE_DEFAULTS = {
   nuclei_rate: 50,
   miss_threshold: 3,
   target_batch_seconds: 600,
+  stages: ['nmap', 'httpx', 'nuclei'] as const,
 }
 
 /** Two decimal places preserve whole seconds when converted back and rounded. */

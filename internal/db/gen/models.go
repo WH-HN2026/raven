@@ -153,6 +153,7 @@ type Profile struct {
 	TargetBatchSeconds int32     `json:"target_batch_seconds"`
 	Enabled            bool      `json:"enabled"`
 	CreatedAt          time.Time `json:"created_at"`
+	Stages             []string  `json:"stages"`
 }
 
 type Run struct {
@@ -168,6 +169,7 @@ type Run struct {
 	HostsUp           int32           `json:"hosts_up"`
 	Stats             json.RawMessage `json:"stats"`
 	ScheduleWindowEnd *time.Time      `json:"schedule_window_end"`
+	Stages            []string        `json:"stages"`
 }
 
 type RunObservation struct {

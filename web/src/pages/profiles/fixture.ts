@@ -11,6 +11,7 @@ export const profile: Profile = {
   miss_threshold: 3,
   target_batch_seconds: 600,
   enabled: true,
+  stages: ['nmap', 'httpx', 'nuclei'],
 }
 
 export const uiSchedule: Schedule = {

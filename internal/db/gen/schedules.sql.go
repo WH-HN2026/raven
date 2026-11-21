@@ -93,7 +93,7 @@ func (q *Queries) DisableStaleDojoSchedules(ctx context.Context, activeEngagemen
 }
 
 const getLatestScheduledRun = `-- name: GetLatestScheduledRun :one
-SELECT id, profile_id, schedule_id, status, created_by, created_at, started_at, finished_at, hosts_total, hosts_up, stats, schedule_window_end FROM runs WHERE schedule_id = $1 ORDER BY id DESC LIMIT 1
+SELECT id, profile_id, schedule_id, status, created_by, created_at, started_at, finished_at, hosts_total, hosts_up, stats, schedule_window_end, stages FROM runs WHERE schedule_id = $1 ORDER BY id DESC LIMIT 1
 `
 
 func (q *Queries) GetLatestScheduledRun(ctx context.Context, scheduleID *int64) (Run, error) {
@@ -112,6 +112,7 @@ func (q *Queries) GetLatestScheduledRun(ctx context.Context, scheduleID *int64) 
 		&i.HostsUp,
 		&i.Stats,
 		&i.ScheduleWindowEnd,
+		&i.Stages,
 	)
 	return i, err
 }

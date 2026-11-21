@@ -9,8 +9,8 @@ SELECT * FROM profiles WHERE id = $1 FOR NO KEY UPDATE;
 SELECT count(*) FROM runs WHERE profile_id = $1 AND status IN ('pending', 'running');
 
 -- name: InsertRun :one
-INSERT INTO runs (profile_id, status, created_by, started_at, finished_at, hosts_total, stats, schedule_id, schedule_window_end)
-VALUES ($1, $2, $3, $4, $5, $6, $7, sqlc.narg(schedule_id), sqlc.narg(schedule_window_end))
+INSERT INTO runs (profile_id, status, created_by, started_at, finished_at, hosts_total, stats, schedule_id, schedule_window_end, stages)
+VALUES ($1, $2, $3, $4, $5, $6, $7, sqlc.narg(schedule_id), sqlc.narg(schedule_window_end), sqlc.narg(stages))
 RETURNING *;
 
 -- name: LockRun :one
