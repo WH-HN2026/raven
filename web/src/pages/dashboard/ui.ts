@@ -75,8 +75,9 @@ function fpText(fp: Schemas['ServiceFingerprint'] | null | undefined): string {
 /** One line for the "What changed" cell. */
 export function changeText(r: DiffRow): string {
   if (r.type === 'host') {
-    const ports = r.host.ports.length > 0 ? ` · ${r.host.ports.join(', ')}` : ''
-    return r.kind === 'new' ? `Host up${ports}` : `Host down${ports ? ' · was' + ports : ''}`
+    const ports = r.host.ports.join(', ')
+    if (r.kind === 'new') return ports ? `Host up · ${ports}` : 'Host up'
+    return ports ? `Host down · was ${ports}` : 'Host down'
   }
   const s = r.service
   if (r.kind === 'new') return fpText(s.after) || 'Port open'

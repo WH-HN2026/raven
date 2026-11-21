@@ -47,7 +47,7 @@ describe('dashboard helpers', () => {
   it('describes each change in one line', () => {
     const c = dashboard.changes as NonNullable<Dashboard['changes']>
     const rows = diffRows(c)
-    expect(rows.map(changeText)).toEqual(['Host up · 8080', 'version: 2.4.49 → 2.4.50', 'Host down · was · 22'])
+    expect(rows.map(changeText)).toEqual(['Host up · 8080', 'version: 2.4.49 → 2.4.50', 'Host down · was 22'])
   })
 
   it('describes the unstable pattern', () => {

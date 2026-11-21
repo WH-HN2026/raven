@@ -300,7 +300,7 @@ function TechnologiesColumn({ d }: { d: Dashboard }) {
       ) : (
         <ul className="m-0 flex list-none flex-col gap-2.5 p-0" aria-label="Top web technologies">
           {d.technologies.map((t) => (
-            <li key={t.name} className="grid grid-cols-[minmax(0,150px)_1fr_44px] items-center gap-3 text-sm">
+            <li key={t.name} className="grid grid-cols-[minmax(0,200px)_1fr_44px] items-center gap-3 text-sm">
               <Link to={hostsLink({ tech: t.name })} className="truncate" title={t.name}>
                 {t.name}
               </Link>
