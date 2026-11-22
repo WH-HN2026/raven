@@ -3,17 +3,17 @@
 Hackathon prototype for AGH CBI: a web app that runs safe, recurring discovery scans of large networks (nmap + nuclei), fingerprints services and web technologies, tracks changes between runs, and uses **DefectDojo 3.5 (API v2)** as its dedup and finding-lifecycle engine. Go backend, React SPA, Postgres 18.
 
 Read before working:
-- [`docs/architecture.md`](docs/architecture.md): decisions D1–D10, data flow, Dojo mapping, schema, RBAC, safety rules.
-- [`docs/roadmap.md`](docs/roadmap.md): tasks, dependencies, status.
-- [`docs/challenge.md`](docs/challenge.md): the brief (Polish) and the organizers' notes.
-- [`docs/design/`](docs/design/README.md): **UI design reference.** Tokens, layout rules, one `.dc.html` mockup per screen, AGH logo and squares assets. Any UI task starts here.
+- [`docs/development/architecture.md`](docs/development/architecture.md): decisions D1–D10, data flow, Dojo mapping, schema, RBAC, safety rules.
+- [`docs/development/roadmap.md`](docs/development/roadmap.md): tasks, dependencies, status.
+- [`docs/development/challenge.md`](docs/development/challenge.md): the brief (Polish) and the organizers' notes.
+- [`docs/development/design/`](docs/development/design/README.md): **UI design reference.** Tokens, layout rules, one `.dc.html` mockup per screen, AGH logo and squares assets. Any UI task starts here.
 - DefectDojo source is checked out at `../django-DefectDojo` (parsers: `dojo/tools/<name>/parser.py`, API: `dojo/*/api/`). Read it instead of guessing API behaviour.
 
 ## Ground rules
 
 - **Hackathon: choose the simplest thing that works.** No compat layers, no speculative config, no new infra. Decisions in architecture §1 are settled; don't re-open them in code.
 - **Newest DefectDojo only** (3.5.x, API v2, Locations, Asset naming).
-- **Safety is a scored criterion. Never break it** (full rules: [architecture §9](docs/architecture.md#9-safety-scored-criterion-non-negotiable)):
+- **Safety is a scored criterion. Never break it** (full rules: [architecture §9](docs/development/architecture.md#9-safety-scored-criterion-non-negotiable)):
   - **Always (every workflow):** scan only the profile's in-scope targets with the global blacklist applied. Scan targets (dev machines): only (1) our lab (`make lab-up`, raven_lab 172.30.0.0/24), (2) the organizers' stacks from lab/organizers/, reached at the Docker host's bridge address (172.17.0.1) as target 172.17.0.1 with the Default (or Aggressive) profile, or (3) the organizers' lab at the event. Never the internet, other hosts on the LAN, the host's LAN address, or AGH ranges. Scanner flags come only from the allowlists in `internal/scanner/*`. Rate limit and time cap on every tool; no login attempts or credential brute-forcing, no DoS, no interactsh/OAST, no external APIs.
   - **Organizers' files are verbatim.** Never edit anything in lab/organizers/ (`make lab-verify` checks SHA256SUMS). Adapt RAVEN around them (ports, profiles, networks), never the other way round.
   - **Default workflow** (nmap → httpx → nuclei): no intrusive scripts or templates, GET-only probes, signatures from the safe-subset validator.
@@ -65,7 +65,7 @@ The coordinator's checkout stays on `main` and only runs `git pull`. It never ed
 
 **Worker spec template** (paste it, fill it in; a worker can't see your conversation):
 ```
-Task <ID>: <task name>  — repo raven, read AGENTS.md and docs/architecture.md first.
+Task <ID>: <task name>  — repo raven, read AGENTS.md and docs/development/architecture.md first.
 Goal: <the roadmap text for the task, plus anything the user added>.
 In scope: <packages/dirs the worker may edit>. Out of scope: <what not to touch>.
 Contract: <API paths / tables / interfaces it must provide or use>.
@@ -86,7 +86,7 @@ Report with worker_done: PR URL, summary, evidence (commands + results), known g
 5. **Verify your own work** as described in "Verify your change" below, and save the evidence (commands, output, pages visited).
 6. **Finish:**
    ```bash
-   # mark the task [x] in docs/roadmap.md, commit
+   # mark the task [x] in docs/development/roadmap.md, commit
    git fetch origin && git rebase origin/main   # resolve conflicts (table below)
    make check                                   # must pass locally
    git push --force-with-lease
@@ -106,7 +106,7 @@ Report with worker_done: PR URL, summary, evidence (commands + results), known g
 | `api/openapi.yaml` | Add paths and schemas inside your area's section (they're grouped by tag). On conflict keep both sides, then run `make gen`. |
 | Generated code (`internal/db/gen`, `web/src/api/schema.d.ts`) | Never hand-edit. On conflict take either side, then run `make gen`. |
 | `internal/httpapi/router.go`, `web/src/routes.tsx` | One line per area. Your code lives in your own files. |
-| `docs/roadmap.md` | Only flip your task to `[x]` (in the finishing commit), and add new tasks at the end of a track. Adjacent-line conflicts here are expected: keep both sides. |
+| `docs/development/roadmap.md` | Only flip your task to `[x]` (in the finishing commit), and add new tasks at the end of a track. Adjacent-line conflicts here are expected: keep both sides. |
 | Shared deps (`go.mod`, `web/package.json`) | On conflict keep both, then run `go mod tidy` / `npm install`. |
 
 ### Parallel worktrees, shared infra
@@ -156,8 +156,8 @@ scripts/gen-env.sh && docker compose up -d --build   # full deployment, what the
 
 **Web** (`web/`)
 - React + TS strict, TanStack Query for server state, React Router, Tailwind.
-- Follow [`docs/design/README.md`](docs/design/README.md) and the matching `docs/design/canvas/<Screen>.dc.html` mockup: square corners, AGH black/red, Roboto, the shared page frame.
-- Use colours only through the theme tokens in `web/src/theme.css` (copied from `docs/design/README.md`). No raw hex in components.
+- Follow [`docs/development/design/README.md`](docs/development/design/README.md) and the matching `docs/development/design/canvas/<Screen>.dc.html` mockup: square corners, AGH black/red, Roboto, the shared page frame.
+- Use colours only through the theme tokens in `web/src/theme.css` (copied from `docs/development/design/README.md`). No raw hex in components.
 - API types come only from the generated `web/src/api/schema.d.ts`, via the small client in `web/src/api/client.ts`.
 - Pages live in `web/src/pages/<area>/` and export their routes. Use `useCan(perm)` to hide controls the role can't use.
 - UI language: English.

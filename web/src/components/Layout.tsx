@@ -50,7 +50,7 @@ export function Brand() {
   )
 }
 
-/** The black top bar (docs/design/canvas/Nav.dc.html). */
+/** The black top bar (docs/development/design/canvas/Nav.dc.html). */
 function TopBar({
   items,
   user,
@@ -101,7 +101,7 @@ function TopBar({
   )
 }
 
-/** Footer (docs/design/canvas/Footer.dc.html): mirrored squares across the white/black edge, then a status line. */
+/** Footer (docs/development/design/canvas/Footer.dc.html): mirrored squares across the white/black edge, then a status line. */
 export function Footer() {
   return (
     <footer className="bg-black font-sans text-white">

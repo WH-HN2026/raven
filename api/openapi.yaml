@@ -948,7 +948,7 @@ paths:
       operationId: importResults
       description: |
         Import scan results (permission `import`), multipart max 25 MiB.
-        Supported `kind` values: `results-json`, `results-csv` (RAVEN's documented formats, see `docs/exchange.md`),
+        Supported `kind` values: `results-json`, `results-csv` (RAVEN's documented formats, see `docs/development/exchange.md`),
         `nmap-xml`, `nuclei-jsonl`, and `nessus` (`.nessus` files split per IP and pushed to DefectDojo with the
         "Tenable Scan" parser). When `kind` is omitted it is detected from the filename or content.
         `profile` accepts a profile ID or name (defaults to `default`). Imported hosts are filtered through

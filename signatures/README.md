@@ -36,7 +36,7 @@ Fixture provenance:
   - Tomcat `webapps/ROOT/favicon.ico`.
 
   The Jenkins, phpMyAdmin and Tomcat hashes are the same values nuclei-templates' `favicon-detect.yaml` uses. The Grafana and GitLab hashes are computed from the current upstream files, and older releases may serve a different icon.
-- The organizers' lab templates (V3, table below: `raven-npm-admin` … `raven-gitea-version`) use **recordings** of the real services from the organizers' images ([`lab/organizers/`](../lab/organizers), [`docs/lab.md`](../docs/lab.md)), taken with `curl -i` from a one-shot `raven-lab-tools:local` container on the V1 vuln lab network `raven_vlab` (10.77.0.0/16, removed in LB1; never from the host). The only edit: `Transfer-Encoding: chunked` is dropped from the phpMyAdmin and Gitea recordings, because curl already de-chunked the body.
+- The organizers' lab templates (V3, table below: `raven-npm-admin` … `raven-gitea-version`) use **recordings** of the real services from the organizers' images ([`lab/organizers/`](../lab/organizers), [`docs/development/lab.md`](../docs/development/lab.md)), taken with `curl -i` from a one-shot `raven-lab-tools:local` container on the V1 vuln lab network `raven_vlab` (10.77.0.0/16, removed in LB1; never from the host). The only edit: `Transfer-Encoding: chunked` is dropped from the phpMyAdmin and Gitea recordings, because curl already de-chunked the body.
 - Every other `response.http` is a hand-written reconstruction of the product's typical response: the same headers, title and markers that the official nuclei-templates match on.
 
 When the lab (L1) has the real services, replace the reconstructions with recordings from it.

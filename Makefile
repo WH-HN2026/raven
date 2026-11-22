@@ -65,7 +65,7 @@ test-scale:
 cve-db:
 	go run ./internal/cve/gen
 
-## Labs (docs/lab.md): one lab at a time, and one organizers' stack at a time.
+## Labs (docs/development/lab.md): one lab at a time, and one organizers' stack at a time.
 ##   LAB=ours (default): our fixtures, compose.lab.yml on the internal network raven_lab (172.30.0.0/24).
 ##   LAB=organizers STACK=quickstart|custom-network|modern|modern-proxy|vulnerable: the organizers'
 ##   files in lab/organizers, run as-is with their own commands (STACK=quickstart, the default, is

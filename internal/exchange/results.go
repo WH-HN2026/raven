@@ -26,7 +26,7 @@ const (
 )
 
 // ResultsDocument is RAVEN's extensible JSON/CSV scan-results interchange format.
-// See docs/exchange.md for the schema and examples.
+// See docs/development/exchange.md for the schema and examples.
 type ResultsDocument struct {
 	Format    string       `json:"format,omitempty"`
 	Version   int          `json:"version,omitempty"`

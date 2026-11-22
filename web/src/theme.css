@@ -1,6 +1,6 @@
 /*
  * RAVEN design tokens: the ONLY place colours are defined (AGENTS.md: no raw hex
- * in components). Values come from docs/design/README.md ("Tokens"); the
+ * in components). Values come from docs/development/design/README.md ("Tokens"); the
  * Tailwind names map 1:1 to the design names:
  *
  *   design token            Tailwind colour   e.g.

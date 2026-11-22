@@ -4,7 +4,7 @@
 
 ## Harness design & zero-network guarantee
 
-The load test lives in [`internal/scaletest/`](../internal/scaletest/) behind the `//go:build scaletest` build tag:
+The load test lives in [`internal/scaletest/`](../../internal/scaletest/) behind the `//go:build scaletest` build tag:
 
 - **Impossible to select in production:** none of the fake scanners compile into `cmd/raven` or normal `make check` builds.
 - **No external scanner traffic:** `FakeNmap`, `FakeHTTPX`, and `FakeNuclei` implement `scanner.Scanner` in-process with deterministic synthetic results (~30% of IPs up, 1–5 TCP services each, HTTP/HTTPS headers/cookies/TLS/technologies, ~15% nuclei matches, valid nmap XML / httpx JSONL / nuclei JSONL accepted by the real parsers). Scaled-down per-IP delays keep batch `duration_ms > 0` so S5 adaptive batching exercises its real throughput estimator (Run 1 uses `DefaultBatchSize = 256`, Run 2 adapts up to `MaxBatchSize = 4096`).
