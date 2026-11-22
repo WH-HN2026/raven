@@ -98,7 +98,8 @@ func TestAuthFlow(t *testing.T) {
 	}
 
 	var actions []string
-	rows, err := pool.Query(ctx, "SELECT action FROM audit_log ORDER BY id")
+	// Skip the migration's system-written profiles.create row (seeded Aggressive).
+	rows, err := pool.Query(ctx, "SELECT action FROM audit_log WHERE NOT (action = 'profiles.create' AND user_id IS NULL) ORDER BY id")
 	if err != nil {
 		t.Fatal(err)
 	}

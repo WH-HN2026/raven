@@ -171,9 +171,10 @@ M0 is sequential and blocking. Do it in **one** worktree, as fast as possible, t
 - [x] **LB0 Guardrails + docs for the two lab scenarios.**
 - [x] **LB1 Revert vuln_lab + two scenarios via make.** Revert V0/V1/V2/V4/V5 infra, `lab/organizers/` verbatim + `SHA256SUMS`, `make lab-up/lab-down/lab-change/lab-verify LAB=… STACK=…`, Dojo default port 18080, seeded "Organizers' lab" profile, real scan of each organizers' stack. (needs LB0 for docs only)
 - [ ] **LB2 Acceptance on the organizers' scenarios.** Their README steps exactly (quickstart up → change → up: 8787 gone/back in Changes; modern-proxy with `ENABLE_LATENCY=true LATENCY_MS=500`: slow host; vulnerable stack: WordPress 4.7, vsftpd, DVWA, Adminer fingerprints + CVEs; modern stack), expected-vs-actual table in `docs/acceptance.md`. (needs LB1)
-- [ ] **LB3 Aggressive on the organizers' vulnerable stack.** Admin-made aggressive profile limited to 172.17.0.1 ports 8088 (WordPress 4.7) and 8090 (DVWA); nuclei_active/nikto/wpscan/ZAP results documented. Open issue: ZAP is on internal-only networks and may not reach 172.17.0.1. (needs LB1, AG2–AG5)
+- [ ] **LB3 Aggressive on the organizers' vulnerable stack.** The seeded Aggressive profile (or a copy) limited to 172.17.0.1 ports 8088 (WordPress 4.7) and 8090 (DVWA); nuclei_active/nikto/wpscan/ZAP results documented. Open issue: ZAP is on internal-only networks and may not reach 172.17.0.1. (needs LB1, AG2–AG5)
 - [x] **LB4 No special-address target checks.** internal/targets no longer rejects loopback/link-local/multicast/unspecified/broadcast addresses; only IPv4-only and the CIDR size cap, now /8, remain. Which networks may be scanned is an operating rule (§9).
 - [x] **LB5 LB1 follow-ups.** `modern` stack scanned; §10 wording of the Organizers' lab profile (include + target added by hand).
+- [x] **LB6 Seeded profiles Default + Aggressive.** No "Organizers' lab" profile; seeded Default (renamed) and Aggressive (Default + nuclei_active, nikto, wpscan; gated as AG1); zap off by default in the profile (ZAP service runs; add the zap stage in the workflow builder); unavailable stages skipped at run start with a warning. ZAP service on by default: the `zap` compose service always starts and `RAVEN_ZAP_URL` defaults to `http://zap:8080` (empty disables it; empty in dev).
 
 ## M4 — MCP (last)
 

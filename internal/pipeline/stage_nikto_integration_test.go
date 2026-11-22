@@ -112,7 +112,7 @@ func TestNiktoStageIntegration(t *testing.T) {
 
 	// 1) Default profile (no nikto stage): nikto must NOT run and no artifact stored.
 	var defaultID int64
-	if err := pool.QueryRow(ctx, `SELECT id FROM profiles WHERE name = 'default'`).Scan(&defaultID); err != nil {
+	if err := pool.QueryRow(ctx, `SELECT id FROM profiles WHERE name = 'Default'`).Scan(&defaultID); err != nil {
 		t.Fatal(err)
 	}
 	r1, err := s.StartRun(ctx, nil, defaultID)

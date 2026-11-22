@@ -28,7 +28,7 @@ func TestPushServiceZAPStageGating(t *testing.T) {
 	q := gen.New(pool)
 
 	var profileID int64
-	if err := pool.QueryRow(ctx, `SELECT id FROM profiles WHERE name = 'default'`).Scan(&profileID); err != nil {
+	if err := pool.QueryRow(ctx, `SELECT id FROM profiles WHERE name = 'Default'`).Scan(&profileID); err != nil {
 		t.Fatal(err)
 	}
 
@@ -100,6 +100,14 @@ func TestPushServiceZAPStageGating(t *testing.T) {
 		{
 			name:       "default stages do not push zap even if artifact exists",
 			stages:     pipeline.DefaultStages(),
+			zapContent: zapXML,
+			wantZAP:    0,
+		},
+		{
+			// LB6: a profile with zap run without RAVEN_ZAP_URL; the run's
+			// stages are what StartRun records (zap dropped).
+			name:       "aggressive run with zap skipped does not push zap",
+			stages:     []string{pipeline.StageNmap, pipeline.StageHTTPX, pipeline.StageNuclei, pipeline.StageNucleiActive, pipeline.StageNikto, pipeline.StageWPScan},
 			zapContent: zapXML,
 			wantZAP:    0,
 		},

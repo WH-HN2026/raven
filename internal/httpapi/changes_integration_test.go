@@ -61,7 +61,7 @@ func TestChangesAPI(t *testing.T) {
 		t.Helper()
 		var id int64
 		err := pool.QueryRow(ctx, `INSERT INTO runs (profile_id, status, started_at, finished_at)
-			SELECT id, $1, now(), now() FROM profiles WHERE name = 'default' RETURNING id`, status).Scan(&id)
+			SELECT id, $1, now(), now() FROM profiles WHERE name = 'Default' RETURNING id`, status).Scan(&id)
 		if err != nil {
 			t.Fatal(err)
 		}

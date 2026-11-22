@@ -33,7 +33,7 @@ func TestCompareSharedStages(t *testing.T) {
 		t.Helper()
 		var id int64
 		if err := pool.QueryRow(ctx, `INSERT INTO runs (profile_id, status, started_at, finished_at, stages)
-			SELECT id, 'done', $1::timestamptz, $1::timestamptz, $2 FROM profiles WHERE name = 'default' RETURNING id`,
+			SELECT id, 'done', $1::timestamptz, $1::timestamptz, $2 FROM profiles WHERE name = 'Default' RETURNING id`,
 			startedAt, stages).Scan(&id); err != nil {
 			t.Fatal(err)
 		}

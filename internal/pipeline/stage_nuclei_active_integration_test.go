@@ -140,7 +140,7 @@ func TestNucleiActiveStageIntegration(t *testing.T) {
 
 	// 1) Default profile: nuclei_active must be skipped.
 	var defaultID int64
-	if err := pool.QueryRow(ctx, `SELECT id FROM profiles WHERE name = 'default'`).Scan(&defaultID); err != nil {
+	if err := pool.QueryRow(ctx, `SELECT id FROM profiles WHERE name = 'Default'`).Scan(&defaultID); err != nil {
 		t.Fatal(err)
 	}
 	r1, err := s.StartRun(ctx, nil, defaultID)

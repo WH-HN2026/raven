@@ -17,6 +17,14 @@ const (
 	StageZAP          = "zap"
 )
 
+// Seeded profile names (migration 20261121235950_seeded_default_aggressive_profiles.sql).
+// DefaultProfileName has the Default workflow; AggressiveProfileName has
+// SeededAggressiveStages and the AG1 gating of any aggressive profile.
+const (
+	DefaultProfileName    = "Default"
+	AggressiveProfileName = "Aggressive"
+)
+
 // StageDef describes one workflow stage in the registry (architecture §3.11).
 type StageDef struct {
 	Name       string   `json:"name"`
@@ -146,6 +154,13 @@ func AggressiveStages() []string {
 	return []string{StageNmap, StageHTTPX, StageNuclei, StageNucleiActive, StageNikto, StageWPScan, StageZAP}
 }
 
+// SeededAggressiveStages returns the stages of the seeded Aggressive profile:
+// the Aggressive preset without zap (admins add zap in the workflow builder).
+// Mirrored in migration 20261121235950_seeded_default_aggressive_profiles.sql.
+func SeededAggressiveStages() []string {
+	return slices.DeleteFunc(AggressiveStages(), func(s string) bool { return s == StageZAP })
+}
+
 // Presets returns the named workflow presets.
 func Presets() StagePresets {
 	return StagePresets{
@@ -203,6 +218,33 @@ func EffectiveStages(stages []string) []string {
 		return DefaultStages()
 	}
 	return slices.Clone(stages)
+}
+
+// AvailableStages drops the stages that are not Available now (e.g. zap
+// without RAVEN_ZAP_URL), and any stage whose Needs were dropped, keeping the
+// order. It returns the stages a run executes and the skipped ones. Validate
+// rejects unavailable stages on save, so a profile holds one only if it was
+// saved while the stage was available (e.g. zap, then RAVEN_ZAP_URL removed).
+func AvailableStages(stages []string) (run, skipped []string) {
+	stageMu.RLock()
+	defer stageMu.RUnlock()
+	kept := make(map[string]bool, len(stages))
+	for _, name := range stages {
+		def, ok := stageByName[name]
+		usable := ok && def.Available
+		for _, need := range def.Needs {
+			if !kept[need] {
+				usable = false
+			}
+		}
+		if usable {
+			kept[name] = true
+			run = append(run, name)
+		} else {
+			skipped = append(skipped, name)
+		}
+	}
+	return run, skipped
 }
 
 // HasStage reports whether name is present in stages.

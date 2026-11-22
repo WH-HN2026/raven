@@ -3067,7 +3067,7 @@ export interface operations {
                      * @enum {string}
                      */
                     kind?: "results-json" | "results-csv" | "nmap-xml" | "nuclei-jsonl" | "nessus";
-                    /** @description Profile ID or name (defaults to "default"). */
+                    /** @description Profile ID or name (defaults to "Default"). */
                     profile?: string;
                 };
             };

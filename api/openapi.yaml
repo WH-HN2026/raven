@@ -969,7 +969,7 @@ paths:
                   description: Format of the uploaded file (auto-detected if omitted).
                 profile:
                   type: string
-                  description: Profile ID or name (defaults to "default").
+                  description: Profile ID or name (defaults to "Default").
       responses:
         "202":
           description: Accepted; a run (stats.source = "import") was created and ingested.

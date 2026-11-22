@@ -36,7 +36,7 @@ func TestDashboardAPI(t *testing.T) {
 		t.Helper()
 		var id int64
 		err := pool.QueryRow(ctx, `INSERT INTO runs (profile_id, status, started_at, finished_at, hosts_total, hosts_up)
-			SELECT id, $1, $2, $3, 4, 3 FROM profiles WHERE name = 'default' RETURNING id`, status, start, finished).Scan(&id)
+			SELECT id, $1, $2, $3, 4, 3 FROM profiles WHERE name = 'Default' RETURNING id`, status, start, finished).Scan(&id)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -173,7 +173,7 @@ func TestDashboardAPI(t *testing.T) {
 	if len(d.Runs) != 3 || d.Runs[0].ID != r3 || d.Runs[0].DurationMS != nil || d.Runs[1].ID != r2 {
 		t.Fatalf("runs %+v", d.Runs)
 	}
-	if r := d.Runs[1]; r.Profile != "default" || *r.DurationMS != 90_000 || r.BatchesTotal != 2 || r.BatchesDone != 1 || r.HostsUp != 3 {
+	if r := d.Runs[1]; r.Profile != "Default" || *r.DurationMS != 90_000 || r.BatchesTotal != 2 || r.BatchesDone != 1 || r.HostsUp != 3 {
 		t.Errorf("run %d: %+v", r2, r)
 	}
 }

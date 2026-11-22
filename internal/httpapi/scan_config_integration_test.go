@@ -111,7 +111,7 @@ func TestProfilesAndSchedulesAPI(t *testing.T) {
 	}
 	var profiles list[gen.Profile]
 	parse(request(200, viewer, http.MethodGet, "/profiles", ""), &profiles)
-	if profiles.Total != 4 { // seeded 'default' and "Organizers' lab" + the two created here
+	if profiles.Total != 4 { // seeded Default and Aggressive + the two created here
 		t.Fatalf("profile page = %+v", profiles)
 	}
 	for _, body := range []string{
