@@ -3,8 +3,8 @@
 .env.local
 .env.*.local
 .env.*-backup
-# organizers' modern-proxy stack: make lab-up LAB=organizers STACK=modern-proxy copies .env.example
-lab/organizers/.env
+# reference modern-proxy stack: make lab-up LAB=reference STACK=modern-proxy copies .env.example
+lab/reference/.env
 
 # build output
 /bin/

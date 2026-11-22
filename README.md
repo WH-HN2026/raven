@@ -34,12 +34,12 @@ docker compose -f compose.yml -f lab/raven.compose.yml up -d      # attach RAVEN
 
 In RAVEN: **Targets** → add `172.30.0.16/28` as a target and as an include → **Runs** → **Start run**. Expected results per host: [`docs/development/lab.md`](docs/development/lab.md). Toggle the unstable host with `scripts/lab-flap.sh off|on`.
 
-**The organizers'** (their files in `lab/organizers/`, run as-is):
+**Reference lab** (their files in `lab/reference/`, run as-is):
 
 ```sh
-make lab-up LAB=organizers                     # STACK=quickstart (default)|custom-network|modern|modern-proxy|vulnerable
+make lab-up LAB=reference                      # STACK=quickstart (default)|custom-network|modern|modern-proxy|vulnerable
 make lab-change                                # their ./quickstart.sh change
-make lab-down LAB=organizers                   # same STACK= as lab-up
+make lab-down LAB=reference                    # same STACK= as lab-up
 ```
 
 In RAVEN: **Targets** → add `172.17.0.1` (once) → **Runs** → **Start run** with the profile **Default** (or **Aggressive**: Default + nuclei_active, nikto, wpscan; add zap in the workflow builder). Both scan every target and Default's port list, which also has RAVEN's 8000 and Dojo's 8443 ([`docs/development/lab.md`](docs/development/lab.md)).

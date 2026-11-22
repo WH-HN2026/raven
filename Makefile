@@ -72,36 +72,36 @@ test-scale:
 cve-db:
 	go run ./internal/cve/gen
 
-## Labs (docs/development/lab.md): one lab at a time, and one organizers' stack at a time.
+## Labs (docs/development/lab.md): one lab at a time, and one reference stack at a time.
 ##   LAB=ours (default): our fixtures, compose.lab.yml on the internal network raven_lab (172.30.0.0/24).
-##   LAB=organizers STACK=quickstart|custom-network|modern|modern-proxy|vulnerable: the organizers'
-##   files in lab/organizers, run as-is with their own commands (STACK=quickstart, the default, is
+##   LAB=reference STACK=quickstart|custom-network|modern|modern-proxy|vulnerable: the reference
+##   files in lab/reference, run as-is with their own commands (STACK=quickstart, the default, is
 ##   their ./quickstart.sh). RAVEN reaches them at 172.17.0.1: add that target, then run Default or Aggressive.
 LAB ?= ours
 STACK ?= quickstart
-ORG_STACKS := quickstart custom-network modern modern-proxy vulnerable
-ORG_UP_quickstart := bash quickstart.sh up
-ORG_DOWN_quickstart := bash quickstart.sh down
-ORG_UP_modern-proxy := cp -n .env.example .env && docker compose --env-file .env -f docker-compose-modern-proxy.yml up -d
-ORG_DOWN_modern-proxy := cp -n .env.example .env && docker compose --env-file .env -f docker-compose-modern-proxy.yml down
-ORG_UP = $(or $(ORG_UP_$(STACK)),docker compose -f docker-compose-$(STACK).yml up -d)
-ORG_DOWN = $(or $(ORG_DOWN_$(STACK)),docker compose -f docker-compose-$(STACK).yml down)
+REF_STACKS := quickstart custom-network modern modern-proxy vulnerable
+REF_UP_quickstart := bash quickstart.sh up
+REF_DOWN_quickstart := bash quickstart.sh down
+REF_UP_modern-proxy := cp -n .env.example .env && docker compose --env-file .env -f docker-compose-modern-proxy.yml up -d
+REF_DOWN_modern-proxy := cp -n .env.example .env && docker compose --env-file .env -f docker-compose-modern-proxy.yml down
+REF_UP = $(or $(REF_UP_$(STACK)),docker compose -f docker-compose-$(STACK).yml up -d)
+REF_DOWN = $(or $(REF_DOWN_$(STACK)),docker compose -f docker-compose-$(STACK).yml down)
 
 .PHONY: lab-check lab-change lab-verify
 
 lab-check:
 	@case "$(LAB)" in \
 	  ours) ;; \
-	  organizers) case " $(ORG_STACKS) " in *" $(STACK) "*) ;; \
-	    *) echo "invalid STACK=$(STACK); use one of: $(ORG_STACKS)" >&2; exit 1;; esac;; \
-	  *) echo "invalid LAB=$(LAB); use LAB=ours or LAB=organizers" >&2; exit 1;; \
+	  reference) case " $(REF_STACKS) " in *" $(STACK) "*) ;; \
+	    *) echo "invalid STACK=$(STACK); use one of: $(REF_STACKS)" >&2; exit 1;; esac;; \
+	  *) echo "invalid LAB=$(LAB); use LAB=ours or LAB=reference" >&2; exit 1;; \
 	esac
 
-## lab-up [LAB=ours|organizers] [STACK=…]: start a lab
+## lab-up [LAB=ours|reference] [STACK=…]: start a lab
 lab-up: lab-check
-ifeq ($(LAB),organizers)
+ifeq ($(LAB),reference)
 	@$(MAKE) --no-print-directory lab-verify
-	cd lab/organizers && $(ORG_UP)
+	cd lab/reference && $(REF_UP)
 	@gw=$$(docker network inspect bridge -f '{{(index .IPAM.Config 0).Gateway}}'); \
 	  echo "Docker host bridge address (docker0 gateway): $$gw"; \
 	  if [ "$$gw" != 172.17.0.1 ]; then \
@@ -112,19 +112,19 @@ else
 	docker compose -f compose.lab.yml up -d --build --wait
 endif
 
-## lab-down [LAB=ours|organizers] [STACK=…]: stop a lab
+## lab-down [LAB=ours|reference] [STACK=…]: stop a lab
 lab-down: lab-check
-ifeq ($(LAB),organizers)
-	cd lab/organizers && $(ORG_DOWN)
+ifeq ($(LAB),reference)
+	cd lab/reference && $(REF_DOWN)
 else
 	docker compose -f compose.lab.yml down
 endif
 
-## lab-change: the organizers' quickstart step 3 (= ./quickstart.sh change, stops the service on 8787)
+## lab-change: reference quickstart step 3 (= ./quickstart.sh change, stops the service on 8787)
 lab-change:
-	cd lab/organizers && bash quickstart.sh change
+	cd lab/reference && bash quickstart.sh change
 
-## lab-verify: check that lab/organizers still holds the organizers' files byte for byte (SHA256SUMS)
+## lab-verify: check that lab/reference still holds the reference files byte for byte (SHA256SUMS)
 lab-verify:
-	cd lab/organizers && sha256sum -c --quiet SHA256SUMS
-	@echo "lab/organizers: verbatim (SHA256SUMS OK)"
+	cd lab/reference && sha256sum -c --quiet SHA256SUMS
+	@echo "lab/reference: verbatim (SHA256SUMS OK)"
