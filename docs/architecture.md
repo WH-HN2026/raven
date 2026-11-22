@@ -332,7 +332,7 @@ The rules come in three layers. **Always** holds for every workflow. **Default w
 ### Always (every workflow)
 
 - **Scope:** only in-scope targets of the run's profile are scanned: no target is scanned unless it matches some include entry of that profile. The global blacklist (exclude list) is applied after every expansion step (CIDR, domain resolution, vhost URLs), and exclusions always win.
-- **Lab only from dev machines:** Scan targets (dev machines): only (1) our lab (`make lab-up`, raven_lab 172.30.0.0/24), (2) the organizers' stacks from lab/organizers/, reached at the Docker host's bridge address (172.17.0.1) on their published ports only, through the "Organizers' lab" profile, or (3) the organizers' lab at the event. Never the internet, other hosts on the LAN, the host's LAN address, or AGH ranges.
+- **Lab only from dev machines:** Scan targets (dev machines): only (1) our lab (`make lab-up`, raven_lab 172.30.0.0/24), (2) the organizers' stacks from lab/organizers/, reached at the Docker host's bridge address (172.17.0.1), as target 172.17.0.1 with the Default (or Aggressive) profile, or (3) the organizers' lab at the event. Never the internet, other hosts on the LAN, the host's LAN address, or AGH ranges.
 - **Organizers' files are verbatim:** never edit anything in `lab/organizers/` (`make lab-verify` checks `SHA256SUMS`). Adapt RAVEN around them (ports, profiles, networks), never the other way round.
 - **Intensity:** every tool runs with a rate limit and a time cap (the batch `ctx` deadline plus a per-tool limit). Cancelling `ctx` kills the process.
 - **Credentials:** no login attempts and no credential or password brute-forcing anywhere (wpscan password attack off, nikto credential tests off).
