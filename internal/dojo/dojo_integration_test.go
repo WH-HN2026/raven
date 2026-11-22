@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
 	"net/http"
 	"os"
 	"slices"
@@ -13,6 +14,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/WH-HN2026/raven/internal/targets"
 )
 
 // TestIntegrationDojo runs the whole client against the shared compose Dojo
@@ -210,6 +213,96 @@ func TestIntegrationDojo(t *testing.T) {
 		t.Fatalf("bad severity err = %v", err)
 	}
 	t.Logf("expected 400: %v", err)
+}
+
+// TestIntegrationFetchTargets checks ListURLs (/api/v2/url/) and FetchTargets
+// against the shared compose Dojo, creating and cleaning up only its own org
+// and assets.
+func TestIntegrationFetchTargets(t *testing.T) {
+	base := os.Getenv("RAVEN_DOJO_URL")
+	if base == "" {
+		t.Skip("RAVEN_DOJO_URL not set")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+	token := os.Getenv("RAVEN_DOJO_TOKEN")
+	if token == "" {
+		var err error
+		if token, err = ObtainToken(ctx, base, os.Getenv("DD_ADMIN_USER"), os.Getenv("DD_ADMIN_PASSWORD")); err != nil {
+			t.Fatal(err)
+		}
+	}
+	c := NewHTTPClient(base, token)
+	rnd := make([]byte, 4)
+	_, _ = rand.Read(rnd)
+	hexID := hex.EncodeToString(rnd)
+	slug := "raven-it-d7-" + hexID
+	ip := fmt.Sprintf("198.18.%d.%d", rnd[0], rnd[1])
+	domain := fmt.Sprintf("d7-%s.example", hexID)
+	nonTarget := "RAVEN Non Target " + hexID
+
+	org, err := c.GetOrCreateOrganization(ctx, slug)
+	must(t, err)
+	t.Cleanup(func() {
+		if err := c.do(context.Background(), http.MethodDelete, "/api/v2/organizations/"+itoa(org.ID)+"/", nil, nil, nil); err != nil {
+			t.Errorf("cleanup org %d: %v", org.ID, err)
+		}
+	})
+
+	aIP, err := c.GetOrCreateAsset(ctx, AssetSpec{Name: ip, Description: "D7 test IP", OrganizationID: org.ID, Tags: []string{"raven", "d7-custom"}})
+	must(t, err)
+	t.Cleanup(func() { deleteAsset(t, c, aIP.ID) })
+
+	aDom, err := c.GetOrCreateAsset(ctx, AssetSpec{Name: domain, Description: "D7 test domain", OrganizationID: org.ID, Tags: []string{"d7-dom"}})
+	must(t, err)
+	t.Cleanup(func() { deleteAsset(t, c, aDom.ID) })
+
+	aBad, err := c.GetOrCreateAsset(ctx, AssetSpec{Name: nonTarget, Description: "D7 test non-target", OrganizationID: org.ID})
+	must(t, err)
+	t.Cleanup(func() { deleteAsset(t, c, aBad.ID) })
+
+	// Import a tiny scan so /api/v2/url/ is guaranteed non-empty even on a fresh Dojo.
+	eng, err := c.GetOrCreateEngagement(ctx, EngagementSpec{AssetID: aIP.ID, Name: "RAVEN: d7"})
+	must(t, err)
+	test, err := c.GetOrCreateTest(ctx, TestSpec{EngagementID: eng.ID, ScanType: "Nmap Scan", Title: "nmap"})
+	must(t, err)
+	_, err = c.ReimportScan(ctx, ImportRequest{
+		ScanType: "Nmap Scan", TestID: test.ID, FileName: "nmap.xml", File: open(t, "testdata/nmap_3ports.xml"),
+		CloseOldFindings: true, Tags: []string{"raven", slug}, TagFindings: true, ScanDate: time.Now(),
+	})
+	must(t, err)
+
+	urlPage, err := c.ListURLs(ctx, URLQuery{Limit: 10})
+	must(t, err)
+	if urlPage.Count == 0 || len(urlPage.Results) == 0 {
+		t.Fatalf("ListURLs returned empty page: %+v", urlPage)
+	}
+	t.Logf("ListURLs count=%d first=%+v", urlPage.Count, urlPage.Results[0])
+
+	fetched, err := FetchTargets(ctx, c)
+	must(t, err)
+	if fetched.Skipped < 1 {
+		t.Fatalf("expected at least 1 skipped non-target (%q), got skipped=%d", nonTarget, fetched.Skipped)
+	}
+	var gotIP, gotDom *targets.Entry
+	for i := range fetched.Entries {
+		e := &fetched.Entries[i]
+		if e.Value == nonTarget {
+			t.Fatalf("non-target %q must not be in fetched entries", nonTarget)
+		}
+		if e.Kind == targets.KindIP && e.Value == ip {
+			gotIP = e
+		}
+		if e.Kind == targets.KindDomain && e.Value == domain {
+			gotDom = e
+		}
+	}
+	if gotIP == nil || !slices.Contains(gotIP.Tags, "d7-custom") || slices.Contains(gotIP.Tags, "raven") {
+		t.Fatalf("IP entry = %+v, want ip=%s with tag d7-custom (and no internal raven tag)", gotIP, ip)
+	}
+	if gotDom == nil || !slices.Contains(gotDom.Tags, "d7-dom") {
+		t.Fatalf("domain entry = %+v, want domain=%s with tag d7-dom", gotDom, domain)
+	}
 }
 
 func deleteAsset(t *testing.T, c *HTTPClient, id int64) {

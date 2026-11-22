@@ -200,6 +200,23 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/TargetUploadResult" }
         default: { $ref: "#/components/responses/Error" }
+  /targets/import-dojo:
+    post:
+      tags: [targets]
+      operationId: importDojoTargets
+      description: |
+        Imports valid targets (IPs, CIDRs, domains) from DefectDojo Assets and URL Locations
+        (`/api/v2/url/`) into targets with `source: "dojo"` (permission `import`).
+        Returns 503 if DefectDojo is not connected.
+      parameters: [{ $ref: "#/components/parameters/CSRF" }]
+      responses:
+        "200":
+          description: Import result.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DojoTargetImportResult" }
+        "503": { $ref: "#/components/responses/Error", description: "DefectDojo is not connected." }
+        default: { $ref: "#/components/responses/Error" }
   /targets/{id}:
     parameters: [{ $ref: "#/components/parameters/Id" }]
     delete:
@@ -1337,6 +1354,15 @@ components:
         value: { type: string }
         tags: { type: array, items: { type: string } }
         note: { type: string }
+    DojoTargetImportResult:
+      type: object
+      required: [imported, skipped, items]
+      properties:
+        imported: { type: integer }
+        skipped: { type: integer }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Target" }
     ScopeEntryInput:
       type: object
       required: [value, list]

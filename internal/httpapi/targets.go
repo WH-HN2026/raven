@@ -11,16 +11,18 @@ import (
 
 	"github.com/WH-HN2026/raven/internal/auth"
 	"github.com/WH-HN2026/raven/internal/db/gen"
+	"github.com/WH-HN2026/raven/internal/dojo"
 	"github.com/WH-HN2026/raven/internal/httpx"
 	"github.com/WH-HN2026/raven/internal/pipeline"
 	"github.com/WH-HN2026/raven/internal/targets"
 )
 
-// Targets (task S1). Logic lives in internal/targets.
+// Targets (task S1, D7). Logic lives in internal/targets and internal/dojo.
 func (a *api) mountTargets(r chi.Router) {
 	r.With(auth.Require(auth.PermRead)).Get("/targets", a.listTargets)
 	r.With(auth.Require(auth.PermTargetsWrite)).Post("/targets", a.createTargets)
 	r.With(auth.Require(auth.PermImport)).Post("/targets/upload", a.uploadTargets)
+	r.With(auth.Require(auth.PermImport)).Post("/targets/import-dojo", a.importDojoTargets)
 	r.With(auth.Require(auth.PermTargetsWrite)).Delete("/targets/{id}", a.deleteTarget)
 }
 
@@ -180,6 +182,41 @@ func (a *api) uploadTargets(w http.ResponseWriter, r *http.Request) {
 		res.Created = len(created)
 	}
 	httpx.JSON(w, http.StatusOK, res)
+}
+
+type dojoImportResult struct {
+	Imported int          `json:"imported"`
+	Skipped  int          `json:"skipped"`
+	Items    []gen.Target `json:"items"`
+}
+
+// importDojoTargets pulls all valid target candidates (IPs, CIDRs, domains) from
+// DefectDojo Assets and URL Locations into targets with source = "dojo" (D7).
+func (a *api) importDojoTargets(w http.ResponseWriter, r *http.Request) {
+	c := a.Dojo.Get()
+	if c == nil {
+		httpx.Error(w, http.StatusServiceUnavailable, "service_unavailable", "DefectDojo is not connected")
+		return
+	}
+	fetched, err := dojo.FetchTargets(r.Context(), c)
+	if err != nil {
+		slog.Error("import dojo targets", "err", err)
+		httpx.Error(w, http.StatusBadGateway, "dojo_error", "import targets from DefectDojo failed")
+		return
+	}
+	items := []gen.Target{}
+	if len(fetched.Entries) > 0 {
+		items, err = a.targetStore().AddTargets(r.Context(), auth.UserFrom(r.Context()), "dojo", fetched.Entries)
+		if err != nil {
+			targetsError(w, "import dojo targets", err)
+			return
+		}
+	}
+	httpx.JSON(w, http.StatusOK, dojoImportResult{
+		Imported: len(items),
+		Skipped:  fetched.Skipped,
+		Items:    items,
+	})
 }
 
 func (a *api) deleteTarget(w http.ResponseWriter, r *http.Request) {
