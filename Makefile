@@ -6,7 +6,7 @@ SQLC := go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1
 GO_PKGS := ./cmd/... ./internal/... ./web
 INFRA_SERVICES := raven-db nginx uwsgi celeryworker celerybeat initializer postgres valkey
 
-.PHONY: dev check check-go check-web gen build infra-up infra-down db-new test-integration test-scale lab-up lab-down cve-db
+.PHONY: dev check check-go check-web gen build manual infra-up infra-down db-new test-integration test-scale lab-up lab-down cve-db
 
 ## dev: Go server (rebuilt on change) + Vite dev server, using .env.local (run scripts/wt-env.sh first)
 dev: web/node_modules
@@ -37,6 +37,13 @@ gen: web/node_modules
 build: web/node_modules
 	cd web && $(NPM) run build
 	CGO_ENABLED=0 go build -trimpath -o bin/raven ./cmd/raven
+
+## manual: render docs/manual/raven-manual.tex to docs/RAVEN-instrukcja.pdf with tectonic
+manual:
+	@tmp=$$(mktemp -d); trap 'rm -rf "$$tmp"' EXIT; \
+	  tectonic --outdir "$$tmp" docs/manual/raven-manual.tex && \
+	  cp "$$tmp/raven-manual.pdf" docs/RAVEN-instrukcja.pdf && \
+	  echo "built docs/RAVEN-instrukcja.pdf"
 
 ## infra-up: shared Postgres (5433) + DefectDojo (18080), everything except raven
 infra-up:

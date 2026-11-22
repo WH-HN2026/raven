@@ -1,0 +1,473 @@
+\documentclass[10pt,a4paper]{article}
+\usepackage{raven-manual}
+
+\begin{document}
+
+% ── Title block (compact technical documentation header) ──
+\thispagestyle{empty}
+\noindent
+\begin{tikzpicture}[remember picture, overlay]
+  \fill[aghblack] (current page.north west) rectangle ([yshift=-47mm]current page.north east);
+  \fill[aghred] ([yshift=-47mm]current page.north west) rectangle ([yshift=-49.5mm]current page.north east);
+\end{tikzpicture}
+
+\vspace*{-12mm}
+{\sffamily\color{white}%
+  {\footnotesize\MakeUppercase{Centrum Bezpieczeństwa Informacji AGH \textperiodcentered{} Dokumentacja użytkownika}}\\[4pt]
+  {\fontsize{28}{32}\selectfont\bfseries RAVEN}\\[3pt]
+  {\large Recon of Assets, Versions, Exposures \& Networks}\\[4pt]
+  {\small Instrukcja użytkownika systemu cyklicznego rozpoznania powierzchni ataku}
+}
+
+\vspace{14mm}
+
+\noindent
+\begin{tabularx}{\linewidth}{@{}L{40mm}Y@{}}
+  \toprule
+  \textbf{Wersja dokumentu} & Prototyp hackathonowy (DefectDojo 3.5 API v2, Postgres 18) \\
+  \textbf{Język interfejsu} & Interfejs webowy w języku angielskim (nazwy przycisków i widoków podano w cudzysłowach, np.~\ui{Start scan}) \\
+  \textbf{Odbiorcy} & Administratorzy, inżynierowie bezpieczeństwa, operatorzy triage oraz audytorzy (role \code{admin}, \code{editor}, \code{operator}, \code{viewer}) \\
+  \bottomrule
+\end{tabularx}
+
+\vspace{3mm}
+\setcounter{tocdepth}{1}
+{\small\tableofcontents}
+\vspace{3mm}
+\noindent\rule{\linewidth}{0.6pt}
+
+% ==============================================================================
+\section{Wprowadzenie}
+% ==============================================================================
+
+\textbf{RAVEN} (\emph{Recon of Assets, Versions, Exposures \& Networks}) to aplikacja webowa opracowana dla Centrum Bezpieczeństwa Informacji AGH, służąca do bezpiecznego, cyklicznego skanowania rozległych sieci (powyżej 10\,000 adresów IP). System wykrywa aktywne hosty, identyfikuje wystawione usługi sieciowe oraz technologie webowe (w tym CMS-y, panele administracyjne, środowiska testowe, nagłówki, ciasteczka i certyfikaty TLS), porównuje wyniki między kolejnymi przebiegami, dopasowuje znane podatności CVE całkowicie w trybie offline oraz integruje się dwukierunkowo z platformą \textbf{DefectDojo 3.5 (API v2)}, wykorzystywaną jako silnik deduplikacji i zarządzania cyklem życia znalezisk.
+
+Cały backend systemu działa jako pojedynczy plik binarny \code{raven} (język Go) z wbudowanym interfejsem SPA (React + TypeScript), kolejką zadań River oraz harmonogramem. Skanowanie realizowane jest modułowo przez potok skanerów (\code{nmap} $\rightarrow$ \code{httpx} $\rightarrow$ \code{nuclei}, a w trybie agresywnym także \code{nuclei\_active}, \code{nikto}, \code{wpscan} i opcjonalnie \code{zap}). Aplikacja utrzymuje własną bazę PostgreSQL~18 z szyfrowaniem kolumn wrażliwych (\code{pgcrypto}) oraz lokalne lustro danych z DefectDojo, dzięki czemu panele analityczne nie odpytują DefectDojo przy każdym żądaniu.
+
+\begin{figure}[htbp]
+  \centering
+  \begin{tikzpicture}[
+    node distance=6mm and 9mm,
+    box/.style={draw=aghblack, thick, fill=white, minimum height=9mm, align=center, font=\sffamily\footnotesize, inner sep=4pt},
+    dark/.style={draw=aghblack, thick, fill=aghblack, text=white, minimum height=9mm, align=center, font=\sffamily\footnotesize\bfseries, inner sep=5pt},
+    accent/.style={draw=aghred, thick, fill=aghred!5, minimum height=9mm, align=center, font=\sffamily\footnotesize, inner sep=4pt},
+    arr/.style={-{Stealth[length=2.2mm]}, thick, color=aghink}
+  ]
+    \node[box, minimum width=32mm] (browser) {Przeglądarka (SPA)\\\scriptsize oraz klienci MCP (\code{/mcp})};
+    \node[dark, right=11mm of browser, minimum width=44mm] (raven) {RAVEN (\code{raven})\\\scriptsize API + RBAC + Harmonogram + Potok};
+    \node[box, above right=4mm and 11mm of raven, minimum width=38mm] (db) {PostgreSQL 18 (\code{raven-db})\\\scriptsize \code{pgcrypto}, kolejka River, lustro};
+    \node[accent, right=11mm of raven, minimum width=38mm] (scanners) {Skanery w potoku\\\scriptsize nmap, httpx, nuclei (+ opcj. agresywne)};
+    \node[box, below right=4mm and 11mm of raven, minimum width=38mm] (dojo) {DefectDojo 3.5 (API v2)\\\scriptsize Asset = IP, deduplikacja, triage};
+
+    \draw[arr] (browser) -- (raven);
+    \draw[arr] (raven) |- (db);
+    \draw[arr] (raven) -- (scanners);
+    \draw[arr] (raven) |- node[pos=0.72, below, font=\sffamily\tiny\color{aghmuted}] {reimport / sync / triage} (dojo);
+  \end{tikzpicture}
+  \caption{Uproszczona architektura uruchomieniowa systemu RAVEN.}
+  \label{fig:arch}
+\end{figure}
+
+\textbf{Skalowalność.} Potok planowania, adaptacyjnego podziału na partie, zapisu wsadowego oraz zapytań analitycznych został zweryfikowany testem obciążeniowym \code{make test-scale} (bez ruchu zewnętrznego) dla zakresów \code{/18} (16\,384 IP) oraz \code{/16} (65\,536 IP, ok.\ 20\,000 aktywnych hostów i 60\,000 usług). Dla 65\,536 IP drugi przebieg z adaptacyjnymi partiami po 4\,096 IP osiągnął zużycie sterty 93\,MB oraz czasy odpowiedzi API poniżej 500\,ms (lista hostów: 1,7--81\,ms, zmiany: 309\,ms, dashboard: 498\,ms).
+
+% ==============================================================================
+\section{Instalacja i uruchomienie}
+% ==============================================================================
+
+System wdrażany jest wyłącznie przy użyciu \textbf{Docker} oraz \textbf{Docker Compose} z głównego katalogu repozytorium. Plik \code{compose.yml} uruchamia usługę \code{raven} (z uprawnieniami sieciowymi \code{NET\_RAW} i \code{NET\_ADMIN} wymaganymi przez \code{nmap}), bazę \code{raven-db} (PostgreSQL~18.6), usługę \code{zap} (OWASP ZAP w wewnętrznej sieci \code{zap-internal}) oraz pełny stos DefectDojo~3.5.202 (\code{deploy/dojo.compose.yml}).
+
+\subsection{Pierwsze uruchomienie}
+
+\begin{cmdbox}
+\begin{Verbatim}[fontsize=\footnotesize]
+scripts/gen-env.sh           # wygenerowanie .env z losowymi kluczami i hasłami
+docker compose up -d --build # zbudowanie obrazu i uruchomienie całego stosu
+\end{Verbatim}
+\end{cmdbox}
+
+Skrypt \code{scripts/gen-env.sh} tworzy plik \code{.env} (ignorowany przez Git) na podstawie \code{.env.example} i wypełnia wszystkie pola oznaczone jako \code{generated} losowymi sekretami. Skrypt nie nadpisuje istniejącego pliku \code{.env} bez przełącznika \code{-f}. Po uruchomieniu kontenerów:
+\begin{itemize}
+  \item interfejs aplikacji RAVEN jest dostępny pod adresem \code{http://localhost:8000} (zmienna \code{RAVEN\_PORT});
+  \item interfejs DefectDojo jest dostępny pod adresem \code{http://localhost:18080} (zmienna \code{DD\_PORT});
+  \item aplikacja \code{raven} automatycznie wykonuje migracje bazy danych, tworzy początkowe konto administratora (\code{RAVEN\_ADMIN\_USERNAME} / \code{RAVEN\_ADMIN\_PASSWORD} z pliku \code{.env}), oczekuje na uruchomienie DefectDojo, pobiera token API (gdy \code{RAVEN\_DOJO\_TOKEN} jest puste) i zakłada w DefectDojo organizację \code{RAVEN} oraz zasób \code{RAVEN Planning}.
+\end{itemize}
+
+\begin{table}[htbp]
+  \centering
+  \footnotesize
+  \begin{tabularx}{\linewidth}{@{}L{47mm}L{29mm}Y@{}}
+    \toprule
+    \textbf{Zmienna w \code{.env}} & \textbf{Domyślna} & \textbf{Znaczenie} \\
+    \midrule
+    \code{RAVEN\_PORT} / \code{DD\_PORT} & \code{8000} / \code{18080} & Porty publikowane dla RAVEN i DefectDojo na hoście. \\
+    \code{RAVEN\_ENCRYPTION\_KEY} & losowy (32\,B+) & Klucz szyfrowania kolumn \code{\_enc} (\code{pgcrypto}). Wymagane min.\ 32 znaki. \\
+    \code{RAVEN\_ADMIN\_USERNAME} & \code{admin} & Nazwa konta początkowego administratora (hasło w \code{RAVEN\_ADMIN\_PASSWORD}). \\
+    \code{RAVEN\_COOKIE\_SECURE} & \code{false} & Ustawić na \code{true} przy udostępnianiu przez HTTPS. \\
+    \code{RAVEN\_SESSION\_TTL} & \code{12h} & Czas ważności sesji użytkownika w przeglądarce. \\
+    \code{RAVEN\_MAX\_WORKERS} & \code{2} & Globalny limit równoległych zadań partii skanowania (limity tempa dzielone są przez tę wartość). \\
+    \code{RAVEN\_DOJO\_URL} & \code{http://nginx:8080} & Wewnętrzny adres API DefectDojo; \code{RAVEN\_DOJO\_PUBLIC\_URL} służy do linków w przeglądarce. \\
+    \code{RAVEN\_ZAP\_URL} & \code{http://zap:8080} & Adres API OWASP ZAP; pusta wartość wyłącza etap \code{zap}. \\
+    \bottomrule
+  \end{tabularx}
+  \caption{Najważniejsze zmienne konfiguracyjne w pliku \code{.env}.}
+  \label{tab:env}
+\end{table}
+
+\begin{ostrzezenie}[Kopia zapasowa klucza szyfrowania]
+  Utrata wartości \code{RAVEN\_ENCRYPTION\_KEY} uniemożliwia odszyfrowanie zapisanych notatek, banerów usług, nagłówków HTTP, ciasteczek, certyfikatów TLS oraz surowych artefaktów skanowania. Plik \code{.env} należy archiwizować osobno od wolumenu bazy \code{raven-db-data}. W bieżącej wersji systemu nie zaimplementowano rotacji klucza.
+\end{ostrzezenie}
+
+% ==============================================================================
+\section{Logowanie, role i zarządzanie użytkownikami}
+% ==============================================================================
+
+Dostęp do wszystkich widoków aplikacji wymaga uwierzytelnienia lokalnym kontem użytkownika (hasła przechowywane są w postaci skrótów Argon2id; sesje zabezpieczone są ciasteczkiem \code{HttpOnly; SameSite=Strict} oraz nagłówkiem \code{X-RAVEN-CSRF}).
+
+Po zalogowaniu w prawym górnym rogu paska nawigacyjnego widoczna jest nazwa zalogowanego konta, odznaka przypisanej roli oraz przycisk \ui{Log out}. Kliknięcie nazwy użytkownika otwiera widok \ui{Profile} (\code{/account}), umożliwiający samodzielną zmianę hasła (\ui{Change password}; wymagana długość to minimum 12 znaków).
+
+\subsection{Role i macierz uprawnień (RBAC)}
+
+Ponieważ otwarta wersja DefectDojo~3.x nie zapewnia pełnego modelu RBAC, kontrola uprawnień realizowana jest w całości po stronie RAVEN. Interfejs ukrywa niedostępne akcje, jednak wiążącą kontrolę egzekwuje backend dla każdego żądania API i narzędzia MCP. Każda operacja modyfikująca stan zapisywana jest w tabeli \code{audit\_log}.
+
+\begin{table}[htbp]
+  \centering
+  \footnotesize
+  \begin{tabularx}{\linewidth}{@{}L{22mm}Y@{}}
+    \toprule
+    \textbf{Rola} & \textbf{Zakres uprawnień} \\
+    \midrule
+    \code{viewer} & Odczyt wszystkich widoków analitycznych (\code{read}) oraz eksport danych do CSV/JSON (\code{export}). Brak przycisków edycji i uruchamiania skanów. \\
+    \code{operator} & Wszystko co \code{viewer} oraz modyfikacja istniejących danych bez tworzenia i usuwania: triage znalezisk (\code{findings:edit}) oraz edycja szczegółów hostów i nadpisań usług (\code{hosts:edit}). \\
+    \code{editor} & Wszystko co \code{operator} oraz pełne zarządzanie celami (\code{targets:write}), zakresem profili nieagresywnych (\code{scope:write}), profilami nieagresywnymi (\code{profiles:write}), harmonogramami (\code{schedules:write}), sygnaturami (\code{signatures:write}), importem wyników (\code{import}) i uruchamianiem/zatrzymywaniem skanów (\code{runs:control}). \\
+    \code{admin} & Pełne uprawnienia, w tym zarządzanie użytkownikami (\code{users:admin}), tokenami API dla MCP (\code{tokens:admin}), globalną czarną i białą listą zakresu (\code{scope:global}) oraz uprawnienie \code{scan:aggressive} (tworzenie, edycja, usuwanie i planowanie profili agresywnych oraz ich zakresu). \\
+    \bottomrule
+  \end{tabularx}
+  \caption{Cztery wbudowane role RBAC w systemie RAVEN.}
+  \label{tab:rbac}
+\end{table}
+
+\subsection{Zarządzanie kontami i tokenami API}
+
+Widok \ui{Users} (\code{/users}) jest dostępny wyłącznie dla roli \code{admin} i zawiera trzy sekcje:
+\begin{enumerate}
+  \item \ui{Add user} --- formularz dodawania konta (\ui{Username}, \ui{Password (min 12)}, \ui{Role}, przycisk \ui{Add user}).
+  \item \ui{Accounts} --- tabela kont pozwalająca na bieżącą zmianę roli w kolumnie \ui{Role}, blokowanie i odblokowywanie dostępu (\ui{Disable} / \ui{Enable}), resetowanie hasła (\ui{Reset password}) oraz usuwanie konta (\ui{Delete} z potwierdzeniem \ui{Confirm delete}).
+  \item \ui{API tokens} --- wydawanie tokenów Bearer dla punktu końcowego \code{/mcp} (\ui{Token name}, wybór użytkownika \ui{User}, przycisk \ui{Issue token}) oraz ich unieważnianie (\ui{Revoke}). Token dziedziczy rolę przypisanego użytkownika i jest wyświetlany w postaci jawnej wyłącznie bezpośrednio po utworzeniu.
+\end{enumerate}
+
+\screenshot{users.png}{Widok \ui{Users}: formularz tworzenia konta, tabela użytkowników z czterema rolami RBAC oraz sekcja \ui{API tokens}.}{fig:users}
+
+% ==============================================================================
+\section{Zakres skanowania (Targets i Scope)}
+% ==============================================================================
+
+Konfiguracja celów oraz reguł zakresu znajduje się na stronie \ui{Targets} (nagłówek \ui{Targets \& scope}, ścieżka \code{/targets}).
+
+\subsection{Dodawanie celów}
+
+W sekcji \ui{Add targets} (wymagane uprawnienie \code{targets:write} lub \code{import}) dostępne są trzy źródła celów:
+\begin{itemize}
+  \item \ui{Enter manually} --- pole \ui{Targets, one per line} przyjmujące adresy IPv4, zakresy CIDR (maksymalnie do \code{/8}) oraz nazwy domenowe; dodatkowo można przypisać wspólne \ui{Tags} oraz notatkę \ui{Note}. Zatwierdzenie przyciskiem \ui{Add targets} waliduje cały zestaw atomowo --- przy błędach wyświetlany jest wykaz numerów linii.
+  \item \ui{Upload CSV / JSON} --- wgranie pliku \code{.csv}, \code{.txt} lub \code{.json} (do 10\,MiB). System wykonuje wstępne parsowanie (\emph{dry-run}) i wyświetla podgląd \ui{Preview} z liczbą poprawnych i pominiętych linii przed zapisaniem przyciskiem \ui{Import N valid entries}. W panelu dostępna jest sekcja \ui{Sample files} z przykładami formatów.
+  \item \ui{Import from Dojo} (przycisk w nagłówku strony) --- pobiera adresy IP, CIDR i domeny z zasobów (Assets) oraz lokalizacji URL w DefectDojo i zapisuje je ze źródłem \code{dojo}.
+\end{itemize}
+
+Zapisane cele widoczne są w tabeli na dole strony (z możliwością sortowania, filtrowania oraz usuwania pojedynczych wpisów), a przycisk eksportu w nagłówku pozwala pobrać listę w formacie CSV lub JSON.
+
+\subsection{Reguły zakresu i globalna czarna lista}
+
+Po prawej stronie widoku \ui{Targets \& scope} znajdują się globalne listy \ui{Include} oraz \ui{Exclude} (globalna czarna lista), edytowalne wyłącznie przez administratora (\code{scope:global}; pozostali użytkownicy widzą oznaczenie \ui{Admin only}). Każdy wpis składa się z wartości (\ui{Value}), typu (\ui{Type}: \code{Auto}, \code{IP}, \code{CIDR}, \code{Domain}) i opcjonalnej notatki (\ui{Note}). Niezależnie od list globalnych, każdy profil skanowania posiada własne listy \ui{Profile include} oraz \ui{Profile exclude} w edytorze profilu.
+
+Podczas planowania przebiegu RAVEN rozwija zakresy CIDR, rozwiązuje domeny na adresy IP (zachowując mapowanie domena $\rightarrow$ IP dla wirtualnych hostów HTTP), filtruje wyniki przez reguły \emph{include} danego profilu, a na końcu bezwzględnie odrzuca wszystkie adresy pasujące do reguł \emph{exclude} oraz globalnej czarnej listy. \textbf{Wykluczenia zawsze mają pierwszeństwo.}
+
+\screenshot{targets.png}{Widok \ui{Targets \& scope}: dodawanie celów, globalne listy \ui{Include}/\ui{Exclude} oraz tabela skonfigurowanych celów.}{fig:targets}
+
+% ==============================================================================
+\section{Profile skanowania i konstruktor przepływów}
+% ==============================================================================
+
+Widok \ui{Profiles} (nagłówek \ui{Profiles \& schedules}, ścieżka \code{/profiles}) prezentuje listę profili skanowania wraz z ich przepływem etapów (\ui{Workflow}), zakresem portów, limitami tempa, tagami Nuclei, progiem nieobecności i statusem aktywności.
+
+Po instalacji system zawiera dwa predefiniowane profile:
+\begin{itemize}
+  \item \textbf{Default} --- bezpieczny profil domyślny z przepływem \code{nmap} $\rightarrow$ \code{httpx} $\rightarrow$ \code{nuclei}, pokrywający typowe porty usług i środowisk laboratoryjnych.
+  \item \textbf{Aggressive} --- predefiniowany profil agresywny z czerwoną odznaką \redbadge{Aggressive}, zawierający etapy \code{nmap}, \code{httpx}, \code{nuclei}, \code{nuclei\_active}, \code{nikto}, \code{wpscan}. Etap \code{zap} jest domyślnie wyłączony w profilu i może zostać dodany przez administratora w konstruktorze przepływów. Profil ten nigdy nie jest profilem domyślnym ani automatycznie harmonogramowanym.
+\end{itemize}
+
+\subsection{Parametry profilu}
+
+Kliknięcie nazwy profilu lub przycisku \ui{New profile} otwiera formularz \ui{Settings}:
+\begin{itemize}
+  \item \ui{Name} i \ui{Ports} --- nazwa oraz specyfikacja portów TCP (np.~\code{22,80,443,8000-8100}).
+  \item \ui{nmap max rate (pps)} i \ui{nuclei rate (req/s)} --- limity intensywności skanowania (domyślnie 300\,pps oraz 50\,req/s; przy wielu workerach dzielone przez \code{RAVEN\_MAX\_WORKERS}).
+  \item \ui{Nuclei tags} --- bezpieczne tagi oficjalnych szablonów Nuclei: \code{tech}, \code{panel}, \code{ssl}, \code{waf}, \code{favicon}.
+  \item \ui{Miss threshold (runs)} --- liczba kolejnych przebiegów bez odpowiedzi (domyślnie 3), po której host przechodzi ze stanu \code{Unstable} w \code{Inactive} i generowane jest znalezisko \emph{Host offline}.
+  \item \ui{Batch duration (min)} --- docelowy czas trwania jednej partii (domyślnie 10\,min = 600\,s) dla mechanizmu adaptacyjnego doboru rozmiaru partii.
+  \item \ui{Profile enabled} --- włączenie lub wyłączenie możliwości uruchamiania profilu.
+\end{itemize}
+
+Po prawej stronie edytora istniejącego profilu znajdują się sekcje \ui{Profile include} oraz \ui{Profile exclude} ograniczające zakres celów danego profilu.
+
+\subsection{Konstruktor przepływów (Workflow builder)}
+
+Sekcja \ui{Workflow} umożliwia konfigurację etapów potoku skanowania. Dostępne są dwa przyciski presetów (\ui{Default} oraz \ui{Aggressive}) oraz przełączniki poszczególnych etapów. Zależności egzekwowane są zarówno w interfejsie, jak i na serwerze:
+
+\begin{table}[htbp]
+  \centering
+  \footnotesize
+  \begin{tabularx}{\linewidth}{@{}L{24mm}L{16mm}L{19mm}Y@{}}
+    \toprule
+    \textbf{Etap} & \textbf{Wymaga} & \textbf{Zestaw} & \textbf{Działanie i typ testu w DefectDojo} \\
+    \midrule
+    \code{nmap} & (zawsze wł.) & Default & Wykrywanie hostów (\code{-sn}) i usług (\code{-sS -sV}, bezpieczne skrypty); \emph{Nmap Scan}. \\
+    \code{httpx} & \code{nmap} & Default & Pojedyncze żądania GET dla usług HTTP(S): tytuł, status, nagłówki, ciasteczka, TLS, przekierowania, hash favicony, czas odpowiedzi, technologie; \emph{httpx Scan}. \\
+    \code{nuclei} & \code{httpx} & Default & Bezpieczne szablony wg wybranych tagów oraz własne sygnatury; \emph{Nuclei Scan}. \\
+    \code{nuclei\_active} & \code{httpx} & Aggressive & Aktywne szablony (\code{intrusive}/\code{fuzz}, bez \code{dos} i OAST); osobny test \emph{RAVEN: nuclei\_active}. \\
+    \code{nikto} & \code{httpx} & Aggressive & Analiza konfiguracji HTTP (\code{-Tuning 123be}, bez testów poświadczeń i DoS, limit 300\,s); \emph{Nikto Scan}. \\
+    \code{wpscan} & \code{httpx} & Aggressive & Wyłącznie dla wykrytych instancji WordPressa: wersja rdzenia, wtyczki i motywy (offline, bez brute-force); \emph{Wpscan} + zasilenie dopasowania CVE. \\
+    \code{zap} & \code{httpx} & Aggressive & Spider i ograniczony skan aktywny przez API usługi OWASP ZAP; \emph{ZAP Scan}. \\
+    \bottomrule
+  \end{tabularx}
+  \caption{Etapy dostępne w konstruktorze przepływów.}
+  \label{tab:stages}
+\end{table}
+
+Wyłączenie etapu \code{httpx} automatycznie dezaktywuje wszystkie etapy zależne (wyświetlając etykietę \code{needs httpx}). Etapy agresywne mogą być włączane i zapisywane wyłącznie przez administratora (\code{scan:aggressive}; użytkownik z rolą \code{editor} widzi oznaczenie \code{Admin only}). Jeżeli dany etap nie jest skonfigurowany w środowisku (np.~\code{zap} przy pustym \code{RAVEN\_ZAP\_URL}), wyświetlany jest ze statusem \code{Not available}, a przy uruchomieniu zapisanego wcześniej profilu zostaje pominięty z ostrzeżeniem w statystykach przebiegu.
+
+\screenshot{profile-workflow.png}{Edytor profilu \ui{Aggressive}: parametry profilu, konstruktor przepływów (\ui{Workflow}) oraz zakres \ui{Profile include} ograniczony do wybranego hosta.}{fig:profile}
+
+% ==============================================================================
+\section{Uruchamianie skanów i harmonogramy}
+% ==============================================================================
+
+\subsection{Ręczne uruchamianie i monitorowanie przebiegów}
+
+Na stronie \ui{Runs} (\code{/runs}) użytkownicy z uprawnieniem \code{runs:control} (\code{editor} i \code{admin}) mogą uruchomić skan, wybierając aktywny profil z listy \ui{Profile} i klikając \ui{Start run}. Dla każdego profilu z co najmniej jednym etapem agresywnym pojawia się obowiązkowe okno potwierdzenia \ui{Start aggressive run?} z czerwoną ramką oraz przyciskami \ui{Start} i \ui{Cancel}.
+
+\screenshot{runs-aggressive-confirm.png}{Strona \ui{Runs}: dialog potwierdzenia \ui{Start aggressive run?} oraz tabela zakończonych przebiegów z odznakami etapów i czasami trwania.}{fig:runs}
+
+Kliknięcie numeru przebiegu (\code{\#1}, \code{\#2}, \dots) otwiera widok szczegółowy \ui{Run \#N} (\code{/runs/:id}), odświeżany automatycznie w trakcie wykonywania:
+\begin{itemize}
+  \item pasek postępu oraz mozaika partii (każda partia jest osobnym zadaniem kolejki River);
+  \item metryki \ui{Hosts up / total}, \ui{Duration}, znaczniki \ui{Created}, \ui{Started}, \ui{Finished};
+  \item sekcja \ui{Stats} prezentująca szczegółowe liczniki etapów, m.in.\ \code{http slow} (usługi o podwyższonym czasie odpowiedzi) i \code{http unresponsive} (otwarty port bez odpowiedzi HTTP, mimo że w poprzednim przebiegu odpowiadał) oraz ewentualne ostrzeżenia;
+  \item tabela \ui{Batches} z kolumnami \ui{Seq}, \ui{Status}, \ui{IPs}, \ui{Hosts up}, \ui{Attempts}, \ui{Duration} i \ui{Error}.
+\end{itemize}
+
+Rozmiar partii wyznaczany jest adaptacyjnie na podstawie zmierzonej przepustowości poprzednich przebiegów danego profilu ($\text{rozmiar} = \text{przepustowość} \times \text{target\_batch\_seconds}$, w przedziale $[8, 4096]$ adresów IP; w pierwszym przebiegu stosowana jest wartość domyślna 256). Aktywny przebieg można przerwać przyciskiem \ui{Stop run} (\ui{Confirm stop}), co wysyła anulowanie kontekstu i natychmiast kończy procesy skanerów.
+
+\screenshot{run-detail.png}{Widok szczegółowy przebiegu \ui{Run \#1}: pasek postępu, metryki czasu, statystyki etapów oraz tabela partii \ui{Batches}.}{fig:run-detail}
+
+\subsection{Harmonogramy i okna czasowe}
+
+Sekcja \ui{Schedules} znajduje się w dolnej części strony \ui{Profiles \& schedules} (\code{/profiles}). Przycisk \ui{New schedule} otwiera formularz konfiguracji cyklicznych skanów:
+\begin{itemize}
+  \item \ui{Name} i \ui{Profile} --- nazwa harmonogramu i profil (planowanie profilu agresywnego wymaga roli \code{admin} i zaznaczenia \ui{Confirm aggressive schedule});
+  \item \ui{Repeats} --- częstotliwość: \ui{Every N minutes}, \ui{Every N hours}, \ui{Daily at} (godzina) lub dowolne wyrażenie 5-polowe \ui{Cron};
+  \item \ui{Window start}, \ui{Window end} i \ui{Timezone} --- opcjonalne okno czasowe (obsługiwane są także okna nocne przechodzące przez północ, np.~22:00--06:00 w strefie \code{Europe/Warsaw}).
+\end{itemize}
+
+Jeżeli skan nie zakończy się przed końcem okna czasowego, kontekst aktywnych zadań zostaje anulowany, procesy skanerów zostają zabite, niedokończona partia wraca do stanu \code{pending}, a przebieg otrzymuje status \code{suspended}. W kolejnym oknie czasowym harmonogram wznawia ten sam przebieg od pozostałych partii. Harmonogramy pobrane z DefectDojo wyświetlane są z odznaką \badge{Dojo \#N}, linkiem \ui{open $\nearrow$} i statusem \badge{Read-only}.
+
+\screenshot{schedules.png}{Sekcja \ui{Schedules} na stronie \ui{Profiles \& schedules} z aktywnym harmonogramem posiadającym okno nocne 22:00--06:00 (codziennie).}{fig:schedules}
+
+% ==============================================================================
+\section{Wyniki: Dashboard, Hosty, Usługi i Technologie}
+% ==============================================================================
+
+\subsection{Dashboard}
+
+Strona główna \ui{Dashboard} (\code{/}) przedstawia skondensowany obraz stanu sieci (odczytywany wyłącznie z lokalnej bazy danych RAVEN):
+\begin{itemize}
+  \item wiersz kluczowych wskaźników: \ui{Active hosts}, \ui{Open services}, \ui{Active findings}, \ui{New devices} (nowo wykryte adresy / \emph{shadow IT}), \ui{Changed services}, \ui{Gone} oraz \ui{Unstable hosts} (z linkami do przefiltrowanych widoków);
+  \item tabela \ui{Changes since run \#N} (do 10 ostatnich zmian) z odnośnikiem \ui{Compare runs};
+  \item trzy kolumny analityczne: \ui{Active findings by severity}, \ui{New devices} oraz \ui{Top web technologies};
+  \item tabele \ui{CVE matches} (usługi z dopasowaniami offline CVE, najwyższym wynikiem CVSS i liczbą wpisów CISA KEV), \ui{Unstable hosts} oraz \ui{Recent runs}.
+\end{itemize}
+
+\screenshot{dashboard.png}{Widok główny \ui{Dashboard}: kluczowe wskaźniki, zmiany od poprzedniego przebiegu, rozkład znalezisk, technologie webowe i dopasowania CVE.}{fig:dashboard}
+
+\subsection{Lista hostów i widok szczegółowy hosta}
+
+Strona \ui{Hosts} (\code{/hosts}) wyświetla wszystkie wykryte adresy IP. Pasek filtrów działa natychmiastowo (bez przycisku zatwierdzania) i obsługuje wyszukiwanie po IP, CIDR lub nazwie hosta (\ui{IP, CIDR or hostname}), otwartym porcie (\ui{Open port}), technologii (\ui{Technology}), tagu użytkownika (\ui{Tag}) oraz stanie (\ui{State}: \code{Any}, \code{Active}, \code{Unstable}, \code{Inactive}). Każda kolumna tabeli jest sortowalna rosnąco i malejąco.
+
+\screenshot{hosts-list.png}{Strona \ui{Hosts}: natychmiastowe filtry, stany hostów (\code{Active}, \code{Unstable}), otwarte porty, liczba aktywnych znalezisk i tagi.}{fig:hosts}
+
+Kliknięcie adresu IP otwiera widok szczegółowy \code{/hosts/:ip}:
+\begin{itemize}
+  \item \ui{Services} --- lista usług (\code{open} i \code{gone}) z portem, nazwą, produktem, wersją oraz banerem (długie banery powyżej 80 znaków są zwijane i rozwijają się po kliknięciu). Użytkownicy z uprawnieniem \code{hosts:edit} mogą kliknąć \ui{Edit} w wierszu usługi, aby nadpisać nazwę, produkt lub wersję. Nadpisane pola oznaczane są odznaką \badge{edited} (z podglądem oryginalnej wartości ze skanu i opcją \ui{Reset to scan value}) i \textbf{nie są tracone przy kolejnych skanach}.
+  \item \ui{HTTP fingerprint} --- zebrane przez \code{httpx} informacje dla każdego adresu URL: \ui{Status}, \ui{Title}, \ui{Response time} (w milisekundach; usługi o czasie odpowiedzi $\ge 2000\text{ ms}$ lub co najmniej $3\times$ wolniejsze niż w poprzednim przebiegu przy $\ge 500\text{ ms}$ otrzymują odznakę \redbadge{slow}), \ui{Favicon (mmh3)}, \ui{Redirect chain}, pełne \ui{Response headers}, \ui{Cookies}, \ui{TLS certificate} oraz wykryte \ui{Technologies}.
+  \item \ui{Host details} (panel boczny) --- pola zarządzane przez użytkownika: \ui{Owner}, \ui{Criticality} (\code{low}, \code{medium}, \code{high}, \code{critical}), \ui{Tags} oraz szyfrowane \ui{Notes}, a także identyfikator \ui{Dojo asset} i informacja \ui{Last edited}. Zapisane zmiany (\ui{Edit} $\rightarrow$ \ui{Save}) są chronione przed nadpisaniem przez kolejne skany i synchronizowane do opisu oraz tagów zasobu w DefectDojo.
+  \item \ui{Presence, last N runs} --- pasek dostępności hosta w ostatnich przebiegach oraz odnośnik \ui{Timeline} w nagłówku strony.
+\end{itemize}
+
+\screenshot{host-detail.png}{Widok szczegółowy hosta \code{172.30.0.17}: tabela \ui{Services} z nadpisanym polem (\badge{edited}), sekcja \ui{HTTP fingerprint} oraz panel \ui{Host details}.}{fig:host-detail}
+
+\subsection{Usługi i technologie}
+
+Strona \ui{Services} (nagłówek \ui{Services \& Technologies}, ścieżka \code{/services}) łączy dwa powiązane zestawienia: zagregowaną tabelę \ui{Technologies} (technologia, wersja, liczba hostów, liczba usług, najwyższa krytyczność i liczba dopasowań CVE) oraz szczegółową tabelę \ui{Services}. Kliknięcie nazwy technologii w tabeli lub etykiety technologii w wierszu usługi natychmiast filtruje listę usług do wybranej technologii.
+
+% ==============================================================================
+\section{Wykrywanie zmian i cykl życia hostów}
+% ==============================================================================
+
+Widok \ui{Changes} (\code{/changes}) umożliwia porównanie dwóch zakończonych przebiegów tego samego profilu: \ui{From (baseline)} (starszy) oraz \ui{To} (nowszy; interfejs wymusza kierunek od starszego do nowszego). Porównanie obejmuje wyłącznie etapy wspólne dla obu przebiegów, co zapobiega fałszywym różnicom przy zmianie konfiguracji przepływu.
+
+Podsumowanie na górze strony zlicza obiekty w trzech kategoriach, po których można filtrować tabelę (\ui{All}, \ui{New}, \ui{Changed}, \ui{Gone}):
+\begin{itemize}
+  \item \badge{+ New} --- nowe hosty i nowo otwarte porty/usługi;
+  \item \badge{\textasciitilde{} Changed} --- usługi, w których zmienił się co najmniej jeden element odcisku: nazwa, produkt, wersja, tytuł HTTP, zestaw technologii, status powolnej odpowiedzi (\code{slow}) lub brak odpowiedzi HTTP; zmienione pola podświetlane są w kolumnach \ui{Run \#A} i \ui{Run \#B};
+  \item \badge{$-$ Gone} --- hosty i usługi nieobecne w nowszym przebiegu.
+\end{itemize}
+
+Kliknięcie linku \ui{Timeline} przy dowolnym adresie IP (na stronie \ui{Changes} lub w widoku hosta) otwiera oś czasu \code{/changes/hosts/:ip}, przedstawiającą dla ostatnich 20 przebiegów dostępność hosta (\code{up}/\code{down}) oraz matrycę otwartych portów w czasie.
+
+\textbf{Obsługa hostów niestabilnych i cykl życia.} Adresy IP, które odpowiadały w poprzednim przebiegu, ale nie odpowiedziały w bieżącym, są automatycznie sondowane ponownie pod koniec przebiegu (\emph{re-probe}). Dopiero brak odpowiedzi w ponownym sondowaniu zwiększa licznik \code{miss\_count} i oznacza host jako \code{Unstable} (nie wykonuje się wówczas reimportu do DefectDojo, aby nie zamknąć istniejących znalezisk). Po osiągnięciu wartości \ui{Miss threshold} z profilu host otrzymuje stan \code{Inactive}, a w DefectDojo tworzone jest znalezisko informacyjne \emph{Host offline}. Ponowne pojawienie się hosta zeruje licznik i przywraca stan \code{Active}.
+
+\screenshot{changes.png}{Strona \ui{Changes}: porównanie \code{Run \#1} $\rightarrow$ \code{Run \#2} uwidaczniające zniknięcie niestabilnego hosta \code{172.30.0.27}.}{fig:changes}
+
+% ==============================================================================
+\section{Podatności, dopasowanie CVE offline i DefectDojo}
+% ==============================================================================
+
+\subsection{Przegląd i triage znalezisk}
+
+Strona \ui{Findings} (\code{/findings}) wyświetla znaleziska z lokalnego lustra DefectDojo (synchronizowanego automatycznie po zakończeniu każdego przebiegu oraz cyklicznie co 5 minut). Górny pasek zawiera interaktywne kafelki krytyczności (\ui{Critical}, \ui{High}, \ui{Medium}, \ui{Low}, \ui{Info}), pełniące również funkcję filtrów. Pasek filtrów obsługuje wyszukiwanie po tytule (\ui{Title}), adresie lub podsieci (\ui{IP or CIDR}), zasobie (\ui{Asset}), statusie (\ui{Status}) oraz źródle (\ui{Source}: \code{nmap}, \code{httpx}, \code{nuclei}, \code{nuclei\_active}, \code{nikto}, \code{wpscan}, \code{zap}, \code{cve}, \code{nessus}, \code{raven}).
+
+Kliknięcie znaleziska otwiera panel boczny \ui{Triage} (na szerokim ekranie obok tabeli, na węższym pod wierszem), zawierający numer w DefectDojo wraz z odnośnikiem \ui{open $\nearrow$}, tagi oraz formularz edycji (dla ról \code{operator}, \code{editor}, \code{admin}):
+\begin{itemize}
+  \item zmianę statusu (np.~aktywne, zweryfikowane, fałszywy alarm \emph{False positive}, ryzyko zaakceptowane \emph{Risk accepted}, poza zakresem \emph{Out of scope});
+  \item zmianę poziomu krytyczności (\ui{Severity});
+  \item dodanie notatki (\ui{Add a note}).
+\end{itemize}
+
+Przycisk \ui{Save to DefectDojo} wysyła zmianę bezpośrednio do API DefectDojo (\code{PATCH}) i natychmiast aktualizuje lokalne lustro. Stan triage jest zachowywany przy kolejnych reimportach skanów.
+
+\screenshot{findings.png}{Strona \ui{Findings}: liczniki krytyczności, filtry, lista znalezisk oraz panel \ui{Triage} z bezpośrednim zapisem do DefectDojo.}{fig:findings}
+
+\subsection{Dopasowanie CVE w trybie offline}
+
+W celu zachowania bezpieczeństwa skanowania RAVEN nie korzysta z zewnętrznych API w czasie działania. Zamiast tego w obrazie osadzony jest lokalny zbiór danych (\code{internal/cve/data/cve.json.gz}) wygenerowany z NVD CVE~2.0, CISA KEV i EPSS dla ponad 80 popularnych produktów (serwery WWW, CMS-y, panele administracyjne, SSH/FTP, bazy danych, urządzenia sieciowe; aktualizowany przez twórców poleceniem \code{make cve-db}).
+
+Zidentyfikowane przez \code{nmap}, \code{httpx}, \code{nuclei} (oraz \code{wpscan}) produkty i wersje mapowane są na identyfikatory CPE i dopasowywane do przedziałów wersji:
+\begin{itemize}
+  \item dla każdego dopasowanego CVE na danej instancji usługi tworzone jest osobne znalezisko w teście \emph{RAVEN CVE match} w DefectDojo (z oceną CVSS, wynikiem EPSS i flagą CISA KEV, która podnosi krytyczność o jeden poziom);
+  \item wersje zawierające sufiksy dystrybucyjne (np.~\code{Ubuntu}, \code{Debian}, \code{el8}), gdzie poprawki mogą być przenoszone wstecznie (\emph{backport}), otrzymują poziom pewności \code{low}, tag \code{cve:distro-build} oraz ograniczenie krytyczności maksymalnie do \code{Low}.
+\end{itemize}
+
+\subsection{Mapowanie obiektów w DefectDojo}
+
+Każdy adres IP odpowiada dokładnie jednemu zasobowi (\emph{Asset / Product}) w organizacji \code{RAVEN}. Dla każdej pary \code{(IP, profil)} utrzymywany jest długotrwały \emph{Engagement} o nazwie \code{RAVEN: <profil>}, a w jego ramach osobny \emph{Test} dla każdego skanera (\emph{Nmap Scan}, \emph{httpx Scan}, \emph{Nuclei Scan}, \emph{Nikto Scan}, \emph{Wpscan}, \emph{ZAP Scan}, \emph{Tenable Scan}, \emph{RAVEN CVE match}). Reimport z opcją \code{close\_old\_findings=true} wykonywany jest wyłącznie dla hostów, które odpowiedziały, oraz wyłącznie dla etapów uruchomionych w danym przebiegu. Pierwsze wykrycie nieznanego dotąd adresu IP tworzy znalezisko informacyjne \emph{New device found}.
+
+% ==============================================================================
+\section{Własne sygnatury detekcyjne}
+% ==============================================================================
+
+Strona \ui{Signatures} (\code{/signatures}) zarządza szablonami detekcyjnymi Nuclei. System dostarcza \textbf{49 wbudowanych sygnatur} (\badge{Built-in}) wykrywających m.in.: wycieki wersji w nagłówkach (\code{Server}, \code{X-Powered-By}), brak nagłówków bezpieczeństwa, znane ciasteczka sesyjne (\code{PHPSESSID}, \code{JSESSIONID}, \code{laravel\_session}, \code{wordpress\_*}), hashe favicon (Jenkins, Grafana, GitLab, phpMyAdmin, Tomcat, urządzenia sieciowe), ścieżki administracyjne (\code{/admin}, \code{/login}, \code{/wp-admin/}, \code{/manager/html}), oznaczenia środowisk testowych/staging oraz banery urządzeń IoT i drukarek.
+
+Użytkownicy z uprawnieniem \code{signatures:write} (\code{editor}, \code{admin}) mogą włączać i wyłączać dowolne sygnatury przełącznikiem \ui{Enabled} oraz dodawać własne szablony (\badge{Custom}) przyciskiem \ui{New signature}.
+
+\subsection{Walidacja bezpiecznego podzbioru i testowanie}
+
+Każda własna sygnatura przechodzi przez walidator bezpiecznego podzbioru (przycisk \ui{Validate} oraz automatycznie przy zapisie \ui{Create}/\ui{Save}). Dozwolone są wyłącznie:
+\begin{itemize}
+  \item protokół \code{http} (klucze najwyższego poziomu: \code{id}, \code{info}, \code{http});
+  \item metody wyłącznie \code{GET} lub \code{HEAD}, bez treści żądania (\code{body}), bez sekcji \code{raw}, \code{payloads}, \code{attack}, \code{fuzzing}, \code{race}, \code{unsafe} oraz bez nagłówków poświadczeń (\code{Authorization}, \code{Cookie});
+  \item maksymalnie 3 definicje żądań, 10 ścieżek rozpoczynających się od \code{\{\{BaseURL\}\}} lub \code{\{\{RootURL\}\}}, 3 przekierowania (\code{max-redirects}) i 20 matcherów (\code{word}, \code{regex}, \code{status}, bezpieczny \code{dsl});
+  \item całkowity zakaz wyrażeń \code{interactsh}/\code{oast}, protokołów \code{code}, \code{headless}, \code{javascript}, \code{network} oraz aliasów YAML.
+\end{itemize}
+
+Błędy walidacji wyświetlane są wraz z numerem linii i możliwością szybkiego przejścia do miejsca błędu w edytorze YAML. Zapisaną i poprawną sygnaturę (\badge{Ready}) można przetestować w panelu bocznym \ui{Test}, podając pojedynczy adres URL mieszczący się w zakresie (\ui{Lab URL}) i klikając \ui{Test}.
+
+\screenshot{signatures.png}{Edytor własnej sygnatury w widoku \ui{Signatures}: definicja YAML, status \badge{Ready} oraz wynik testu \badge{Matched} na żywo przeciwko usłudze laboratoryjnej.}{fig:signatures}
+
+% ==============================================================================
+\section{Import, eksport i integracje}
+% ==============================================================================
+
+\subsection{Import wyników skanów i eksport danych}
+
+Strona \ui{Import/Export} (\code{/exchange}) pozwala w sekcji \ui{Import scan results} (uprawnienie \code{import}, limit 25\,MiB) wgrać wyniki zewnętrznych skanów z automatycznym wykrywaniem formatu (\ui{File format}: \code{Auto-detect}):
+\begin{itemize}
+  \item \textbf{RAVEN JSON} (\code{results-json}) oraz \textbf{RAVEN CSV} (\code{results-csv}, zgodny również z wyeksportowanymi tabelami \code{hosts} i \code{services});
+  \item \textbf{nmap XML} (\code{nmap-xml}, wynik \code{nmap -oX}) oraz \textbf{nuclei JSONL} (\code{nuclei-jsonl});
+  \item \textbf{Nessus} (\code{nessus}, pliki \code{.nessus} w formacie \code{NessusClientData\_v2} --- dzielone per dozwolony adres IP i przesyłane do DefectDojo z użyciem parsera \emph{Tenable Scan}).
+\end{itemize}
+
+Zaimportowane pliki przechodzą przez tę samą filtrację zakresu wybranego profilu oraz globalną czarną listę co skany na żywo, tworzą zakończony przebieg w historii, zasilają tabele hostów/usług i uruchamiają wysyłkę do DefectDojo. Panel \ui{Result} pokazuje liczniki \ui{Hosts imported}, \ui{Hosts up}, \ui{Not in scope}, \ui{Excluded} oraz wynik \ui{DefectDojo push}.
+
+Sekcja \ui{Export} (dostępna dla wszystkich ról, w tym \code{viewer}) pobiera pełne zestawy danych (\code{Hosts}, \code{Services}, \code{Findings}, \code{Changes (latest runs)}, \code{Targets}) w formacie CSV lub JSON. Analogiczny przycisk eksportu w nagłówkach stron \ui{Hosts}, \ui{Services}, \ui{Findings}, \ui{Changes} i \ui{Targets} uwzględnia aktualnie ustawione filtry.
+
+\screenshot{import-export.png}{Strona \ui{Import / Export}: podsumowanie zaimportowanego pliku wyników skanu oraz sekcja eksportu danych.}{fig:exchange}
+
+\subsection{Planowanie skanów w DefectDojo}
+
+RAVEN co 5 minut odpytuje w DefectDojo zasób \code{RAVEN Planning} o zaangażowania (\emph{Engagements}) o statusie \code{Not Started} oznaczone tagiem \code{raven-profile:<nazwa\_profilu>}. Dla każdego takiego wpisu tworzony jest jednorazowy harmonogram ze źródłem \code{dojo} i oknem czasowym odpowiadającym polom \code{target\_start}--\code{target\_end}. W chwili rozpoczęcia skanu RAVEN zmienia status zaangażowania w DefectDojo na \code{In Progress}, a po jego zakończeniu na \code{Completed}.
+
+\subsection{Serwer MCP (\code{/mcp})}
+
+Aplikacja udostępnia wbudowany serwer \textbf{Model Context Protocol (MCP)} w trybie Streamable HTTP pod ścieżką \code{/mcp}. Klienci MCP uwierzytelniają się nagłówkiem \code{Authorization: Bearer <token>} z użyciem tokenu wydanego w widoku \ui{Users} $\rightarrow$ \ui{API tokens} i podlegają identycznym regułom RBAC jak interfejs webowy.
+
+\begin{table}[htbp]
+  \centering
+  \footnotesize
+  \begin{tabularx}{\linewidth}{@{}L{28mm}L{24mm}Y@{}}
+    \toprule
+    \textbf{Narzędzie MCP} & \textbf{Uprawnienie} & \textbf{Opis działania} \\
+    \midrule
+    \code{search\_hosts} & \code{read} & Wyszukiwanie hostów (zapytanie, stan, port, technologia, tag, paginacja). \\
+    \code{get\_host} & \code{read} & Pełne szczegóły hosta po adresie IP (usługi, HTTP, oś czasu, dopasowania CVE). \\
+    \code{list\_findings} & \code{read} & Lista znalezisk z lokalnego lustra DefectDojo z pełnym filtrowaniem. \\
+    \code{get\_changes} & \code{read} & Porównanie dwóch przebiegów (\code{from\_run\_id} $\rightarrow$ \code{to\_run\_id}). \\
+    \code{list\_runs} & \code{read} & Lista przebiegów skanowania (opcjonalnie dla wybranego \code{profile\_id}). \\
+    \code{start\_scan} & \code{runs:control} & Uruchomienie przebiegu dla profilu (dla agresywnego wymaga \code{confirm\_aggressive: true}). \\
+    \code{add\_targets} & \code{targets:write} & Atomowa walidacja i dodanie listy celów (IP, CIDR, domeny). \\
+    \bottomrule
+  \end{tabularx}
+  \caption{Narzędzia udostępniane przez serwer MCP pod ścieżką \code{/mcp}.}
+  \label{tab:mcp}
+\end{table}
+
+% ==============================================================================
+\section{Środowiska testowe i zasady bezpieczeństwa}
+% ==============================================================================
+
+\subsection{Dwa scenariusze laboratoryjne}
+
+Repozytorium zawiera dwa niezależne środowiska testowe uruchamiane poleceniem \code{make} (należy uruchamiać tylko jedno środowisko naraz):
+
+\begin{enumerate}
+  \item \textbf{Własny lab (\code{LAB=ours}, domyślny)} --- plik \code{compose.lab.yml} tworzy izolowaną sieć wewnętrzną \code{raven\_lab} (\code{172.30.0.0/24}, brak portów publikowanych na hoście) z 13 usługami w zakresie \code{172.30.0.16/28}: WordPress, Joomla, nginx z panelem \code{/admin}, aplikacja z nagłówkiem \code{X-Environment: staging}, Apache Tomcat, symulowana drukarka IoT, dwa serwery TLS (certyfikat samopodpisany i wygasły), symulowane banery \code{Apache/2.4.49} i \code{OpenSSH\_7.4} dla testów CVE, host niestabilny (\code{172.30.0.27}) oraz dwie bazy MariaDB.
+\begin{cmdbox}
+\begin{Verbatim}[fontsize=\footnotesize]
+make lab-up                                                 # uruchomienie labu
+docker compose -f compose.yml -f lab/raven.compose.yml up -d # podłączenie raven i zap
+scripts/lab-flap.sh off    # lub on / toggle (symulacja hosta niestabilnego)
+make lab-down              # zatrzymanie labu (po uprzednim odłączeniu raven/zap)
+\end{Verbatim}
+\end{cmdbox}
+  \item \textbf{Środowisko organizatorów (\code{LAB=organizers})} --- oryginalne pliki z katalogu \code{lab/organizers/} (niezmodyfikowane; integralność weryfikuje \code{make lab-verify} na podstawie \code{SHA256SUMS}). Obsługiwane stosy (\code{STACK}): \code{quickstart} (domyślny), \code{custom-network}, \code{modern}, \code{modern-proxy} (opóźnienia włączane w pliku \code{lab/\allowbreak organizers/.env} przez \code{ENABLE\_LATENCY=true} i \code{LATENCY\_MS=500}) oraz \code{vulnerable}. Polecenie \code{make lab-change} zatrzymuje usługę na porcie 8787 w stosie \code{quickstart} celem weryfikacji wykrywania zmian.
+\begin{cmdbox}
+\begin{Verbatim}[fontsize=\footnotesize]
+make lab-up LAB=organizers STACK=quickstart   # uruchomienie wybranego stosu
+make lab-change                               # wprowadzenie zmiany (port 8787)
+make lab-down LAB=organizers STACK=quickstart # zatrzymanie stosu
+\end{Verbatim}
+\end{cmdbox}
+  Stosy organizatorów publikują porty na hoście Dockera; RAVEN skanuje je poprzez adres bramy mostka \code{docker0}, tj.~\code{172.17.0.1} (należy dodać \code{172.17.0.1} w \ui{Targets} i uruchomić profil \ui{Default} lub \ui{Aggressive}). Uwaga: usługa \code{zap} działa wyłącznie w sieciach wewnętrznych (\code{internal: true}) i nie ma dostępu do \code{172.17.0.1}.
+\end{enumerate}
+
+\subsection{Trójwarstwowy model bezpieczeństwa skanowania}
+
+Bezpieczeństwo skanowania egzekwowane jest w kodzie na trzech poziomach:
+\begin{itemize}
+  \item \textbf{Zasady bezwzględne (każdy przepływ):} skanowane są wyłącznie cele z zakresu \emph{include} profilu po odjęciu wykluczeń i globalnej czarnej listy; każdy skaner działa z limitem tempa i limitem czasu (anulowanie kontekstu natychmiast zabija proces); zabronione są próby logowania, łamanie haseł, ataki DoS, wywołania zwrotne OAST/\code{interactsh} oraz zapytania do zewnętrznych API; wszystkie flagi skanerów pochodzą z zamkniętych białych list w pakietach \code{internal/scanner/*}.
+  \item \textbf{Przepływ domyślny (\code{Default}):} \code{nmap} bez \code{-A} i \code{-sC} (tylko bezpieczne skrypty \code{http-title}, \code{http-headers}, \code{ssl-cert}, \code{banner}, wybrane porty i \code{--max-rate}); \code{httpx} wykonuje pojedyncze żądanie GET na URL (bez zgadywania ścieżek); \code{nuclei} uruchamia wyłącznie bezpieczne tagi oraz zwalidowane sygnatury z jawnym wykluczeniem tagów \code{intrusive}, \code{dos}, \code{fuzz}, \code{bruteforce}, \code{rce}, \code{sqli}, \code{xss} oraz typów \code{code}, \code{headless}, \code{javascript}.
+  \item \textbf{Preset agresywny (\code{Aggressive}):} wyłącznie jawny \emph{opt-in}, nigdy domyślny; tworzenie i modyfikacja wyłącznie przez administratora (\code{scan:aggressive}); obowiązkowe okno potwierdzenia przed uruchomieniem; wyraźna odznaka \redbadge{Aggressive} na profilach i przebiegach; pełne logowanie w \code{audit\_log}. Nadal obowiązują wszystkie zasady bezwzględne (brak brute-force haseł, brak DoS, brak OAST).
+\end{itemize}
+
+\begin{uwaga}[Szyfrowanie danych w spoczynku]
+  {\sloppy W bazie \code{raven-db} wszystkie kolumny z danymi wrażliwymi (\code{hosts.notes\_enc}, \code{services.banner\_enc}, \code{http\_observations.headers\_enc}, \code{cookies\_enc}, \code{tls\_cert\_enc}, \code{run\_observations.nuclei\_evidence\_enc}, \code{artifacts.content\_enc}) szyfrowane są symetrycznie przez PostgreSQL \code{pgcrypto} (\code{pgp\_sym\_encrypt} z losową solą i IV dla każdej wartości). Logowanie zapytań SQL na serwerze \code{raven-db} jest wyłączone (\code{log\_statement=none}). Baza DefectDojo stanowi standardową instancję PostgreSQL~18 bez szyfrowania kolumn --- serwer DefectDojo należy zabezpieczyć na poziomie infrastruktury.\par}
+\end{uwaga}
+
+\end{document}
