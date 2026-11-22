@@ -157,6 +157,7 @@ M0 is sequential and blocking. Do it in **one** worktree, as fast as possible, t
 - [x] **AG3 nikto.** (needs AG1) Pinned in the image, flag allowlist with limited tuning and rate/time caps, "Nikto Scan" push, lab test.
 - [x] **AG4 wpscan.** (needs AG1) Pinned in the image, WordPress URLs only, enumeration without passwords or API token, "Wpscan" push, versions into offline CVE matching, lab test against the lab WordPress.
 - [x] **AG5 ZAP.** (needs AG1) ZAP service under compose profile `aggressive`, API-driven spider + capped active scan, "ZAP Scan" push, lab test.
+- [x] **AG6 Simplify aggressive UX.** Remove start/schedule confirmation prompts, confirm_aggressive API requirement, and red Aggressive badges outside the profile workflow builder; keep admin-only scan:aggressive RBAC, audit logging, and Default/Aggressive separation in profile creation.
 
 **Track V — vuln_lab (superseded by Track LB, reverted 2026-11-21)**
 - [x] **V0 vuln_lab design + roadmap track V.** Organizers' files kept verbatim in `lab/vuln/organizers/`; `docs/vuln-lab.md` with topology (`raven_vlab`, 10.77.0.0/16), service inventory, scenarios mapped to the jury test points, scale layer, one-command demo, safety, task specs. — *reverted in LB1*
