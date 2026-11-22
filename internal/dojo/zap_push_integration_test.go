@@ -104,6 +104,14 @@ func TestPushServiceZAPStageGating(t *testing.T) {
 			wantZAP:    0,
 		},
 		{
+			// LB6: the seeded Aggressive profile without RAVEN_ZAP_URL; the run's
+			// stages are what StartRun records (zap dropped).
+			name:       "aggressive run with zap skipped does not push zap",
+			stages:     []string{pipeline.StageNmap, pipeline.StageHTTPX, pipeline.StageNuclei, pipeline.StageNucleiActive, pipeline.StageNikto, pipeline.StageWPScan},
+			zapContent: zapXML,
+			wantZAP:    0,
+		},
+		{
 			name:       "zap stage pushes ZAP Scan xml report",
 			stages:     []string{pipeline.StageNmap, pipeline.StageHTTPX, pipeline.StageZAP},
 			zapContent: zapXML,

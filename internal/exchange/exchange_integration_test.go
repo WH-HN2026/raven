@@ -74,11 +74,19 @@ func TestIntegrationImportResultsAndExport(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Empty profile = the seeded Default profile.
 	run1, err := svc.ImportResults(ctx, u, ImportRequest{
-		Kind: ImportResultsJSON, Profile: "Default", Filename: "sample_results.json", Data: rawJSON,
+		Kind: ImportResultsJSON, Profile: "", Filename: "sample_results.json", Data: rawJSON,
 	})
 	if err != nil {
 		t.Fatalf("ImportResults(results-json): %v", err)
+	}
+	var defaultID int64
+	if err := pool.QueryRow(ctx, `SELECT id FROM profiles WHERE name = $1`, pipeline.DefaultProfileName).Scan(&defaultID); err != nil {
+		t.Fatal(err)
+	}
+	if run1.ProfileID != defaultID {
+		t.Fatalf("run1.ProfileID = %d, want Default (%d)", run1.ProfileID, defaultID)
 	}
 	if run1.Status != "done" || run1.HostsTotal != 2 || run1.HostsUp != 1 {
 		t.Fatalf("run1 = %+v (expected status=done, hosts_total=2 [172.30.0.11 excluded], hosts_up=1)", run1)
