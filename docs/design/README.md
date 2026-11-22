@@ -15,7 +15,7 @@ The look follows agh.edu.pl. The challenge authors gave us permission to use the
 | `assets/raven-logo-black.svg` | RAVEN wordmark (E drawn as a feather), black, for light backgrounds. |
 | `assets/raven-logo-white.svg` | RAVEN wordmark, white, for dark backgrounds (e.g. the black top bar). |
 | `assets/raven-favicon.svg` | Favicon: black feather E on an AGH-red square. Copy of `web/public/favicon.svg`. |
-| `assets/raven-favicon-1000.png` | The favicon rendered as a 1000×1000 PNG (avatars, social images). |
+| `assets/raven-favicon-500.png` | The favicon rendered as a 500×500 PNG (avatars, social images). |
 
 | Screen | File | Route (suggested) |
 |---|---|---|
