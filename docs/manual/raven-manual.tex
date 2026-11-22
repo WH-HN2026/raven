@@ -254,7 +254,7 @@ Kliknięcie numeru przebiegu (\code{\#1}, \code{\#2}, \dots) otwiera widok szcze
   \item tabela \ui{Batches} z kolumnami \ui{Seq}, \ui{Status}, \ui{IPs}, \ui{Hosts up}, \ui{Attempts}, \ui{Duration} i \ui{Error}.
 \end{itemize}
 
-Rozmiar partii wyznaczany jest adaptacyjnie na podstawie zmierzonej przepustowości poprzednich przebiegów danego profilu ($\text{rozmiar} = \text{przepustowość} \times \text{target\_batch\_seconds}$, w przedziale $[64, 4096]$ adresów IP; w pierwszym przebiegu stosowana jest wartość domyślna). Aktywny przebieg można przerwać przyciskiem \ui{Stop run} (\ui{Confirm stop}), co wysyła anulowanie kontekstu i natychmiast kończy procesy skanerów.
+Rozmiar partii wyznaczany jest adaptacyjnie na podstawie zmierzonej przepustowości poprzednich przebiegów danego profilu ($\text{rozmiar} = \text{przepustowość} \times \text{target\_batch\_seconds}$, w przedziale $[8, 4096]$ adresów IP; w pierwszym przebiegu stosowana jest wartość domyślna 256). Aktywny przebieg można przerwać przyciskiem \ui{Stop run} (\ui{Confirm stop}), co wysyła anulowanie kontekstu i natychmiast kończy procesy skanerów.
 
 \screenshot{run-detail.png}{Widok szczegółowy przebiegu \ui{Run \#1}: pasek postępu, metryki czasu, statystyki etapów oraz tabela partii \ui{Batches}.}{fig:run-detail}
 
@@ -264,12 +264,12 @@ Sekcja \ui{Schedules} znajduje się w dolnej części strony \ui{Profiles \& sch
 \begin{itemize}
   \item \ui{Name} i \ui{Profile} --- nazwa harmonogramu i profil (planowanie profilu agresywnego wymaga roli \code{admin} i zaznaczenia \ui{Confirm aggressive schedule});
   \item \ui{Repeats} --- częstotliwość: \ui{Every N minutes}, \ui{Every N hours}, \ui{Daily at} (godzina) lub dowolne wyrażenie 5-polowe \ui{Cron};
-  \item \ui{Window start}, \ui{Window end} i \ui{Timezone} --- opcjonalne okno czasowe (obsługiwane są także okna nocne przechodzące przez północ, np.~\code{22:00--06:00} w strefie \code{Europe/Warsaw}).
+  \item \ui{Window start}, \ui{Window end} i \ui{Timezone} --- opcjonalne okno czasowe (obsługiwane są także okna nocne przechodzące przez północ, np.~22:00--06:00 w strefie \code{Europe/Warsaw}).
 \end{itemize}
 
 Jeżeli skan nie zakończy się przed końcem okna czasowego, kontekst aktywnych zadań zostaje anulowany, procesy skanerów zostają zabite, niedokończona partia wraca do stanu \code{pending}, a przebieg otrzymuje status \code{suspended}. W kolejnym oknie czasowym harmonogram wznawia ten sam przebieg od pozostałych partii. Harmonogramy pobrane z DefectDojo wyświetlane są z odznaką \badge{Dojo \#N}, linkiem \ui{open $\nearrow$} i statusem \badge{Read-only}.
 
-\screenshot{schedules.png}{Sekcja \ui{Schedules} na stronie \ui{Profiles \& schedules} z aktywnym harmonogramem posiadającym okno nocne \code{22:00--06:00 daily}.}{fig:schedules}
+\screenshot{schedules.png}{Sekcja \ui{Schedules} na stronie \ui{Profiles \& schedules} z aktywnym harmonogramem posiadającym okno nocne 22:00--06:00 (codziennie).}{fig:schedules}
 
 % ==============================================================================
 \section{Wyniki: Dashboard, Hosty, Usługi i Technologie}
@@ -446,7 +446,7 @@ scripts/lab-flap.sh off    # lub on / toggle (symulacja hosta niestabilnego)
 make lab-down              # zatrzymanie labu (po uprzednim odłączeniu raven/zap)
 \end{Verbatim}
 \end{cmdbox}
-  \item \textbf{Środowisko organizatorów (\code{LAB=organizers})} --- oryginalne pliki z katalogu \code{lab/organizers/} (niezmodyfikowane; integralność weryfikuje \code{make lab-verify} na podstawie \code{SHA256SUMS}). Obsługiwane stosy (\code{STACK}): \code{quickstart} (domyślny), \code{custom-network}, \code{modern}, \code{modern-proxy} (opóźnienia włączane w pliku \code{lab/organizers/.env}: \code{ENABLE\_LATENCY=true}, \code{LATENCY\_MS=500}) oraz \code{vulnerable}. Polecenie \code{make lab-change} zatrzymuje usługę na porcie 8787 w stosie \code{quickstart} celem weryfikacji wykrywania zmian.
+  \item \textbf{Środowisko organizatorów (\code{LAB=organizers})} --- oryginalne pliki z katalogu \code{lab/organizers/} (niezmodyfikowane; integralność weryfikuje \code{make lab-verify} na podstawie \code{SHA256SUMS}). Obsługiwane stosy (\code{STACK}): \code{quickstart} (domyślny), \code{custom-network}, \code{modern}, \code{modern-proxy} (opóźnienia włączane w pliku \code{lab/\allowbreak organizers/.env} przez \code{ENABLE\_LATENCY=true} i \code{LATENCY\_MS=500}) oraz \code{vulnerable}. Polecenie \code{make lab-change} zatrzymuje usługę na porcie 8787 w stosie \code{quickstart} celem weryfikacji wykrywania zmian.
 \begin{cmdbox}
 \begin{Verbatim}[fontsize=\footnotesize]
 make lab-up LAB=organizers STACK=quickstart   # uruchomienie wybranego stosu
