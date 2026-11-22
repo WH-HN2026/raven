@@ -1,5 +1,5 @@
 \documentclass[10pt,a4paper]{article}
-\usepackage{docs/manual/raven-manual}
+\usepackage{raven-manual}
 
 \begin{document}
 
@@ -7,11 +7,11 @@
 \thispagestyle{empty}
 \noindent
 \begin{tikzpicture}[remember picture, overlay]
-  \fill[aghblack] (current page.north west) rectangle ([yshift=-42mm]current page.north east);
-  \fill[aghred] ([yshift=-42mm]current page.north west) rectangle ([yshift=-44mm]current page.north east);
+  \fill[aghblack] (current page.north west) rectangle ([yshift=-47mm]current page.north east);
+  \fill[aghred] ([yshift=-47mm]current page.north west) rectangle ([yshift=-49.5mm]current page.north east);
 \end{tikzpicture}
 
-\vspace*{-10mm}
+\vspace*{-12mm}
 {\sffamily\color{white}%
   {\footnotesize\MakeUppercase{Centrum Bezpieczeństwa Informacji AGH \textperiodcentered{} Dokumentacja użytkownika}}\\[4pt]
   {\fontsize{28}{32}\selectfont\bfseries RAVEN}\\[3pt]
@@ -19,7 +19,7 @@
   {\small Instrukcja użytkownika systemu cyklicznego rozpoznania powierzchni ataku}
 }
 
-\vspace{11mm}
+\vspace{14mm}
 
 \noindent
 \begin{tabularx}{\linewidth}{@{}L{40mm}Y@{}}
@@ -30,9 +30,10 @@
   \bottomrule
 \end{tabularx}
 
-\vspace{4mm}
+\vspace{3mm}
+\setcounter{tocdepth}{1}
 {\small\tableofcontents}
-\vspace{2mm}
+\vspace{3mm}
 \noindent\rule{\linewidth}{0.6pt}
 
 % ==============================================================================
@@ -77,10 +78,12 @@ System wdrażany jest wyłącznie przy użyciu \textbf{Docker} oraz \textbf{Dock
 
 \subsection{Pierwsze uruchomienie}
 
-\begin{lstlisting}[language=bash]
-scripts/gen-env.sh           # wygenerowanie .env z losowymi kluczami i haslami
-docker compose up -d --build # zbudowanie obrazu i uruchomienie calego stosu
-\end{lstlisting}
+\begin{cmdbox}
+\begin{Verbatim}[fontsize=\footnotesize]
+scripts/gen-env.sh           # wygenerowanie .env z losowymi kluczami i hasłami
+docker compose up -d --build # zbudowanie obrazu i uruchomienie całego stosu
+\end{Verbatim}
+\end{cmdbox}
 
 Skrypt \code{scripts/gen-env.sh} tworzy plik \code{.env} (ignorowany przez Git) na podstawie \code{.env.example} i wypełnia wszystkie pola oznaczone jako \code{generated} losowymi sekretami. Skrypt nie nadpisuje istniejącego pliku \code{.env} bez przełącznika \code{-f}. Po uruchomieniu kontenerów:
 \begin{itemize}
@@ -92,7 +95,7 @@ Skrypt \code{scripts/gen-env.sh} tworzy plik \code{.env} (ignorowany przez Git) 
 \begin{table}[htbp]
   \centering
   \footnotesize
-  \begin{tabularx}{\linewidth}{@{}L{44mm}L{26mm}Y@{}}
+  \begin{tabularx}{\linewidth}{@{}L{47mm}L{29mm}Y@{}}
     \toprule
     \textbf{Zmienna w \code{.env}} & \textbf{Domyślna} & \textbf{Znaczenie} \\
     \midrule
@@ -152,7 +155,7 @@ Widok \ui{Users} (\code{/users}) jest dostępny wyłącznie dla roli \code{admin
   \item \ui{API tokens} --- wydawanie tokenów Bearer dla punktu końcowego \code{/mcp} (\ui{Token name}, wybór użytkownika \ui{User}, przycisk \ui{Issue token}) oraz ich unieważnianie (\ui{Revoke}). Token dziedziczy rolę przypisanego użytkownika i jest wyświetlany w postaci jawnej wyłącznie bezpośrednio po utworzeniu.
 \end{enumerate}
 
-\screenshot[0.95\linewidth]{users.png}{Widok \ui{Users}: formularz tworzenia konta, tabela użytkowników z czterema rolami RBAC oraz sekcja \ui{API tokens}.}{fig:users}
+\screenshot{users.png}{Widok \ui{Users}: formularz tworzenia konta, tabela użytkowników z czterema rolami RBAC oraz sekcja \ui{API tokens}.}{fig:users}
 
 % ==============================================================================
 \section{Zakres skanowania (Targets i Scope)}
@@ -177,7 +180,7 @@ Po prawej stronie widoku \ui{Targets \& scope} znajdują się globalne listy \ui
 
 Podczas planowania przebiegu RAVEN rozwija zakresy CIDR, rozwiązuje domeny na adresy IP (zachowując mapowanie domena $\rightarrow$ IP dla wirtualnych hostów HTTP), filtruje wyniki przez reguły \emph{include} danego profilu, a na końcu bezwzględnie odrzuca wszystkie adresy pasujące do reguł \emph{exclude} oraz globalnej czarnej listy. \textbf{Wykluczenia zawsze mają pierwszeństwo.}
 
-\screenshot[0.95\linewidth]{targets.png}{Widok \ui{Targets \& scope}: dodawanie celów, globalne listy \ui{Include}/\ui{Exclude} oraz tabela skonfigurowanych celów.}{fig:targets}
+\screenshot{targets.png}{Widok \ui{Targets \& scope}: dodawanie celów, globalne listy \ui{Include}/\ui{Exclude} oraz tabela skonfigurowanych celów.}{fig:targets}
 
 % ==============================================================================
 \section{Profile skanowania i konstruktor przepływów}
@@ -231,7 +234,7 @@ Sekcja \ui{Workflow} umożliwia konfigurację etapów potoku skanowania. Dostęp
 
 Wyłączenie etapu \code{httpx} automatycznie dezaktywuje wszystkie etapy zależne (wyświetlając etykietę \code{needs httpx}). Etapy agresywne mogą być włączane i zapisywane wyłącznie przez administratora (\code{scan:aggressive}; użytkownik z rolą \code{editor} widzi oznaczenie \code{Admin only}). Jeżeli dany etap nie jest skonfigurowany w środowisku (np.~\code{zap} przy pustym \code{RAVEN\_ZAP\_URL}), wyświetlany jest ze statusem \code{Not available}, a przy uruchomieniu zapisanego wcześniej profilu zostaje pominięty z ostrzeżeniem w statystykach przebiegu.
 
-\screenshot[0.95\linewidth]{profile-workflow.png}{Edytor profilu \ui{Aggressive}: parametry profilu, konstruktor przepływów (\ui{Workflow}) oraz zakres \ui{Profile include} ograniczony do wybranego hosta.}{fig:profile}
+\screenshot{profile-workflow.png}{Edytor profilu \ui{Aggressive}: parametry profilu, konstruktor przepływów (\ui{Workflow}) oraz zakres \ui{Profile include} ograniczony do wybranego hosta.}{fig:profile}
 
 % ==============================================================================
 \section{Uruchamianie skanów i harmonogramy}
@@ -241,7 +244,7 @@ Wyłączenie etapu \code{httpx} automatycznie dezaktywuje wszystkie etapy zależ
 
 Na stronie \ui{Runs} (\code{/runs}) użytkownicy z uprawnieniem \code{runs:control} (\code{editor} i \code{admin}) mogą uruchomić skan, wybierając aktywny profil z listy \ui{Profile} i klikając \ui{Start run}. Dla każdego profilu z co najmniej jednym etapem agresywnym pojawia się obowiązkowe okno potwierdzenia \ui{Start aggressive run?} z czerwoną ramką oraz przyciskami \ui{Start} i \ui{Cancel}.
 
-\screenshot[0.95\linewidth]{runs-aggressive-confirm.png}{Strona \ui{Runs}: dialog potwierdzenia \ui{Start aggressive run?} oraz tabela zakończonych przebiegów z odznakami etapów i czasami trwania.}{fig:runs}
+\screenshot{runs-aggressive-confirm.png}{Strona \ui{Runs}: dialog potwierdzenia \ui{Start aggressive run?} oraz tabela zakończonych przebiegów z odznakami etapów i czasami trwania.}{fig:runs}
 
 Kliknięcie numeru przebiegu (\code{\#1}, \code{\#2}, \dots) otwiera widok szczegółowy \ui{Run \#N} (\code{/runs/:id}), odświeżany automatycznie w trakcie wykonywania:
 \begin{itemize}
@@ -253,7 +256,7 @@ Kliknięcie numeru przebiegu (\code{\#1}, \code{\#2}, \dots) otwiera widok szcze
 
 Rozmiar partii wyznaczany jest adaptacyjnie na podstawie zmierzonej przepustowości poprzednich przebiegów danego profilu ($\text{rozmiar} = \text{przepustowość} \times \text{target\_batch\_seconds}$, w przedziale $[64, 4096]$ adresów IP; w pierwszym przebiegu stosowana jest wartość domyślna). Aktywny przebieg można przerwać przyciskiem \ui{Stop run} (\ui{Confirm stop}), co wysyła anulowanie kontekstu i natychmiast kończy procesy skanerów.
 
-\screenshot[0.95\linewidth]{run-detail.png}{Widok szczegółowy przebiegu \ui{Run \#1}: pasek postępu, metryki czasu, statystyki etapów oraz tabela partii \ui{Batches}.}{fig:run-detail}
+\screenshot{run-detail.png}{Widok szczegółowy przebiegu \ui{Run \#1}: pasek postępu, metryki czasu, statystyki etapów oraz tabela partii \ui{Batches}.}{fig:run-detail}
 
 \subsection{Harmonogramy i okna czasowe}
 
@@ -266,7 +269,7 @@ Sekcja \ui{Schedules} znajduje się w dolnej części strony \ui{Profiles \& sch
 
 Jeżeli skan nie zakończy się przed końcem okna czasowego, kontekst aktywnych zadań zostaje anulowany, procesy skanerów zostają zabite, niedokończona partia wraca do stanu \code{pending}, a przebieg otrzymuje status \code{suspended}. W kolejnym oknie czasowym harmonogram wznawia ten sam przebieg od pozostałych partii. Harmonogramy pobrane z DefectDojo wyświetlane są z odznaką \badge{Dojo \#N}, linkiem \ui{open $\nearrow$} i statusem \badge{Read-only}.
 
-\screenshot[0.95\linewidth]{schedules.png}{Sekcja \ui{Schedules} na stronie \ui{Profiles \& schedules} z aktywnym harmonogramem posiadającym okno nocne \code{22:00--06:00 daily}.}{fig:schedules}
+\screenshot{schedules.png}{Sekcja \ui{Schedules} na stronie \ui{Profiles \& schedules} z aktywnym harmonogramem posiadającym okno nocne \code{22:00--06:00 daily}.}{fig:schedules}
 
 % ==============================================================================
 \section{Wyniki: Dashboard, Hosty, Usługi i Technologie}
@@ -282,13 +285,13 @@ Strona główna \ui{Dashboard} (\code{/}) przedstawia skondensowany obraz stanu 
   \item tabele \ui{CVE matches} (usługi z dopasowaniami offline CVE, najwyższym wynikiem CVSS i liczbą wpisów CISA KEV), \ui{Unstable hosts} oraz \ui{Recent runs}.
 \end{itemize}
 
-\screenshot[0.95\linewidth]{dashboard.png}{Widok główny \ui{Dashboard}: kluczowe wskaźniki, zmiany od poprzedniego przebiegu, rozkład znalezisk, technologie webowe i dopasowania CVE.}{fig:dashboard}
+\screenshot{dashboard.png}{Widok główny \ui{Dashboard}: kluczowe wskaźniki, zmiany od poprzedniego przebiegu, rozkład znalezisk, technologie webowe i dopasowania CVE.}{fig:dashboard}
 
 \subsection{Lista hostów i widok szczegółowy hosta}
 
 Strona \ui{Hosts} (\code{/hosts}) wyświetla wszystkie wykryte adresy IP. Pasek filtrów działa natychmiastowo (bez przycisku zatwierdzania) i obsługuje wyszukiwanie po IP, CIDR lub nazwie hosta (\ui{IP, CIDR or hostname}), otwartym porcie (\ui{Open port}), technologii (\ui{Technology}), tagu użytkownika (\ui{Tag}) oraz stanie (\ui{State}: \code{Any}, \code{Active}, \code{Unstable}, \code{Inactive}). Każda kolumna tabeli jest sortowalna rosnąco i malejąco.
 
-\screenshot[0.95\linewidth]{hosts-list.png}{Strona \ui{Hosts}: natychmiastowe filtry, stany hostów (\code{Active}, \code{Unstable}), otwarte porty, liczba aktywnych znalezisk i tagi.}{fig:hosts}
+\screenshot{hosts-list.png}{Strona \ui{Hosts}: natychmiastowe filtry, stany hostów (\code{Active}, \code{Unstable}), otwarte porty, liczba aktywnych znalezisk i tagi.}{fig:hosts}
 
 Kliknięcie adresu IP otwiera widok szczegółowy \code{/hosts/:ip}:
 \begin{itemize}
@@ -298,7 +301,7 @@ Kliknięcie adresu IP otwiera widok szczegółowy \code{/hosts/:ip}:
   \item \ui{Presence, last N runs} --- pasek dostępności hosta w ostatnich przebiegach oraz odnośnik \ui{Timeline} w nagłówku strony.
 \end{itemize}
 
-\screenshot[0.95\linewidth]{host-detail.png}{Widok szczegółowy hosta \code{172.30.0.17}: tabela \ui{Services} z nadpisanym polem (\badge{edited}), sekcja \ui{HTTP fingerprint} oraz panel \ui{Host details}.}{fig:host-detail}
+\screenshot{host-detail.png}{Widok szczegółowy hosta \code{172.30.0.17}: tabela \ui{Services} z nadpisanym polem (\badge{edited}), sekcja \ui{HTTP fingerprint} oraz panel \ui{Host details}.}{fig:host-detail}
 
 \subsection{Usługi i technologie}
 
@@ -321,7 +324,7 @@ Kliknięcie linku \ui{Timeline} przy dowolnym adresie IP (na stronie \ui{Changes
 
 \textbf{Obsługa hostów niestabilnych i cykl życia.} Adresy IP, które odpowiadały w poprzednim przebiegu, ale nie odpowiedziały w bieżącym, są automatycznie sondowane ponownie pod koniec przebiegu (\emph{re-probe}). Dopiero brak odpowiedzi w ponownym sondowaniu zwiększa licznik \code{miss\_count} i oznacza host jako \code{Unstable} (nie wykonuje się wówczas reimportu do DefectDojo, aby nie zamknąć istniejących znalezisk). Po osiągnięciu wartości \ui{Miss threshold} z profilu host otrzymuje stan \code{Inactive}, a w DefectDojo tworzone jest znalezisko informacyjne \emph{Host offline}. Ponowne pojawienie się hosta zeruje licznik i przywraca stan \code{Active}.
 
-\screenshot[0.95\linewidth]{changes.png}{Strona \ui{Changes}: porównanie \code{Run \#1} $\rightarrow$ \code{Run \#2} uwidaczniające zniknięcie niestabilnego hosta \code{172.30.0.27}.}{fig:changes}
+\screenshot{changes.png}{Strona \ui{Changes}: porównanie \code{Run \#1} $\rightarrow$ \code{Run \#2} uwidaczniające zniknięcie niestabilnego hosta \code{172.30.0.27}.}{fig:changes}
 
 % ==============================================================================
 \section{Podatności, dopasowanie CVE offline i DefectDojo}
@@ -340,7 +343,7 @@ Kliknięcie znaleziska otwiera panel boczny \ui{Triage} (na szerokim ekranie obo
 
 Przycisk \ui{Save to DefectDojo} wysyła zmianę bezpośrednio do API DefectDojo (\code{PATCH}) i natychmiast aktualizuje lokalne lustro. Stan triage jest zachowywany przy kolejnych reimportach skanów.
 
-\screenshot[0.95\linewidth]{findings.png}{Strona \ui{Findings}: liczniki krytyczności, filtry, lista znalezisk oraz panel \ui{Triage} z bezpośrednim zapisem do DefectDojo.}{fig:findings}
+\screenshot{findings.png}{Strona \ui{Findings}: liczniki krytyczności, filtry, lista znalezisk oraz panel \ui{Triage} z bezpośrednim zapisem do DefectDojo.}{fig:findings}
 
 \subsection{Dopasowanie CVE w trybie offline}
 
@@ -371,12 +374,12 @@ Każda własna sygnatura przechodzi przez walidator bezpiecznego podzbioru (przy
   \item protokół \code{http} (klucze najwyższego poziomu: \code{id}, \code{info}, \code{http});
   \item metody wyłącznie \code{GET} lub \code{HEAD}, bez treści żądania (\code{body}), bez sekcji \code{raw}, \code{payloads}, \code{attack}, \code{fuzzing}, \code{race}, \code{unsafe} oraz bez nagłówków poświadczeń (\code{Authorization}, \code{Cookie});
   \item maksymalnie 3 definicje żądań, 10 ścieżek rozpoczynających się od \code{\{\{BaseURL\}\}} lub \code{\{\{RootURL\}\}}, 3 przekierowania (\code{max-redirects}) i 20 matcherów (\code{word}, \code{regex}, \code{status}, bezpieczny \code{dsl});
-  \item całkowity zakaz wyrażeń \code{interactsh}/\code{oast}, protokołów \code{code}/\code{headless}/\code{javascript}/\code{network} oraz aliasów YAML.
+  \item całkowity zakaz wyrażeń \code{interactsh}/\code{oast}, protokołów \code{code}, \code{headless}, \code{javascript}, \code{network} oraz aliasów YAML.
 \end{itemize}
 
 Błędy walidacji wyświetlane są wraz z numerem linii i możliwością szybkiego przejścia do miejsca błędu w edytorze YAML. Zapisaną i poprawną sygnaturę (\badge{Ready}) można przetestować w panelu bocznym \ui{Test}, podając pojedynczy adres URL mieszczący się w zakresie (\ui{Lab URL}) i klikając \ui{Test}.
 
-\screenshot[0.95\linewidth]{signatures.png}{Edytor własnej sygnatury w widoku \ui{Signatures}: definicja YAML, status \badge{Ready} oraz wynik testu \badge{Matched} na żywo przeciwko usłudze laboratoryjnej.}{fig:signatures}
+\screenshot{signatures.png}{Edytor własnej sygnatury w widoku \ui{Signatures}: definicja YAML, status \badge{Ready} oraz wynik testu \badge{Matched} na żywo przeciwko usłudze laboratoryjnej.}{fig:signatures}
 
 % ==============================================================================
 \section{Import, eksport i integracje}
@@ -395,7 +398,7 @@ Zaimportowane pliki przechodzą przez tę samą filtrację zakresu wybranego pro
 
 Sekcja \ui{Export} (dostępna dla wszystkich ról, w tym \code{viewer}) pobiera pełne zestawy danych (\code{Hosts}, \code{Services}, \code{Findings}, \code{Changes (latest runs)}, \code{Targets}) w formacie CSV lub JSON. Analogiczny przycisk eksportu w nagłówkach stron \ui{Hosts}, \ui{Services}, \ui{Findings}, \ui{Changes} i \ui{Targets} uwzględnia aktualnie ustawione filtry.
 
-\screenshot[0.95\linewidth]{import-export.png}{Strona \ui{Import / Export}: podsumowanie zaimportowanego pliku wyników skanu oraz sekcja eksportu danych.}{fig:exchange}
+\screenshot{import-export.png}{Strona \ui{Import / Export}: podsumowanie zaimportowanego pliku wyników skanu oraz sekcja eksportu danych.}{fig:exchange}
 
 \subsection{Planowanie skanów w DefectDojo}
 
@@ -435,18 +438,22 @@ Repozytorium zawiera dwa niezależne środowiska testowe uruchamiane poleceniem 
 
 \begin{enumerate}
   \item \textbf{Własny lab (\code{LAB=ours}, domyślny)} --- plik \code{compose.lab.yml} tworzy izolowaną sieć wewnętrzną \code{raven\_lab} (\code{172.30.0.0/24}, brak portów publikowanych na hoście) z 13 usługami w zakresie \code{172.30.0.16/28}: WordPress, Joomla, nginx z panelem \code{/admin}, aplikacja z nagłówkiem \code{X-Environment: staging}, Apache Tomcat, symulowana drukarka IoT, dwa serwery TLS (certyfikat samopodpisany i wygasły), symulowane banery \code{Apache/2.4.49} i \code{OpenSSH\_7.4} dla testów CVE, host niestabilny (\code{172.30.0.27}) oraz dwie bazy MariaDB.
-\begin{lstlisting}[language=bash]
+\begin{cmdbox}
+\begin{Verbatim}[fontsize=\footnotesize]
 make lab-up                                                 # uruchomienie labu
-docker compose -f compose.yml -f lab/raven.compose.yml up -d # podlaczenie raven i zap
+docker compose -f compose.yml -f lab/raven.compose.yml up -d # podłączenie raven i zap
 scripts/lab-flap.sh off    # lub on / toggle (symulacja hosta niestabilnego)
-make lab-down              # zatrzymanie labu (po uprzednim odlaczeniu raven/zap)
-\end{lstlisting}
-  \item \textbf{Środowisko organizatorów (\code{LAB=organizers})} --- oryginalne pliki organizatorów w katalogu \code{lab/organizers/} (niezmodyfikowane; integralność sprawdza \code{make lab-verify} na podstawie \code{SHA256SUMS}). Obsługiwane stosy (\code{STACK}): \code{quickstart} (domyślny), \code{custom-network}, \code{modern}, \code{modern-proxy} (opcjonalne opóźnienia przez \code{ENABLE\_LATENCY=true} i \code{LATENCY\_MS=500} w \code{lab/organizers/.env}) oraz \code{vulnerable}. Polecenie \code{make lab-change} zatrzymuje usługę na porcie 8787 w stosie \code{quickstart} celem weryfikacji wykrywania zmian.
-\begin{lstlisting}[language=bash]
+make lab-down              # zatrzymanie labu (po uprzednim odłączeniu raven/zap)
+\end{Verbatim}
+\end{cmdbox}
+  \item \textbf{Środowisko organizatorów (\code{LAB=organizers})} --- oryginalne pliki z katalogu \code{lab/organizers/} (niezmodyfikowane; integralność weryfikuje \code{make lab-verify} na podstawie \code{SHA256SUMS}). Obsługiwane stosy (\code{STACK}): \code{quickstart} (domyślny), \code{custom-network}, \code{modern}, \code{modern-proxy} (opóźnienia włączane w pliku \code{lab/organizers/.env}: \code{ENABLE\_LATENCY=true}, \code{LATENCY\_MS=500}) oraz \code{vulnerable}. Polecenie \code{make lab-change} zatrzymuje usługę na porcie 8787 w stosie \code{quickstart} celem weryfikacji wykrywania zmian.
+\begin{cmdbox}
+\begin{Verbatim}[fontsize=\footnotesize]
 make lab-up LAB=organizers STACK=quickstart   # uruchomienie wybranego stosu
 make lab-change                               # wprowadzenie zmiany (port 8787)
 make lab-down LAB=organizers STACK=quickstart # zatrzymanie stosu
-\end{lstlisting}
+\end{Verbatim}
+\end{cmdbox}
   Stosy organizatorów publikują porty na hoście Dockera; RAVEN skanuje je poprzez adres bramy mostka \code{docker0}, tj.~\code{172.17.0.1} (należy dodać \code{172.17.0.1} w \ui{Targets} i uruchomić profil \ui{Default} lub \ui{Aggressive}). Uwaga: usługa \code{zap} działa wyłącznie w sieciach wewnętrznych (\code{internal: true}) i nie ma dostępu do \code{172.17.0.1}.
 \end{enumerate}
 
@@ -460,7 +467,7 @@ Bezpieczeństwo skanowania egzekwowane jest w kodzie na trzech poziomach:
 \end{itemize}
 
 \begin{uwaga}[Szyfrowanie danych w spoczynku]
-  W bazie \code{raven-db} wszystkie kolumny zawierające dane wrażliwe (\code{hosts.notes\_enc}, \code{services.banner\_enc}, \code{http\_observations.headers\_enc}, \code{cookies\_enc}, \code{tls\_cert\_enc}, \code{run\_observations.nuclei\_evidence\_enc}, \code{artifacts.content\_enc}) szyfrowane są symetrycznie za pomocą rozszerzenia PostgreSQL \code{pgcrypto} (\code{pgp\_sym\_encrypt} z losową solą i IV dla każdej wartości). Logowanie zapytań SQL na serwerze \code{raven-db} jest wyłączone (\code{log\_statement=none}). Baza danych DefectDojo stanowi standardową instancję PostgreSQL~18 bez szyfrowania kolumn --- serwer DefectDojo należy zabezpieczyć na poziomie infrastruktury.
+  {\sloppy W bazie \code{raven-db} wszystkie kolumny z danymi wrażliwymi (\code{hosts.notes\_enc}, \code{services.banner\_enc}, \code{http\_observations.headers\_enc}, \code{cookies\_enc}, \code{tls\_cert\_enc}, \code{run\_observations.nuclei\_evidence\_enc}, \code{artifacts.content\_enc}) szyfrowane są symetrycznie przez PostgreSQL \code{pgcrypto} (\code{pgp\_sym\_encrypt} z losową solą i IV dla każdej wartości). Logowanie zapytań SQL na serwerze \code{raven-db} jest wyłączone (\code{log\_statement=none}). Baza DefectDojo stanowi standardową instancję PostgreSQL~18 bez szyfrowania kolumn --- serwer DefectDojo należy zabezpieczyć na poziomie infrastruktury.\par}
 \end{uwaga}
 
 \end{document}

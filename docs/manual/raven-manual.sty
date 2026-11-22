@@ -4,6 +4,7 @@
 
 \RequirePackage{fontspec}
 \RequirePackage[polish]{babel}
+\RequirePackage{amsmath}
 \RequirePackage[a4paper,top=22mm,bottom=22mm,left=20mm,right=20mm]{geometry}
 \RequirePackage{xcolor}
 \RequirePackage{graphicx}
@@ -15,7 +16,7 @@
 \RequirePackage{fancyhdr}
 \RequirePackage{titlesec}
 \RequirePackage{tcolorbox}
-\RequirePackage{listings}
+\RequirePackage{fancyvrb}
 \RequirePackage{tikz}
 \usetikzlibrary{arrows.meta,positioning,fit,backgrounds}
 \RequirePackage[hidelinks,unicode]{hyperref}
@@ -23,10 +24,7 @@
 \RequirePackage{caption}
 \RequirePackage{microtype}
 
-% Fonts (Latin Modern — always available in tectonic, full Polish diacritics)
-\setmainfont{Latin Modern Roman}
-\setsansfont{Latin Modern Sans}
-\setmonofont[Scale=0.88]{Latin Modern Mono}
+% Fonts: Latin Modern via lmodern + T1 (reproducible in tectonic without host fontconfig)
 
 % AGH / RAVEN colour palette (docs/design/README.md)
 \definecolor{aghred}{HTML}{C10D14}
@@ -70,7 +68,7 @@
 \fancyhead[R]{\sffamily\footnotesize\color{aghmuted}\nouppercase{\leftmark}}
 \fancyfoot[L]{\sffamily\footnotesize\color{aghmuted}Centrum Bezpieczeństwa Informacji AGH}
 \fancyfoot[R]{\sffamily\footnotesize\color{aghink}\textbf{\thepage}}
-\setlength{\headheight}{14pt}
+\setlength{\headheight}{19pt}
 
 % Captions
 \captionsetup{
@@ -121,24 +119,31 @@
   attach title to upper={\quad}
 }
 
-% Code blocks
-\lstset{
-  basicstyle=\ttfamily\footnotesize\color{aghink},
-  backgroundcolor=\color{aghband},
-  frame=leftline,
-  framerule=2pt,
-  rulecolor=\color{aghblack},
-  xleftmargin=6pt,
-  framesep=5pt,
-  breaklines=true,
-  columns=fullflexible,
-  keepspaces=true,
-  aboveskip=5pt,
-  belowskip=5pt,
-  literate={ą}{{\k{a}}}1 {ć}{{\'c}}1 {ę}{{\k{e}}}1 {ł}{{\l{}}}1 {ń}{{\'n}}1
-           {ó}{{\'o}}1 {ś}{{\'s}}1 {ź}{{\'z}}1 {ż}{{\.z}}1
-           {Ą}{{\k{A}}}1 {Ć}{{\'C}}1 {Ę}{{\k{E}}}1 {Ł}{{\L{}}}1 {Ń}{{\'N}}1
-           {Ó}{{\'O}}1 {Ś}{{\'S}}1 {Ź}{{\'Z}}1 {Ż}{{\.Z}}1
+% Float tuning so screenshots sit cleanly alongside text without creating sparse float pages
+\renewcommand{\topfraction}{0.9}
+\renewcommand{\bottomfraction}{0.85}
+\renewcommand{\textfraction}{0.07}
+\renewcommand{\floatpagefraction}{0.82}
+\setlength{\floatsep}{8pt plus 2pt minus 2pt}
+\setlength{\textfloatsep}{10pt plus 2pt minus 2pt}
+\setlength{\intextsep}{8pt plus 2pt minus 2pt}
+
+% Shell command block (native UTF-8 via fancyvrb + tcolorbox)
+\newtcolorbox{cmdbox}{
+  colback=aghband,
+  colframe=aghblack,
+  leftrule=2pt,
+  rightrule=0pt,
+  toprule=0pt,
+  bottomrule=0pt,
+  arc=0pt,
+  outer arc=0pt,
+  left=6pt,
+  right=6pt,
+  top=4pt,
+  bottom=4pt,
+  before skip=4pt,
+  after skip=5pt
 }
 
 % Helper macros for UI elements and commands
@@ -148,7 +153,7 @@
 \newcommand{\redbadge}[1]{\colorbox{aghred}{\sffamily\scriptsize\textbf{\color{white}#1}}}
 
 % Framed screenshot macro: \screenshot[width]{filename}{caption}{label}
-\newcommand{\screenshot}[4][0.96\linewidth]{%
+\newcommand{\screenshot}[4][0.84\linewidth]{%
   \begin{figure}[htbp]
     \centering
     \setlength{\fboxsep}{0pt}%
