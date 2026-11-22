@@ -69,7 +69,7 @@ cve-db:
 ##   LAB=ours (default): our fixtures, compose.lab.yml on the internal network raven_lab (172.30.0.0/24).
 ##   LAB=organizers STACK=quickstart|custom-network|modern|modern-proxy|vulnerable: the organizers'
 ##   files in lab/organizers, run as-is with their own commands (STACK=quickstart, the default, is
-##   their ./quickstart.sh). RAVEN reaches them at 172.17.0.1 with the profile "Organizers' lab".
+##   their ./quickstart.sh). RAVEN reaches them at 172.17.0.1: add that target, then run Default or Aggressive.
 LAB ?= ours
 STACK ?= quickstart
 ORG_STACKS := quickstart custom-network modern modern-proxy vulnerable
@@ -98,9 +98,9 @@ ifeq ($(LAB),organizers)
 	@gw=$$(docker network inspect bridge -f '{{(index .IPAM.Config 0).Gateway}}'); \
 	  echo "Docker host bridge address (docker0 gateway): $$gw"; \
 	  if [ "$$gw" != 172.17.0.1 ]; then \
-	    echo "WARNING: the gateway is $$gw, not 172.17.0.1; the \"Organizers' lab\" profile scans only 172.17.0.1" >&2; \
+	    echo "WARNING: the gateway is $$gw, not 172.17.0.1; add target $$gw instead of 172.17.0.1" >&2; \
 	  fi; \
-	  echo "Next: in RAVEN, start a run of the profile \"Organizers' lab\""
+	  echo "Next: in RAVEN, add target $$gw in Targets, then start a run of the profile \"Default\" (or \"Aggressive\")"
 else
 	docker compose -f compose.lab.yml up -d --build --wait
 endif

@@ -36,7 +36,7 @@ function mockFetch(importResponse: Response) {
   return vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
     const url = String(input)
     if (url.startsWith('/api/profiles'))
-      return json({ items: [{ id: 1, name: 'default' }, { id: 2, name: 'lab' }], total: 2 })
+      return json({ items: [{ id: 1, name: 'Default' }, { id: 2, name: 'lab' }], total: 2 })
     if (url.startsWith('/api/import/results')) return importResponse
     return json({})
   })

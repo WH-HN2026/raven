@@ -16,6 +16,8 @@ services:
     depends_on:
       raven-db:
         condition: service_healthy
+      zap:
+        condition: service_started   # not healthy: raven must not wait for ZAP's slow boot
     cap_add: [NET_RAW, NET_ADMIN]   # nmap -sS / host discovery
     ports:
       - "${RAVEN_PORT:-8000}:8000"
@@ -34,17 +36,16 @@ services:
       RAVEN_COOKIE_SECURE: "${RAVEN_COOKIE_SECURE:-false}"
       RAVEN_SESSION_TTL: "${RAVEN_SESSION_TTL:-12h}"
       RAVEN_MAX_WORKERS: "${RAVEN_MAX_WORKERS:-2}"
-      RAVEN_ZAP_URL: "${RAVEN_ZAP_URL:-}"
+      RAVEN_ZAP_URL: "${RAVEN_ZAP_URL-http://zap:8080}"   # unset = zap; set but empty disables the zap stage
       RAVEN_ZAP_API_KEY: "${RAVEN_ZAP_API_KEY:-}"
     networks:
       - default
       - zap-internal
     # Our lab: attach to raven_lab with `-f lab/raven.compose.yml`. The organizers'
     # stacks (lab/organizers) are reached from here at the docker0 gateway 172.17.0.1
-    # (profile "Organizers' lab"); no extra network is needed (docs/lab.md).
+    # (target 172.17.0.1, Default or Aggressive profile); no extra network is needed (docs/lab.md).
 
   zap:
-    profiles: ["aggressive"]
     image: ghcr.io/zaproxy/zaproxy:2.17.0@sha256:9624669db72f54d86c4b46a7064518bd9bf79d8c61a4c31befa9923489f328af
     restart: unless-stopped
     # API is internal-only: no published ports, no internet egress on zap-internal.

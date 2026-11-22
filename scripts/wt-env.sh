@@ -59,6 +59,8 @@ RAVEN_DOJO_TOKEN=${RAVEN_DOJO_TOKEN:-}
 RAVEN_DOJO_ORGANIZATION=${RAVEN_DOJO_ORGANIZATION:-RAVEN}
 DD_ADMIN_USER=${DD_ADMIN_USER:-admin}
 DD_ADMIN_PASSWORD=$DD_ADMIN_PASSWORD
+# zap stage off in dev: the zap API is on an internal network RAVEN on the host can't reach.
+RAVEN_ZAP_URL=
 EOF
 
 cat <<EOF

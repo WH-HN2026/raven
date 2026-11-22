@@ -71,9 +71,9 @@ export function ImportPanel() {
           </Field>
           <Field label="Profile" className="flex-[1_1_180px]">
             <select className={inputClass} value={profile} onChange={(e) => setProfile(e.target.value)}>
-              <option value="">default</option>
+              <option value="">Default</option>
               {(profiles.data?.items ?? [])
-                .filter((p) => p.name !== 'default')
+                .filter((p) => p.name !== 'Default')
                 .map((p) => (
                   <option key={p.id} value={String(p.id)}>
                     {p.name}
