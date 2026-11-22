@@ -123,7 +123,7 @@ Steps 3–5 above are the **Default** workflow. A workflow is a property of a pr
 - For each one it upserts a `schedules` row (`source='dojo'`, `dojo_engagement_id`), using the tagged profile and the window from `target_start`–`target_end`.
 - It sets the engagement status to `In Progress` when the run starts and `Completed` when it finishes.
 
-**Pull / read-model.** Every 5 min `dojo sync` pages through `/api/v2/findings/?tags=raven` (plus Assets) and upserts them into `dojo_findings` / `dojo_assets`. A full resync is fine at lab scale. The dashboard reads only our DB and never calls Dojo per request.
+**Pull / read-model.** Every 5 min `dojo sync` pages through `/api/v2/findings/?tags=raven` (plus Assets) and upserts them into `dojo_findings` / `dojo_assets`. A full resync is fine at lab scale. A run's last push job (a `dojo_push` / `dojo_host_offline` job whose final outcome finds the run finished and none of its push jobs still waiting in River) also triggers one extra C3 CVE pass, which then triggers one extra sync, so findings show up seconds after a run (D7). The triggers coalesce: overlapping run ends cause at most one extra pass each; the 5-min ticker stays as the fallback. The dashboard reads only our DB and never calls Dojo per request.
 
 **Write-through edits.** Finding edits made in our UI (severity, active / false-positive / risk-accepted, notes) are sent straight to Dojo with PATCH, then the mirror row is updated. Reimport keeps the triage state of existing findings.
 

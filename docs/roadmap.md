@@ -81,6 +81,7 @@ M0 is sequential and blocking. Do it in **one** worktree, as fast as possible, t
 - [x] **D4 Push httpx + nuclei + lifecycle findings.** (needs S7, S4, S6) Reimport httpx ("httpx Scan") and nuclei per IP, one Test per scanner; push "Host offline" once the threshold is hit; tags (`tech:*`, `panel:*`, `env:*`, `host:*`) on Assets.
 - [x] **D5 Planned engagements poller.** `RAVEN Planning` asset, poll `Not Started` engagements tagged `raven-profile:<name>` → `schedules(source='dojo')`, update engagement status on run start/finish.
 - [x] **D6 Write-through edits.** Finding edits in our API → PATCH Dojo → update the mirror; host user-fields → Asset description/tags.
+- [x] **D7 Sync after push.** The mirror (and the C3 CVE pass before it) runs right after a run's last Dojo push, not only every 5 min.
 
 **Track P — Platform**
 - [x] **P1 Scheduler & time windows.** Schedules (frequency + window + timezone) from both sources; start runs in-window; `ctx` deadline at window end → kill, set the batch back to pending, mark the run `suspended`; resume in the next window.

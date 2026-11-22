@@ -39,7 +39,11 @@ func (w *offlineWorker) Work(ctx context.Context, job *river.Job[offlineArgs]) e
 	if p == nil {
 		return river.JobSnooze(pushNotReadyWait)
 	}
-	return w.s.pushOfflineRun(ctx, p, job.Args.RunID)
+	err := w.s.pushOfflineRun(ctx, p, job.Args.RunID)
+	if err == nil || job.Attempt >= job.MaxAttempts {
+		w.s.afterPush(ctx, job.Args.RunID)
+	}
+	return err
 }
 
 func (s *PushService) pushOfflineRun(ctx context.Context, p *Pusher, runID int64) error {

@@ -30,7 +30,12 @@ type Syncer struct {
 	Client         Client
 	Pool           *pgxpool.Pool
 	OrganizationID int64
+
+	kick Trigger
 }
+
+// Trigger asks Run for one extra pass now (coalesced, non-blocking).
+func (s *Syncer) Trigger() { s.kick.Fire() }
 
 // SyncStats is the result of one pass.
 type SyncStats struct {
@@ -41,29 +46,21 @@ type SyncStats struct {
 	Duration        time.Duration
 }
 
-// Run syncs once now and then every interval until ctx is done. Errors are
-// logged, never fatal.
+// Run syncs once now, then every interval and on every Trigger, until ctx is
+// done. Errors are logged, never fatal.
 func (s *Syncer) Run(ctx context.Context, interval time.Duration) {
-	t := time.NewTicker(interval)
-	defer t.Stop()
-	for {
+	loop(ctx, interval, &s.kick, func(triggered bool) {
 		st, err := s.SyncOnce(ctx)
 		switch {
 		case ctx.Err() != nil:
-			return
 		case err != nil:
-			slog.Error("dojo sync failed", "err", err)
+			slog.Error("dojo sync failed", "triggered", triggered, "err", err)
 		default:
 			slog.Info("dojo sync done", "assets", st.Assets, "findings", st.Findings,
 				"assets_deleted", st.AssetsDeleted, "findings_deleted", st.FindingsDeleted,
-				"duration", st.Duration.Round(time.Millisecond))
+				"triggered", triggered, "duration", st.Duration.Round(time.Millisecond))
 		}
-		select {
-		case <-ctx.Done():
-			return
-		case <-t.C:
-		}
-	}
+	})
 }
 
 // SyncOnce is one full resync. It reads everything from Dojo first and only
