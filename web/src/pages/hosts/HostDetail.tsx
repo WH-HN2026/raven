@@ -162,7 +162,7 @@ function ServicesTable({ ip, services }: { ip: string; services: Service[] }) {
                   <Td className="font-mono text-[13px]">
                     <Eff s={s} field="version" />
                   </Td>
-                  <Td className="max-w-xs font-mono text-xs break-all">
+                  <Td className="min-w-64 max-w-xs font-mono text-xs break-all">
                     <CollapsibleText text={s.banner} />
                   </Td>
                   <Td className="whitespace-nowrap text-muted">{fmtTime(s.first_seen)}</Td>
