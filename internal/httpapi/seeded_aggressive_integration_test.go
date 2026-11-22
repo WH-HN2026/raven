@@ -20,9 +20,9 @@ import (
 	"github.com/WH-HN2026/raven/internal/pipeline"
 )
 
-// TestSeededAggressiveProfile (LB6): the seeded Aggressive profile is gated as
-// any aggressive profile (AG1), and a run of it without ZAP drops the zap stage
-// with a run warning instead of failing.
+// TestSeededAggressiveProfile (LB6): the seeded Aggressive profile (no zap) is
+// gated as any aggressive profile (AG1), and a run of a profile with zap on a
+// deployment without ZAP drops the zap stage with a run warning instead of failing.
 func TestSeededAggressiveProfile(t *testing.T) {
 	pool := dbtest.Fresh(t)
 	ctx := context.Background()
@@ -88,8 +88,8 @@ func TestSeededAggressiveProfile(t *testing.T) {
 	if def.Aggressive || !slices.Equal(def.Stages, pipeline.DefaultStages()) {
 		t.Fatalf("Default = %+v", def)
 	}
-	if !agg.Aggressive || !slices.Equal(agg.Stages, pipeline.AggressiveStages()) {
-		t.Fatalf("Aggressive = %+v", agg)
+	if !agg.Aggressive || !slices.Equal(agg.Stages, pipeline.SeededAggressiveStages()) || slices.Contains(agg.Stages, pipeline.StageZAP) {
+		t.Fatalf("Aggressive = %+v, want %v (no zap)", agg, pipeline.SeededAggressiveStages())
 	}
 
 	// Only admins may change it.
@@ -106,20 +106,41 @@ func TestSeededAggressiveProfile(t *testing.T) {
 	}
 	var edited profileView
 	parse(request(200, admin, http.MethodPut, aggPath, fmt.Sprintf(`{"name":"Aggressive","ports":%q,"nmap_max_rate":200}`, agg.Ports)), &edited)
-	if edited.NmapMaxRate != 200 || !slices.Equal(edited.Stages, pipeline.AggressiveStages()) {
+	if edited.NmapMaxRate != 200 || !slices.Equal(edited.Stages, pipeline.SeededAggressiveStages()) {
 		t.Fatalf("admin edit = %+v", edited)
 	}
 
 	request(201, admin, http.MethodPost, "/targets", `{"targets":[{"value":"172.30.0.17"}]}`)
+	var stats struct {
+		Warnings []string `json:"warnings"`
+	}
 
 	// Start needs confirmation.
 	body := request(400, admin, http.MethodPost, "/runs", fmt.Sprintf(`{"profile_id":%d}`, agg.ID))
 	if !strings.Contains(string(body), "confirmation_required") {
 		t.Fatalf("start without confirmation: %s", body)
 	}
+	var aggRun pipeline.Run
+	parse(request(201, admin, http.MethodPost, "/runs", fmt.Sprintf(`{"profile_id":%d,"confirm_aggressive":true}`, agg.ID)), &aggRun)
+	parse(aggRun.Stats, &stats)
+	if aggRun.Status != "running" || !aggRun.Aggressive || !slices.Equal(aggRun.Stages, pipeline.SeededAggressiveStages()) || len(stats.Warnings) != 0 {
+		t.Fatalf("seeded Aggressive run = %+v warnings %v", aggRun, stats.Warnings)
+	}
+
+	// A profile with zap, saved while ZAP was available, run on a deployment
+	// without ZAP: zap is skipped with a warning instead of failing the run.
+	pipeline.SetStageAvailable(pipeline.StageZAP, true)
+	t.Cleanup(func() { pipeline.SetStageAvailable(pipeline.StageZAP, false) })
+	var zapProf profileView
+	parse(request(201, admin, http.MethodPost, "/profiles",
+		`{"name":"agg-zap","ports":"80","stages":["nmap","httpx","nuclei","nuclei_active","nikto","wpscan","zap"]}`), &zapProf)
+	if !slices.Equal(zapProf.Stages, pipeline.AggressiveStages()) {
+		t.Fatalf("zap profile = %+v", zapProf)
+	}
+	pipeline.SetStageAvailable(pipeline.StageZAP, false)
 
 	var run pipeline.Run
-	parse(request(201, admin, http.MethodPost, "/runs", fmt.Sprintf(`{"profile_id":%d,"confirm_aggressive":true}`, agg.ID)), &run)
+	parse(request(201, admin, http.MethodPost, "/runs", fmt.Sprintf(`{"profile_id":%d,"confirm_aggressive":true}`, zapProf.ID)), &run)
 	wantStages := []string{pipeline.StageNmap, pipeline.StageHTTPX, pipeline.StageNuclei,
 		pipeline.StageNucleiActive, pipeline.StageNikto, pipeline.StageWPScan}
 	if run.Status != "running" || run.HostsTotal != 1 || !run.Aggressive || !slices.Equal(run.Stages, wantStages) {
@@ -131,9 +152,6 @@ func TestSeededAggressiveProfile(t *testing.T) {
 	}
 	if slices.Contains(dbStages, pipeline.StageZAP) {
 		t.Fatalf("runs.stages = %v contains zap", dbStages)
-	}
-	var stats struct {
-		Warnings []string `json:"warnings"`
 	}
 	parse(run.Stats, &stats)
 	if !slices.Contains(stats.Warnings, "stage zap skipped: not available") {

@@ -79,8 +79,9 @@ func TestSeededProfilesDefaultAndAggressive(t *testing.T) {
 	if !ok {
 		t.Fatalf("no %q profile: %v", pipeline.AggressiveProfileName, got)
 	}
-	if !slices.Equal(agg.stages, pipeline.AggressiveStages()) || !pipeline.IsAggressive(agg.stages) {
-		t.Fatalf("Aggressive stages = %v, want %v", agg.stages, pipeline.AggressiveStages())
+	if !slices.Equal(agg.stages, pipeline.SeededAggressiveStages()) || !pipeline.IsAggressive(agg.stages) ||
+		slices.Contains(agg.stages, pipeline.StageZAP) {
+		t.Fatalf("Aggressive stages = %v, want %v (no zap)", agg.stages, pipeline.SeededAggressiveStages())
 	}
 	if agg.ports != def.ports || agg.nmapRate != def.nmapRate || agg.nucRate != def.nucRate {
 		t.Fatalf("Aggressive settings %+v differ from Default %+v", agg, def)

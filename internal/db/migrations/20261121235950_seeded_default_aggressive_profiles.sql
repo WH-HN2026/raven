@@ -7,7 +7,8 @@
 --    ordinary profile.
 --  - 'default' is renamed "Default" (unless a "Default" already exists).
 --  - "Aggressive" copies Default's ports/rates/tags/thresholds, with the
---    Aggressive preset (pipeline.AggressiveStages()). It is aggressive because
+--    Default stages + nuclei_active, nikto, wpscan (pipeline.SeededAggressiveStages();
+--    no zap: admins add it in the workflow builder). It is aggressive because
 --    its stages are (pipeline.IsAggressive), never the default, not scheduled.
 --    Its creation is logged like an API create of an aggressive profile
 --    (profiles.create, aggressive: true), by the system (user_id NULL), with
@@ -29,7 +30,7 @@ WHERE name = 'default' AND NOT EXISTS (SELECT 1 FROM profiles WHERE name = 'Defa
 WITH ins AS (
     INSERT INTO profiles (name, ports, nmap_max_rate, nuclei_rate, nuclei_tags, miss_threshold, target_batch_seconds, stages)
     SELECT 'Aggressive', ports, nmap_max_rate, nuclei_rate, nuclei_tags, miss_threshold, target_batch_seconds,
-           ARRAY['nmap', 'httpx', 'nuclei', 'nuclei_active', 'nikto', 'wpscan', 'zap']
+           ARRAY['nmap', 'httpx', 'nuclei', 'nuclei_active', 'nikto', 'wpscan']
     FROM profiles WHERE name = 'Default'
     ON CONFLICT (name) DO NOTHING
     RETURNING *
@@ -42,7 +43,7 @@ FROM ins;
 -- No "Default" (deleted by a user): seed "Aggressive" with the column defaults.
 WITH ins AS (
     INSERT INTO profiles (name, stages)
-    VALUES ('Aggressive', ARRAY['nmap', 'httpx', 'nuclei', 'nuclei_active', 'nikto', 'wpscan', 'zap'])
+    VALUES ('Aggressive', ARRAY['nmap', 'httpx', 'nuclei', 'nuclei_active', 'nikto', 'wpscan'])
     ON CONFLICT (name) DO NOTHING
     RETURNING *
 )

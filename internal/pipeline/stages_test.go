@@ -150,6 +150,10 @@ func TestStageRegistryAndHelpers(t *testing.T) {
 	if !IsAggressive(AggressiveStages()) {
 		t.Fatal("AggressiveStages should be aggressive")
 	}
+	seeded := []string{StageNmap, StageHTTPX, StageNuclei, StageNucleiActive, StageNikto, StageWPScan}
+	if got := SeededAggressiveStages(); !slices.Equal(got, seeded) || !IsAggressive(got) {
+		t.Fatalf("SeededAggressiveStages() = %v, want %v", got, seeded)
+	}
 }
 
 func TestWithStageAvailable(t *testing.T) {

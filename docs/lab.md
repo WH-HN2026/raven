@@ -130,7 +130,7 @@ test -f .env || scripts/gen-env.sh
 docker compose -f compose.yml -f lab/raven.compose.yml up -d --build
 ```
 
-Create an admin-only aggressive profile scoped strictly to `172.30.0.19/32` (nginx `/admin`) and `172.30.0.20/32` (staging app) with stages `nmap, httpx, nuclei, zap`, then start a run with explicit confirmation (`confirm_aggressive: true`). Without `RAVEN_ZAP_URL` (and in `make dev`), the `zap` stage is "Not available", and runs of the seeded **Aggressive** profile skip it with the run warning `stage zap skipped: not available`.
+Create an admin-only aggressive profile scoped strictly to `172.30.0.19/32` (nginx `/admin`) and `172.30.0.20/32` (staging app) with stages `nmap, httpx, nuclei, zap`, then start a run with explicit confirmation (`confirm_aggressive: true`). The seeded **Aggressive** profile has no `zap` stage; add it in the workflow builder. Without `RAVEN_ZAP_URL` (and in `make dev`), the `zap` stage is "Not available", and runs of a profile that has it skip it with the run warning `stage zap skipped: not available`.
 
 Before `make lab-down`, detach both `raven` and `zap` from `raven_lab` by recreating them without the lab file:
 

@@ -101,7 +101,7 @@ Steps 3–5 above are the **Default** workflow. A workflow is a property of a pr
 | `zap` | `httpx` | URLs httpx confirmed alive | "ZAP Scan" | aggressive |
 
 - **Validation is server-side.** Saving a profile whose stage set has a stage without its dependency → `400`. `nmap` can't be removed.
-- **Presets only fill the toggles.** **Default** = `nmap, httpx, nuclei`: existing profiles migrate to it, and it is the default for new profiles. **Aggressive** = Default + `nuclei_active, nikto, wpscan, zap`. Users may switch stages off (e.g. `nmap → httpx`, or plain `nmap`). A profile that has any aggressive stage is an **aggressive profile**, with the gating in §9. The seeded profiles are **Default** (Default preset) and **Aggressive** (Aggressive preset); at run start, stages that aren't available (e.g. `zap` without `RAVEN_ZAP_URL`) are dropped from the run with a run warning.
+- **Presets only fill the toggles.** **Default** = `nmap, httpx, nuclei`: existing profiles migrate to it, and it is the default for new profiles. **Aggressive** = Default + `nuclei_active, nikto, wpscan, zap`. Users may switch stages off (e.g. `nmap → httpx`, or plain `nmap`). A profile that has any aggressive stage is an **aggressive profile**, with the gating in §9. The seeded profiles are **Default** (Default preset) and **Aggressive** (Default + `nuclei_active, nikto, wpscan`; `zap` is off in the profile: the ZAP service runs, admins add the `zap` stage in the workflow builder). At run start, stages that aren't available (e.g. `zap` without `RAVEN_ZAP_URL`) are dropped from the run with a run warning.
 - **Execution.** The pipeline runs only the enabled stages, in registry order. Each stage gets input only from stages that ran in this run.
 - **Dojo (same spirit as step 8).** A stage that didn't run in a run gets **no reimport** of its tool's Test, because `close_old_findings` would close all of that tool's findings. Each run records the stages that actually ran (`runs.stages`). Changes (C1) compares only the stages both runs share.
 - **Deployment.** nikto and wpscan are pinned in `deploy/Dockerfile`. ZAP is a separate compose service, always started, driven over its API on the internal network (`RAVEN_ZAP_URL=http://zap:8080`; set it empty to disable the `zap` stage). Its image is large, so it is not in our image (§10).
@@ -373,8 +373,8 @@ Gating:
 - Aggressive profiles and runs carry a visible **"Aggressive"** badge.
 - Every create, change and start of an aggressive profile or run writes `audit_log`.
 - The profile's own scope entries are the aggressive scope; there is no separate list.
-- The seeded profiles are **Default** (Default workflow) and **Aggressive** (all aggressive stages; never the default; not scheduled; starting it needs the confirmation; admin-only to change). New profiles start with the Default workflow.
-- Unavailable stages of the seeded Aggressive profile (e.g. `zap` without `RAVEN_ZAP_URL`) are skipped at run start with a run warning, and are not in `runs.stages`. Saving a profile through the API still rejects unavailable stages.
+- The seeded profiles are **Default** (Default workflow) and **Aggressive** (Default + `nuclei_active, nikto, wpscan`; `zap` off by default in the profile, added by an admin in the workflow builder; never the default; not scheduled; starting it needs the confirmation; admin-only to change). New profiles start with the Default workflow.
+- Saving a profile through the API rejects unavailable stages. A stage that becomes unavailable later (e.g. `zap` in a profile, then `RAVEN_ZAP_URL` removed) is skipped at run start with a run warning, and is not in `runs.stages`.
 
 ## 10. Deployment (Docker Compose) and configuration
 
@@ -414,7 +414,7 @@ Two scenarios, chosen with `make`. Only one lab stack runs at a time.
 | Network | internal `raven_lab`, 172.30.0.0/24; `raven` is attached to it | their own networks; ports published on the Docker host (0.0.0.0) |
 | What RAVEN scans | 172.30.0.0/24 | only 172.17.0.1 (target added in Targets), with the seeded **Default** (or **Aggressive**) profile |
 
-- **Profiles:** there is no lab-specific profile. The operator adds the target `172.17.0.1` once in Targets and runs **Default** (or **Aggressive**). A profile without include rules scans every target, so the run also scans every other target in the DB. Default's port list (tasks S3, V3) covers their published ports, and it also contains RAVEN's `8000` and Dojo's TLS `8443`, so a scan of 172.17.0.1 also probes RAVEN and Dojo on the host. This is accepted (no exclusions). Postgres is bound to 127.0.0.1.
+- **Profiles:** there is no lab-specific profile. The operator adds the target `172.17.0.1` once in Targets and runs **Default** (or **Aggressive**: Default + `nuclei_active, nikto, wpscan`, no `zap` unless an admin adds it). A profile without include rules scans every target, so the run also scans every other target in the DB. Default's port list (tasks S3, V3) covers their published ports, and it also contains RAVEN's `8000` and Dojo's TLS `8443`, so a scan of 172.17.0.1 also probes RAVEN and Dojo on the host. This is accepted (no exclusions). Postgres is bound to 127.0.0.1.
 - **ZAP** reaches our lab through `lab/raven.compose.yml` (attached to `raven_lab`). ZAP is only on internal networks, so it can't reach the organizers' stacks on 172.17.0.1: that is LB3's open issue.
 - **172.17.0.1** is the `docker0` gateway (check with `docker network inspect bridge`). It is reachable from the `raven` container and from `make dev` on the host.
 - **Known risks:** a host firewall may block container→host traffic to 172.17.0.1. Their stacks publish on 0.0.0.0 with default credentials, as their README warns: run them only on a machine that isn't exposed to the network.

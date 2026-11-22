@@ -42,7 +42,7 @@ make lab-change                                # their ./quickstart.sh change
 make lab-down LAB=organizers                   # same STACK= as lab-up
 ```
 
-In RAVEN: **Targets** → add `172.17.0.1` (once) → **Runs** → **Start run** with the profile **Default** (or **Aggressive**). Both scan every target and Default's port list, which also has RAVEN's 8000 and Dojo's 8443 ([`docs/lab.md`](docs/lab.md)).
+In RAVEN: **Targets** → add `172.17.0.1` (once) → **Runs** → **Start run** with the profile **Default** (or **Aggressive**: Default + nuclei_active, nikto, wpscan; add zap in the workflow builder). Both scan every target and Default's port list, which also has RAVEN's 8000 and Dojo's 8443 ([`docs/lab.md`](docs/lab.md)).
 
 Add more users with the roles `admin`, `editor`, `operator` and `viewer` on the **Users** page.
 

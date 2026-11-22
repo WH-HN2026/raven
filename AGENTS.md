@@ -168,6 +168,6 @@ scripts/gen-env.sh && docker compose up -d --build   # full deployment, what the
 - Don't call Dojo from request handlers to render pages; read the mirror tables (`dojo_*`). Writes (triage edits) go to Dojo and then update the mirror.
 - Don't reimport a host that didn't respond in this run, because `close_old_findings` would close everything on it (see architecture §3.8).
 - Don't reimport a tool's Test for a stage that didn't run in this run, for the same reason (see architecture §3.11).
-- Don't make a new profile, or the seeded Default profile, aggressive; the seeded **Aggressive** profile is the only aggressive seed. Don't let a non-admin save or change an aggressive profile.
+- Don't make a new profile, or the seeded Default profile, aggressive; the seeded **Aggressive** profile (Default + nuclei_active, nikto, wpscan; zap off by default, added in the workflow builder) is the only aggressive seed. Don't let a non-admin save or change an aggressive profile.
 - Don't add Dojo version checks, fallbacks for v1/old Endpoints, or alternative storage backends.
 - Don't modify `../django-DefectDojo`. It's reference material, not part of this repo.
