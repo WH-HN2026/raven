@@ -184,6 +184,7 @@ M0 is sequential and blocking. Do it in **one** worktree, as fast as possible, t
 - [x] **DOC1 Developer docs in docs/development.** All developer docs moved; docs/ holds the user manual.
 - [x] **DOC2 User manual (PL).** Short Polish technical user manual in LaTeX (docs/manual/), rendered with tectonic to docs/RAVEN-instrukcja.pdf; screenshots of the real app.
 - [x] **DOC3 Manual figure placement.** Figures stay in their own sections.
+- [x] **DOC5 Evaluator-facing README & manual cleanup.** Rewrite root README for quick deployment and lab testing; remove CBI references across UI/docs/manual and align manual with AG6.
 
 ## M4 — MCP (last)
 

@@ -289,7 +289,7 @@ func TestExportFormattersCSV(t *testing.T) {
 			IP: ip, Hostnames: []string{"web.lab"}, State: "active",
 			FirstSeen: now, LastSeen: now, DojoAssetID: &assetID,
 			OpenServices: 2, OpenPorts: []int32{80, 443}, Technologies: []string{"nginx"},
-			Owner: "cbi", Criticality: "high", UserTags: []string{"prod"},
+			Owner: "agh", Criticality: "high", UserTags: []string{"prod"},
 		}})
 		if err != nil {
 			t.Fatal(err)

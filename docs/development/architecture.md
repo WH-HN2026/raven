@@ -1,6 +1,6 @@
 # RAVEN — Architecture
 
-RAVEN (Recon of Assets, Versions, Exposures & Networks) is an attack-surface-intelligence web app that runs safe, recurring discovery scans of large networks (10k+ IPs) for AGH CBI. It fingerprints services and web technologies, tracks changes over time, and uses **DefectDojo** as its deduplication and finding-lifecycle engine.
+RAVEN (Recon of Assets, Versions, Exposures & Networks) is an attack-surface-intelligence web app that runs safe, recurring discovery scans of large networks (10k+ IPs) for AGH. It fingerprints services and web technologies, tracks changes over time, and uses **DefectDojo** as its deduplication and finding-lifecycle engine.
 
 The brief and the organizers' notes are in [`challenge.md`](challenge.md), and the task breakdown is in [`roadmap.md`](roadmap.md). **This is a hackathon prototype: when in doubt, choose the simpler option.**
 
