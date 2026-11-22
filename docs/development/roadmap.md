@@ -145,6 +145,7 @@ M0 is sequential and blocking. Do it in **one** worktree, as fast as possible, t
 - [x] **U6 Center-align table cells.** Vertically center table cell content (align-middle) across all tables.
 - [x] **U7 Collapsible banner.** Long service banners are collapsed after ~80 characters and expand on click.
 - [x] **U8 RAVEN logo + favicon.** RAVEN wordmark SVG in the header and login instead of plain text; new favicon.
+- [x] **U8 Single-row top navigation bar.** Keep all navigation tabs (including Import/Export and Users) on one horizontal row in the black header.
 - [x] **D7 Import targets from Dojo.** POST /api/targets/import-dojo pulls IPs/CIDRs/domains from DefectDojo Assets and URL Locations (/api/v2/url/) into targets (source='dojo'); "Import from Dojo" button on /targets.
 
 **Track WF — Workflows & aggressive preset**
