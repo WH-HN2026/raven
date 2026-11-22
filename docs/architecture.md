@@ -101,10 +101,10 @@ Steps 3–5 above are the **Default** workflow. A workflow is a property of a pr
 | `zap` | `httpx` | URLs httpx confirmed alive | "ZAP Scan" | aggressive |
 
 - **Validation is server-side.** Saving a profile whose stage set has a stage without its dependency → `400`. `nmap` can't be removed.
-- **Presets only fill the toggles.** **Default** = `nmap, httpx, nuclei`: existing profiles migrate to it, and it is the default for new profiles. **Aggressive** = Default + `nuclei_active, nikto, wpscan, zap`. Users may switch stages off (e.g. `nmap → httpx`, or plain `nmap`). A profile that has any aggressive stage is an **aggressive profile**, with the gating in §9.
+- **Presets only fill the toggles.** **Default** = `nmap, httpx, nuclei`: existing profiles migrate to it, and it is the default for new profiles. **Aggressive** = Default + `nuclei_active, nikto, wpscan, zap`. Users may switch stages off (e.g. `nmap → httpx`, or plain `nmap`). A profile that has any aggressive stage is an **aggressive profile**, with the gating in §9. The seeded profiles are **Default** (Default preset) and **Aggressive** (Aggressive preset); at run start, stages that aren't available (e.g. `zap` without `RAVEN_ZAP_URL`) are dropped from the run with a run warning.
 - **Execution.** The pipeline runs only the enabled stages, in registry order. Each stage gets input only from stages that ran in this run.
 - **Dojo (same spirit as step 8).** A stage that didn't run in a run gets **no reimport** of its tool's Test, because `close_old_findings` would close all of that tool's findings. Each run records the stages that actually ran (`runs.stages`). Changes (C1) compares only the stages both runs share.
-- **Deployment.** nikto and wpscan are pinned in `deploy/Dockerfile`. ZAP is a separate compose service under the compose profile `aggressive`, driven over its API on the internal network. Its image is large, so it is not in our image (§10).
+- **Deployment.** nikto and wpscan are pinned in `deploy/Dockerfile`. ZAP is a separate compose service, always started, driven over its API on the internal network (`RAVEN_ZAP_URL=http://zap:8080`; set it empty to disable the `zap` stage). Its image is large, so it is not in our image (§10).
 
 ## 4. DefectDojo mapping
 
@@ -373,7 +373,8 @@ Gating:
 - Aggressive profiles and runs carry a visible **"Aggressive"** badge.
 - Every create, change and start of an aggressive profile or run writes `audit_log`.
 - The profile's own scope entries are the aggressive scope; there is no separate list.
-- New profiles and the seeded default profile are **never** aggressive.
+- The seeded profiles are **Default** (Default workflow) and **Aggressive** (all aggressive stages; never the default; not scheduled; starting it needs the confirmation; admin-only to change). New profiles start with the Default workflow.
+- Unavailable stages of the seeded Aggressive profile (e.g. `zap` without `RAVEN_ZAP_URL`) are skipped at run start with a run warning, and are not in `runs.stages`. Saving a profile through the API still rejects unavailable stages.
 
 ## 10. Deployment (Docker Compose) and configuration
 
@@ -393,12 +394,12 @@ scripts/gen-env.sh          # creates .env with random secrets (encryption key, 
 |---|---|---|---|
 | `raven` | built from `deploy/Dockerfile` | 8000 | `cap_add: [NET_RAW, NET_ADMIN]`; on the default network and the lab network; runs migrations on start |
 | `raven-db` | `postgres:18` | 5433 (dev only) | volume `raven-db-data`; `log_statement=none`; healthcheck |
-| `zap` (compose profile `aggressive`, AG5) | official ZAP image, pinned tag | none (internal only) | started only with `--profile aggressive`; `raven` drives it over its API on the internal network; attached to the lab network to reach targets |
+| `zap` (AG5) | official ZAP image, pinned tag | none (internal only) | always started; API key required, update checks off; only on the internal `zap-internal` network; `raven` drives it over its API (`RAVEN_ZAP_URL=http://zap:8080`, empty disables the stage); attached to `raven_lab` with `lab/raven.compose.yml` to reach our lab |
 | DefectDojo (`nginx`, `uwsgi`, `celeryworker`, `celerybeat`, `initializer`, `postgres`, `valkey`) | official `defectdojo/*:3.5.202` | 18080 (`DD_PORT`) | unchanged from upstream except the pinned tag and `DD_ADMIN_PASSWORD` coming from `.env` |
 
 - **No manual Dojo token.** If `RAVEN_DOJO_TOKEN` is empty, `raven` waits for Dojo to be healthy and gets a token via `POST /api/v2/api-token-auth/` with `DD_ADMIN_USER`/`DD_ADMIN_PASSWORD`. It then creates the `RAVEN` organization and the `RAVEN Planning` asset if they're missing.
-- **Startup order:** `depends_on` with `condition: service_healthy` on `raven-db`. The Dojo wait is a retry loop inside `raven`, because Dojo's first boot (migrations) takes minutes.
-- **Dev:** `make infra-up` = `docker compose up -d raven-db nginx uwsgi celeryworker celerybeat initializer postgres valkey` (everything except `raven`). The Go binary then runs on the host via `make dev`.
+- **Startup order:** `depends_on` with `condition: service_healthy` on `raven-db` and `service_started` on `zap` (ZAP boots slowly; `raven` doesn't wait for it). The Dojo wait is a retry loop inside `raven`, because Dojo's first boot (migrations) takes minutes.
+- **Dev:** `make infra-up` = `docker compose up -d raven-db nginx uwsgi celeryworker celerybeat initializer postgres valkey` (everything except `raven` and `zap`). The Go binary then runs on the host via `make dev`, with `RAVEN_ZAP_URL` empty (`scripts/wt-env.sh`): the host can't reach ZAP's internal network, so the `zap` stage is unavailable in dev.
 - **Dojo host port** defaults to 18080, not 8080: the organizers' `modern` stack needs 8080 (and 80/81/443). `DD_TLS_PORT` stays 8443.
 - **Scanning network:** by default `raven` scans from the bridge network; it is attached to `raven_lab` for our lab (see "Lab scenarios").
 
@@ -411,9 +412,10 @@ Two scenarios, chosen with `make`. Only one lab stack runs at a time.
 | Files | `compose.lab.yml` (task L1) | their files, verbatim, in `lab/organizers/` (`README.md`, `quickstart.sh`, `docker-compose-*.yml`, `traefik/`), guarded by `SHA256SUMS` + `make lab-verify` |
 | Start / stop | `make lab-up` / `make lab-down` | `make lab-up LAB=organizers STACK=quickstart\|custom-network\|modern\|modern-proxy\|vulnerable` (default `quickstart` = their `./quickstart.sh up`), `make lab-down LAB=organizers STACK=…`, `make lab-change` (= their `./quickstart.sh change`). Make only `cd`s into `lab/organizers/` and runs their own commands; for `modern-proxy`: `cp -n .env.example .env`, then `docker compose --env-file .env -f docker-compose-modern-proxy.yml up -d` (`lab/organizers/.env` is gitignored) |
 | Network | internal `raven_lab`, 172.30.0.0/24; `raven` is attached to it | their own networks; ports published on the Docker host (0.0.0.0) |
-| What RAVEN scans | 172.30.0.0/24 | only 172.17.0.1, on their published ports, through the seeded profile "Organizers' lab" |
+| What RAVEN scans | 172.30.0.0/24 | only 172.17.0.1 (target added in Targets), with the seeded **Default** (or **Aggressive**) profile |
 
-- **"Organizers' lab" profile:** seeded, **not** aggressive, include scope `172.17.0.1` (the seeded `default` profile excludes it). The target `172.17.0.1` is not seeded, because a profile without includes scans every target; the operator adds it once in Targets. Ports `21,80,81,443,2223,3001,5673,6379,8080,8081,8085,8086,8088-8090,8474,8787,8888,15432,15673`. RAVEN's 8000 and Dojo's port are not in the list, so RAVEN never scans itself; Postgres is bound to 127.0.0.1.
+- **Profiles:** there is no lab-specific profile. The operator adds the target `172.17.0.1` once in Targets and runs **Default** (or **Aggressive**). A profile without include rules scans every target, so the run also scans every other target in the DB. Default's port list (tasks S3, V3) covers their published ports, and it also contains RAVEN's `8000` and Dojo's TLS `8443`, so a scan of 172.17.0.1 also probes RAVEN and Dojo on the host. This is accepted (no exclusions). Postgres is bound to 127.0.0.1.
+- **ZAP** reaches our lab through `lab/raven.compose.yml` (attached to `raven_lab`). ZAP is only on internal networks, so it can't reach the organizers' stacks on 172.17.0.1: that is LB3's open issue.
 - **172.17.0.1** is the `docker0` gateway (check with `docker network inspect bridge`). It is reachable from the `raven` container and from `make dev` on the host.
 - **Known risks:** a host firewall may block container→host traffic to 172.17.0.1. Their stacks publish on 0.0.0.0 with default credentials, as their README warns: run them only on a machine that isn't exposed to the network.
 

@@ -80,11 +80,11 @@ The organizers' lab files are in [`lab/organizers/`](../lab/organizers/README.md
 
 `quickstart.sh` is run with `bash` (it is committed without the executable bit). For latency on `modern-proxy`, set `ENABLE_LATENCY=true` and `LATENCY_MS=500` in `lab/organizers/.env` (gitignored), then `make lab-down` and `make lab-up` with `STACK=modern-proxy`.
 
-**Scan.** Their stacks publish on the Docker host. RAVEN reaches them at the `docker0` gateway, `172.17.0.1`; `make lab-up LAB=organizers` prints it and warns if it differs. In RAVEN, add `172.17.0.1` once in **Targets**, then start a run of the seeded profile **Organizers' lab**: include `172.17.0.1`, Default stages, ports `21,80,81,443,2223,3001,5673,6379,8080,8081,8085,8086,8088-8090,8474,8787,8888,15432,15673`, no schedule. RAVEN's own port (8000) and Dojo's (18080) are not in the list.
+**Scan.** Their stacks publish on the Docker host. RAVEN reaches them at the `docker0` gateway, `172.17.0.1`; `make lab-up LAB=organizers` prints it and warns if it differs. In RAVEN, add `172.17.0.1` once in **Targets**, then start a run of the seeded profile **Default** (or **Aggressive**, admin-only to change, start needs confirmation). Default's port list covers all their published ports.
 
-The target is not seeded because a profile without include rules scans every target. The seeded `default` profile excludes `172.17.0.1`. Give every other profile an include scope, or an exclude for `172.17.0.1`, so that only **Organizers' lab** scans the Docker host. It works the same from the `raven` container on the default compose network (no `lab/raven.compose.yml` needed) and from `make dev`.
+Neither seeded profile has include rules, and a profile without include rules scans every target: the run scans every other target in Targets too. Default's port list also contains RAVEN's `8000` and Dojo's TLS `8443`, so a scan of `172.17.0.1` also probes RAVEN and Dojo on the host. To scan only their stacks, use a profile with an include for `172.17.0.1`. It works the same from the `raven` container on the default compose network (no `lab/raven.compose.yml` needed) and from `make dev`.
 
-**`modern` stack result** (2026-11-22, run of **Organizers' lab**, 28 s): 6 open services on `172.17.0.1`: 80 and 443 Nginx Proxy Manager (OpenResty, default site), 81 NPM admin, 6379 Redis 7.4.12, 8080 WordPress (Apache 2.4.71, PHP 8.3.37, install page), 8081 phpMyAdmin; 20 findings in Dojo (2 Medium, 2 Low, 16 Info).
+**`modern` stack result** (2026-11-22, run of LB1's "Organizers' lab" profile, removed in LB6, 28 s): 6 open services on `172.17.0.1`: 80 and 443 Nginx Proxy Manager (OpenResty, default site), 81 NPM admin, 6379 Redis 7.4.12, 8080 WordPress (Apache 2.4.71, PHP 8.3.37, install page), 8081 phpMyAdmin; 20 findings in Dojo (2 Medium, 2 Low, 16 Info).
 
 **Port collisions.** DefectDojo's default host port is 18080 because the `modern` stack needs 8080 (and 80, 81, 443). Anything else on the host that uses one of their ports must be stopped before that stack starts; on a dev machine with a local service on 8080, `modern` fails to start.
 
@@ -123,19 +123,19 @@ To reproduce against the lab:
 
 ## ZAP (aggressive)
 
-Start the optional `zap` service under the `aggressive` compose profile and attach both `raven` and `zap` to `raven_lab`. Both `zap-internal` and `raven_lab` are internal Docker bridges (`internal: true`), so ZAP can reach only `raven` and the lab targets with no internet egress and no published ports.
+The `zap` service always starts with the deployment (`RAVEN_ZAP_URL=http://zap:8080`; set it empty in `.env` to disable the stage). Attach both `raven` and `zap` to `raven_lab`. Both `zap-internal` and `raven_lab` are internal Docker bridges (`internal: true`), so ZAP can reach only `raven` and the lab targets with no internet egress and no published ports. ZAP can't reach the organizers' stacks on `172.17.0.1` (LB3).
 
 ```sh
 test -f .env || scripts/gen-env.sh
-RAVEN_ZAP_URL=http://zap:8080 docker compose -f compose.yml -f lab/raven.compose.yml --profile aggressive up -d --build
+docker compose -f compose.yml -f lab/raven.compose.yml up -d --build
 ```
 
-Create an admin-only aggressive profile scoped strictly to `172.30.0.19/32` (nginx `/admin`) and `172.30.0.20/32` (staging app) with stages `nmap, httpx, nuclei, zap`, then start a run with explicit confirmation (`confirm_aggressive: true`). Without `RAVEN_ZAP_URL`, the `zap` stage stays "Not available".
+Create an admin-only aggressive profile scoped strictly to `172.30.0.19/32` (nginx `/admin`) and `172.30.0.20/32` (staging app) with stages `nmap, httpx, nuclei, zap`, then start a run with explicit confirmation (`confirm_aggressive: true`). Without `RAVEN_ZAP_URL` (and in `make dev`), the `zap` stage is "Not available", and runs of the seeded **Aggressive** profile skip it with the run warning `stage zap skipped: not available`.
 
-Before `make lab-down`, detach both `raven` and `zap` from `raven_lab` (or stop the `aggressive` profile first):
+Before `make lab-down`, detach both `raven` and `zap` from `raven_lab` by recreating them without the lab file:
 
 ```sh
-docker compose -f compose.yml -f lab/raven.compose.yml --profile aggressive stop zap
+docker compose up -d raven zap
 ```
 
 ## Nikto (aggressive stage)
