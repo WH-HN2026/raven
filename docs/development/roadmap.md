@@ -179,7 +179,7 @@ M0 is sequential and blocking. Do it in **one** worktree, as fast as possible, t
 
 **Track DOC — Documentation**
 - [x] **DOC1 Developer docs in docs/development.** All developer docs moved; docs/ holds the user manual.
-- [ ] **DOC2 User manual (PL).** Short Polish technical user manual in LaTeX (docs/manual/), rendered with tectonic to docs/RAVEN-instrukcja.pdf; screenshots of the real app.
+- [x] **DOC2 User manual (PL).** Short Polish technical user manual in LaTeX (docs/manual/), rendered with tectonic to docs/RAVEN-instrukcja.pdf; screenshots of the real app.
 
 ## M4 — MCP (last)
 
