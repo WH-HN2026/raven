@@ -3,7 +3,7 @@ import { NavLink, Navigate, Outlet, useLocation } from 'react-router'
 import { api, type Schemas } from '../api/client'
 import { useAuth } from '../auth/hooks'
 import type { AppRoute } from '../pages/types'
-import { Logo } from './Logo'
+import { Logo, RavenLogo } from './Logo'
 import { PageHeader } from './PageHeader'
 import { Squares } from './Squares'
 import { Section } from './ui'
@@ -37,13 +37,13 @@ export function Layout({ routes }: { routes: AppRoute[] }) {
   )
 }
 
-/** Wordmark: logo, rule, "RAVEN / Recon of Assets, Versions, Exposures & Networks". */
+/** Wordmark: AGH logo, rule, RAVEN wordmark SVG and subtitle. */
 export function Brand() {
   return (
     <span className="flex items-center gap-3.5 py-3">
-      <Logo className="h-[54px] w-7" />
-      <span className="flex flex-col border-l border-on-dark-rule pl-3.5">
-        <span className="text-[22px] leading-[1.1] font-medium tracking-[0.08em]">RAVEN</span>
+      <Logo className="h-[54px] w-7 shrink-0" />
+      <span className="flex flex-col gap-0.5 border-l border-on-dark-rule pl-3.5">
+        <RavenLogo className="block h-[30px] w-auto max-w-full self-start" />
         <span className="text-xs font-light text-on-dark-muted">Recon of Assets, Versions, Exposures &amp; Networks</span>
       </span>
     </span>
