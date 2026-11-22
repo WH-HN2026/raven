@@ -1,3 +1,4 @@
+import { CollapsibleText } from '../../components/CollapsibleText'
 import { SortTh, sortRows, useTableSort } from '../../components/SortTh'
 import { useQuery } from '@tanstack/react-query'
 import { useState, type ReactNode } from 'react'
@@ -161,7 +162,9 @@ function ServicesTable({ ip, services }: { ip: string; services: Service[] }) {
                   <Td className="font-mono text-[13px]">
                     <Eff s={s} field="version" />
                   </Td>
-                  <Td className="max-w-xs font-mono text-xs break-all">{s.banner}</Td>
+                  <Td className="min-w-64 max-w-xs font-mono text-xs break-all">
+                    <CollapsibleText text={s.banner} />
+                  </Td>
                   <Td className="whitespace-nowrap text-muted">{fmtTime(s.first_seen)}</Td>
                   <Td className="whitespace-nowrap text-muted">{fmtTime(s.last_seen)}</Td>
                   {canEdit && (
