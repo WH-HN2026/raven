@@ -35,7 +35,7 @@ type Service struct {
 // ImportRequest is one uploaded scan-result file.
 type ImportRequest struct {
 	Kind     ImportKind // empty = auto-detect from Filename / Data
-	Profile  string     // profile ID or name; empty = "default"
+	Profile  string     // profile ID or name; empty = pipeline.DefaultProfileName
 	Filename string
 	Data     []byte
 }
@@ -117,7 +117,7 @@ func (s *Service) resolveProfile(ctx context.Context, ref string) (gen.Profile, 
 	q := gen.New(s.Pool)
 	ref = strings.TrimSpace(ref)
 	if ref == "" {
-		ref = "default"
+		ref = pipeline.DefaultProfileName
 	}
 	if id, err := strconv.ParseInt(ref, 10, 64); err == nil && id > 0 {
 		p, err := q.GetProfile(ctx, id)

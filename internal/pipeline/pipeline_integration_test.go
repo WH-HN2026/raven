@@ -223,7 +223,7 @@ func TestPipeline(t *testing.T) {
 	})
 
 	var pid int64
-	if err := pool.QueryRow(ctx, `SELECT id FROM profiles WHERE name = 'default'`).Scan(&pid); err != nil {
+	if err := pool.QueryRow(ctx, `SELECT id FROM profiles WHERE name = 'Default'`).Scan(&pid); err != nil {
 		t.Fatal("seeded default profile:", err)
 	}
 	var entries []targets.Entry

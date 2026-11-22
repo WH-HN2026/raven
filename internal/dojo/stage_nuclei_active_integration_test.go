@@ -28,7 +28,7 @@ func TestPushServiceNucleiActiveGating(t *testing.T) {
 	q := gen.New(pool)
 
 	var profileID int64
-	if err := pool.QueryRow(ctx, `SELECT id FROM profiles WHERE name = 'default'`).Scan(&profileID); err != nil {
+	if err := pool.QueryRow(ctx, `SELECT id FROM profiles WHERE name = 'Default'`).Scan(&profileID); err != nil {
 		t.Fatal(err)
 	}
 

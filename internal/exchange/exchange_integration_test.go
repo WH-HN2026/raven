@@ -75,7 +75,7 @@ func TestIntegrationImportResultsAndExport(t *testing.T) {
 		t.Fatal(err)
 	}
 	run1, err := svc.ImportResults(ctx, u, ImportRequest{
-		Kind: ImportResultsJSON, Profile: "default", Filename: "sample_results.json", Data: rawJSON,
+		Kind: ImportResultsJSON, Profile: "Default", Filename: "sample_results.json", Data: rawJSON,
 	})
 	if err != nil {
 		t.Fatalf("ImportResults(results-json): %v", err)
@@ -130,7 +130,7 @@ func TestIntegrationImportResultsAndExport(t *testing.T) {
 	// 2. Import a second run (version changed to 1.26.0) so we can test changes export!
 	rawJSON2 := bytes.ReplaceAll(rawJSON, []byte("1.24.0"), []byte("1.26.0"))
 	run2, err := svc.ImportResults(ctx, u, ImportRequest{
-		Kind: ImportResultsJSON, Profile: "default", Filename: "run2.json", Data: rawJSON2,
+		Kind: ImportResultsJSON, Profile: "Default", Filename: "run2.json", Data: rawJSON2,
 	})
 	if err != nil {
 		t.Fatalf("ImportResults(run2): %v", err)
@@ -142,7 +142,7 @@ func TestIntegrationImportResultsAndExport(t *testing.T) {
 		t.Fatal(err)
 	}
 	runNmap, err := svc.ImportResults(ctx, u, ImportRequest{
-		Kind: ImportNmapXML, Profile: "default", Filename: "lab.xml", Data: nmapRaw,
+		Kind: ImportNmapXML, Profile: "Default", Filename: "lab.xml", Data: nmapRaw,
 	})
 	if err != nil {
 		t.Fatalf("ImportResults(nmap-xml): %v", err)
@@ -156,7 +156,7 @@ func TestIntegrationImportResultsAndExport(t *testing.T) {
 		t.Fatal(err)
 	}
 	runNuclei, err := svc.ImportResults(ctx, u, ImportRequest{
-		Kind: ImportNucleiJSONL, Profile: "default", Filename: "lab-http.jsonl", Data: nucleiRaw,
+		Kind: ImportNucleiJSONL, Profile: "Default", Filename: "lab-http.jsonl", Data: nucleiRaw,
 	})
 	if err != nil {
 		t.Fatalf("ImportResults(nuclei-jsonl): %v", err)

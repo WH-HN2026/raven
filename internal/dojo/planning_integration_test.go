@@ -18,6 +18,7 @@ import (
 
 	"github.com/WH-HN2026/raven/internal/db/gen"
 	"github.com/WH-HN2026/raven/internal/dbtest"
+	"github.com/WH-HN2026/raven/internal/pipeline"
 )
 
 // TestIntegrationPlanning runs D5 end-to-end against the shared DefectDojo
@@ -87,12 +88,12 @@ func TestIntegrationPlanning(t *testing.T) {
 	must(t, err)
 	var defaultProfID int64
 	for _, p := range profs {
-		if p.Name == "default" {
+		if p.Name == pipeline.DefaultProfileName { // Dojo lowercases the tag; the match is case-insensitive
 			defaultProfID = p.ID
 		}
 	}
 	if defaultProfID == 0 {
-		t.Fatal("seeded 'default' profile not found")
+		t.Fatal("seeded Default profile not found")
 	}
 
 	poller := &PlanningPoller{Client: c, Pool: pool, PlanningAssetID: planningID}

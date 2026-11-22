@@ -17,6 +17,14 @@ const (
 	StageZAP          = "zap"
 )
 
+// Seeded profile names (migration 20261121235950_seeded_default_aggressive_profiles.sql).
+// DefaultProfileName has the Default workflow; AggressiveProfileName has
+// AggressiveStages and the AG1 gating of any aggressive profile.
+const (
+	DefaultProfileName    = "Default"
+	AggressiveProfileName = "Aggressive"
+)
+
 // StageDef describes one workflow stage in the registry (architecture §3.11).
 type StageDef struct {
 	Name       string   `json:"name"`
@@ -203,6 +211,33 @@ func EffectiveStages(stages []string) []string {
 		return DefaultStages()
 	}
 	return slices.Clone(stages)
+}
+
+// AvailableStages drops the stages that are not Available now (e.g. zap
+// without RAVEN_ZAP_URL), and any stage whose Needs were dropped, keeping the
+// order. It returns the stages a run executes and the skipped ones. Only the
+// seeded Aggressive profile can hold an unavailable stage: Validate rejects
+// them on save.
+func AvailableStages(stages []string) (run, skipped []string) {
+	stageMu.RLock()
+	defer stageMu.RUnlock()
+	kept := make(map[string]bool, len(stages))
+	for _, name := range stages {
+		def, ok := stageByName[name]
+		usable := ok && def.Available
+		for _, need := range def.Needs {
+			if !kept[need] {
+				usable = false
+			}
+		}
+		if usable {
+			kept[name] = true
+			run = append(run, name)
+		} else {
+			skipped = append(skipped, name)
+		}
+	}
+	return run, skipped
 }
 
 // HasStage reports whether name is present in stages.

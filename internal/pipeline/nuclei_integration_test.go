@@ -38,7 +38,7 @@ func TestNucleiBatchIngest(t *testing.T) {
 	ctx := t.Context()
 	q := gen.New(pool)
 	var profileID int64
-	if err := pool.QueryRow(ctx, `UPDATE profiles SET nuclei_tags = ARRAY['tech'] WHERE name = 'default' RETURNING id`).Scan(&profileID); err != nil {
+	if err := pool.QueryRow(ctx, `UPDATE profiles SET nuclei_tags = ARRAY['tech'] WHERE name = 'Default' RETURNING id`).Scan(&profileID); err != nil {
 		t.Fatal(err)
 	}
 	prof, err := q.GetProfile(ctx, profileID)

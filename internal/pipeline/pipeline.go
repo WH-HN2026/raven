@@ -309,10 +309,6 @@ func (s *Service) startRun(ctx context.Context, u *auth.User, profileID int64, s
 		status, finished = "done", &now
 		stats["reason"] = "empty scan list: no targets in scope for this profile"
 	}
-	statsJSON, err := json.Marshal(stats)
-	if err != nil {
-		return Run{}, fmt.Errorf("marshal run stats: %w", err)
-	}
 
 	var run gen.Run
 	err = pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
@@ -341,6 +337,20 @@ func (s *Service) startRun(ctx context.Context, u *auth.User, profileID int64, s
 		}
 		if n > 0 {
 			return fmt.Errorf("%w: profile %q already has a pending or running run", ErrConflict, prof.Name)
+		}
+		// Gating above uses the profile's stages; the run records only the
+		// stages that can run now, so a skipped stage is never pushed to Dojo.
+		stages, skipped := AvailableStages(stages)
+		if len(skipped) > 0 {
+			warnings := nonNil(sl.Warnings)
+			for _, name := range skipped {
+				warnings = append(warnings, "stage "+name+" skipped: not available")
+			}
+			stats["warnings"] = warnings
+		}
+		statsJSON, err := json.Marshal(stats)
+		if err != nil {
+			return fmt.Errorf("marshal run stats: %w", err)
 		}
 		run, err = q.InsertRun(ctx, gen.InsertRunParams{
 			ProfileID: profileID, Status: status, CreatedBy: userID(u),
@@ -381,6 +391,9 @@ func (s *Service) startRun(ctx context.Context, u *auth.User, profileID int64, s
 		diff := map[string]any{"profile_id": profileID, "hosts_total": len(sl.IPs), "batches": len(batches), "batch_size": plan.Size, "stages": stages}
 		if aggressive {
 			diff["aggressive"] = true
+		}
+		if len(skipped) > 0 {
+			diff["skipped_stages"] = skipped
 		}
 		if scheduleID != nil {
 			diff["schedule_id"] = *scheduleID

@@ -146,8 +146,8 @@ func TestMCPEndToEnd(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Seed profiles: default (from baseline) + an aggressive profile.
-	defProf, err := q.GetProfileByName(ctx, "default")
+	// Seed profiles: Default (seeded) + an aggressive profile.
+	defProf, err := q.GetProfileByName(ctx, pipeline.DefaultProfileName)
 	if err != nil {
 		t.Fatal(err)
 	}

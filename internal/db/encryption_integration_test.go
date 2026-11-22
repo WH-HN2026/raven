@@ -68,7 +68,7 @@ func TestEncryptedColumnsAtRest(t *testing.T) {
 
 	// A run + batch for the ingest.
 	var runID, batchID int64
-	if err := pool.QueryRow(ctx, `INSERT INTO runs (profile_id) SELECT id FROM profiles WHERE name = 'default' RETURNING id`).Scan(&runID); err != nil {
+	if err := pool.QueryRow(ctx, `INSERT INTO runs (profile_id) SELECT id FROM profiles WHERE name = 'Default' RETURNING id`).Scan(&runID); err != nil {
 		t.Fatal(err)
 	}
 	if err := pool.QueryRow(ctx, `INSERT INTO batches (run_id, seq, ips) VALUES ($1, 0, ARRAY[$2::inet]) RETURNING id`, runID, ip).Scan(&batchID); err != nil {

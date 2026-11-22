@@ -74,7 +74,7 @@ func TestWPScanStageIntegration(t *testing.T) {
 	q := gen.New(pool)
 
 	var profID int64
-	if err := pool.QueryRow(ctx, `SELECT id FROM profiles WHERE name = 'default'`).Scan(&profID); err != nil {
+	if err := pool.QueryRow(ctx, `SELECT id FROM profiles WHERE name = 'Default'`).Scan(&profID); err != nil {
 		t.Fatal(err)
 	}
 	prof, err := q.GetProfile(ctx, profID)

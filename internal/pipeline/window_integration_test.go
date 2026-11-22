@@ -74,7 +74,7 @@ func setupWindowPipeline(t *testing.T, pool *pgxpool.Pool, cfg Config) (*Service
 	})
 
 	var profileID int64
-	if err := pool.QueryRow(ctx, "SELECT id FROM profiles WHERE name = 'default'").Scan(&profileID); err != nil {
+	if err := pool.QueryRow(ctx, "SELECT id FROM profiles WHERE name = 'Default'").Scan(&profileID); err != nil {
 		t.Fatal(err)
 	}
 	// Only the fake scanner receives these addresses.

@@ -200,3 +200,29 @@ func TestSetStageAvailable(t *testing.T) {
 	// Unknown stage names are a safe no-op.
 	SetStageAvailable("nonexistent", true)
 }
+
+func TestAvailableStages(t *testing.T) {
+	t.Cleanup(func() { SetStageAvailable(StageZAP, false) })
+	tests := []struct {
+		name         string
+		zap          bool
+		in           []string
+		run, skipped []string
+	}{
+		{"default preset", false, DefaultStages(), DefaultStages(), nil},
+		{"aggressive without zap", false, AggressiveStages(),
+			[]string{StageNmap, StageHTTPX, StageNuclei, StageNucleiActive, StageNikto, StageWPScan}, []string{StageZAP}},
+		{"aggressive with zap", true, AggressiveStages(), AggressiveStages(), nil},
+		{"unknown stage", false, []string{StageNmap, "masscan"}, []string{StageNmap}, []string{"masscan"}},
+		{"missing need", false, []string{StageNmap, StageNuclei}, []string{StageNmap}, []string{StageNuclei}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			SetStageAvailable(StageZAP, tc.zap)
+			run, skipped := AvailableStages(tc.in)
+			if !slices.Equal(run, tc.run) || !slices.Equal(skipped, tc.skipped) {
+				t.Fatalf("AvailableStages(%v) = %v, %v; want %v, %v", tc.in, run, skipped, tc.run, tc.skipped)
+			}
+		})
+	}
+}

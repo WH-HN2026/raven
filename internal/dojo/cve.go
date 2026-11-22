@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/WH-HN2026/raven/internal/cve"
+	"github.com/WH-HN2026/raven/internal/pipeline"
 )
 
 // CVE matching (task C3, architecture §11): a periodic pass matches open
@@ -18,8 +19,8 @@ import (
 // close_old_findings, so a version change closes findings for the old version.
 
 // DefaultCVEProfile names the engagement for IPs no profile run has seen up
-// (e.g. imported hosts).
-const DefaultCVEProfile = "default"
+// (e.g. imported hosts): the seeded Default profile.
+const DefaultCVEProfile = pipeline.DefaultProfileName
 
 // CVEPusher pushes one IP's CVE findings.
 type CVEPusher struct {

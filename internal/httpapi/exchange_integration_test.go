@@ -121,16 +121,16 @@ func TestExchangeAPI(t *testing.T) {
 	}
 
 	// Viewer MUST get 403 on import!
-	if code, body := upload(viewerCookie, "results-json", "default", "sample.json", sampleJSON); code != http.StatusForbidden {
+	if code, body := upload(viewerCookie, "results-json", "Default", "sample.json", sampleJSON); code != http.StatusForbidden {
 		t.Fatalf("viewer import = %d %s, want 403", code, body)
 	}
 	// Anonymous gets 401.
-	if code, body := upload("", "results-json", "default", "sample.json", sampleJSON); code != http.StatusUnauthorized {
+	if code, body := upload("", "results-json", "Default", "sample.json", sampleJSON); code != http.StatusUnauthorized {
 		t.Fatalf("anon import = %d %s, want 401", code, body)
 	}
 
 	// Editor imports run 1 and run 2 (with a version change).
-	code, body1 := upload(editorCookie, "results-json", "default", "run1.json", sampleJSON)
+	code, body1 := upload(editorCookie, "results-json", "Default", "run1.json", sampleJSON)
 	if code != http.StatusAccepted {
 		t.Fatalf("editor import run1 = %d %s, want 202", code, body1)
 	}
@@ -140,7 +140,7 @@ func TestExchangeAPI(t *testing.T) {
 	}
 
 	sampleJSON2 := bytes.ReplaceAll(sampleJSON, []byte("1.24.0"), []byte("1.25.0"))
-	code, body2 := upload(editorCookie, "results-json", "default", "run2.json", sampleJSON2)
+	code, body2 := upload(editorCookie, "results-json", "Default", "run2.json", sampleJSON2)
 	if code != http.StatusAccepted {
 		t.Fatalf("editor import run2 = %d %s, want 202", code, body2)
 	}
