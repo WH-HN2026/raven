@@ -21,6 +21,7 @@ describe('LoginPage', () => {
         </AuthContext.Provider>
       </QueryClientProvider>,
     )
+    expect(screen.getByRole('img', { name: 'RAVEN' })).toBeInTheDocument()
     fireEvent.change(screen.getByLabelText('Username'), { target: { value: 'admin' } })
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'pw' } })
     fireEvent.click(screen.getByRole('button', { name: 'Sign in' }))
