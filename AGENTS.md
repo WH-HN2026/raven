@@ -14,8 +14,8 @@ Read before working:
 - **Hackathon: choose the simplest thing that works.** No compat layers, no speculative config, no new infra. Decisions in architecture §1 are settled; don't re-open them in code.
 - **Newest DefectDojo only** (3.5.x, API v2, Locations, Asset naming).
 - **Safety is a scored criterion. Never break it** (full rules: [architecture §9](docs/development/architecture.md#9-safety-scored-criterion-non-negotiable)):
-  - **Always (every workflow):** scan only the profile's in-scope targets with the global blacklist applied. Scan targets (dev machines): only (1) our lab (`make lab-up`, raven_lab 172.30.0.0/24), (2) the organizers' stacks from lab/organizers/, reached at the Docker host's bridge address (172.17.0.1) as target 172.17.0.1 with the Default (or Aggressive) profile, or (3) the organizers' lab at the event. Never the internet, other hosts on the LAN, the host's LAN address, or AGH ranges. Scanner flags come only from the allowlists in `internal/scanner/*`. Rate limit and time cap on every tool; no login attempts or credential brute-forcing, no DoS, no interactsh/OAST, no external APIs.
-  - **Organizers' files are verbatim.** Never edit anything in lab/organizers/ (`make lab-verify` checks SHA256SUMS). Adapt RAVEN around them (ports, profiles, networks), never the other way round.
+  - **Always (every workflow):** scan only the profile's in-scope targets with the global blacklist applied. Scan targets (dev machines): only (1) our lab (`make lab-up`, raven_lab 172.30.0.0/24), (2) the reference stacks from lab/reference/, reached at the Docker host's bridge address (172.17.0.1) as target 172.17.0.1 with the Default (or Aggressive) profile, or (3) the organizers' lab at the event. Never the internet, other hosts on the LAN, the host's LAN address, or AGH ranges. Scanner flags come only from the allowlists in `internal/scanner/*`. Rate limit and time cap on every tool; no login attempts or credential brute-forcing, no DoS, no interactsh/OAST, no external APIs.
+  - **Reference lab files are verbatim.** Never edit anything in lab/reference/ (`make lab-verify` checks SHA256SUMS). Adapt RAVEN around them (ports, profiles, networks), never the other way round.
   - **Default workflow** (nmap → httpx → nuclei): no intrusive scripts or templates, GET-only probes, signatures from the safe-subset validator.
   - **Aggressive stages** (active nuclei, nikto, wpscan, ZAP) only in profiles using the **Aggressive preset**: explicit opt-in, admin-only (`scan:aggressive`), never the default, still under the "Always" rules.
 - **No secrets in git.** Use `.env.local`, which is gitignored; keep `.env.example` up to date when you add a variable.
@@ -114,7 +114,7 @@ Report with worker_done: PR URL, summary, evidence (commands + results), known g
 - Start the infra **once** from any checkout: `make infra-up`. It runs the root `compose.yml` without the `raven` service, giving Postgres on 5433 and DefectDojo on http://localhost:18080 (admin credentials in `.env`).
 - Every worktree uses its **own database** on the shared Postgres (created by `scripts/wt-env.sh`, migrated on startup) and its own ports. Don't hardcode ports.
 - DefectDojo is **shared**: don't assume it's empty, and don't delete other people's data. Integration tests create uniquely named objects (e.g. with the branch slug as a tag).
-- The labs (one at a time): ours with `make lab-up`; the organizers' with `make lab-up LAB=organizers STACK=…` (architecture §10, "Lab scenarios").
+- The labs (one at a time): ours with `make lab-up`; the reference lab with `make lab-up LAB=reference STACK=…` (architecture §10, "Lab scenarios").
 
 ## Commands
 
@@ -127,10 +127,10 @@ make db-new name=add_foo        # new timestamped goose migration
 make test-integration           # go test -tags integration ./... (needs infra-up)
 make infra-up / infra-down
 make lab-up / lab-down                      # our lab (LAB=ours, compose.lab.yml)
-make lab-up LAB=organizers STACK=quickstart # organizers' stack, verbatim; STACK=quickstart|custom-network|modern|modern-proxy|vulnerable
-make lab-down LAB=organizers STACK=…        # stop that stack
+make lab-up LAB=reference STACK=quickstart  # reference stack, verbatim; STACK=quickstart|custom-network|modern|modern-proxy|vulnerable
+make lab-down LAB=reference STACK=…         # stop that stack
 make lab-change                             # their ./quickstart.sh change
-make lab-verify                             # lab/organizers/ matches SHA256SUMS
+make lab-verify                             # lab/reference/ matches SHA256SUMS
 scripts/gen-env.sh && docker compose up -d --build   # full deployment, what the jury runs
 ```
 

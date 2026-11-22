@@ -64,23 +64,23 @@ docker run --rm --network raven_lab raven-lab-tools:local nmap -n -sS -sV \
   --max-rate 100 -p 22,80,443,3306,8080 172.30.0.16/28
 ```
 
-## Organizers' scenario
+## Reference lab
 
-The organizers' lab files are in [`lab/organizers/`](../../lab/organizers/README.md), byte for byte as they gave them. Never edit them: `make lab-verify` checks them against `lab/organizers/SHA256SUMS`. Make only `cd`s into that directory and runs their own commands. Run **one stack at a time** (their README), and stop our lab first.
+The reference lab files are in [`lab/reference/`](../../lab/reference/README.md), byte for byte as provided. Never edit them: `make lab-verify` checks them against `lab/reference/SHA256SUMS`. Make only `cd`s into that directory and runs their own commands. Run **one stack at a time** (their README), and stop our lab first.
 
-| Command | Runs (in `lab/organizers/`) | Published ports |
+| Command | Runs (in `lab/reference/`) | Published ports |
 |---|---|---|
-| `make lab-up LAB=organizers` (`STACK=quickstart`, default) | `./quickstart.sh up` | 2223, 3001, 5673, 8787, 15673 |
+| `make lab-up LAB=reference` (`STACK=quickstart`, default) | `./quickstart.sh up` | 2223, 3001, 5673, 8787, 15673 |
 | `make lab-change` | `./quickstart.sh change` (stops 8787) | |
-| `make lab-up LAB=organizers STACK=custom-network` | `docker compose -f docker-compose-custom-network.yml up -d` | 2223, 3001, 5673, 8787, 8888, 15432, 15673 |
-| `make lab-up LAB=organizers STACK=modern` | `docker compose -f docker-compose-modern.yml up -d` | 80, 81, 443, 6379, 8080, 8081 |
-| `make lab-up LAB=organizers STACK=modern-proxy` | `cp -n .env.example .env`, then `docker compose --env-file .env -f docker-compose-modern-proxy.yml up -d` | 8085, 8086, 8474 |
-| `make lab-up LAB=organizers STACK=vulnerable` | `docker compose -f docker-compose-vulnerable.yml up -d` | 21, 8088, 8089, 8090 |
-| `make lab-down LAB=organizers STACK=<same>` | `./quickstart.sh down` or `docker compose … down` | |
+| `make lab-up LAB=reference STACK=custom-network` | `docker compose -f docker-compose-custom-network.yml up -d` | 2223, 3001, 5673, 8787, 8888, 15432, 15673 |
+| `make lab-up LAB=reference STACK=modern` | `docker compose -f docker-compose-modern.yml up -d` | 80, 81, 443, 6379, 8080, 8081 |
+| `make lab-up LAB=reference STACK=modern-proxy` | `cp -n .env.example .env`, then `docker compose --env-file .env -f docker-compose-modern-proxy.yml up -d` | 8085, 8086, 8474 |
+| `make lab-up LAB=reference STACK=vulnerable` | `docker compose -f docker-compose-vulnerable.yml up -d` | 21, 8088, 8089, 8090 |
+| `make lab-down LAB=reference STACK=<same>` | `./quickstart.sh down` or `docker compose … down` | |
 
-`quickstart.sh` is run with `bash` (it is committed without the executable bit). For latency on `modern-proxy`, set `ENABLE_LATENCY=true` and `LATENCY_MS=500` in `lab/organizers/.env` (gitignored), then `make lab-down` and `make lab-up` with `STACK=modern-proxy`.
+`quickstart.sh` is run with `bash` (it is committed without the executable bit). For latency on `modern-proxy`, set `ENABLE_LATENCY=true` and `LATENCY_MS=500` in `lab/reference/.env` (gitignored), then `make lab-down` and `make lab-up` with `STACK=modern-proxy`.
 
-**Scan.** Their stacks publish on the Docker host. RAVEN reaches them at the `docker0` gateway, `172.17.0.1`; `make lab-up LAB=organizers` prints it and warns if it differs. In RAVEN, add `172.17.0.1` once in **Targets**, then start a run of the seeded profile **Default** (or **Aggressive**, admin-only to change). Default's port list covers all their published ports.
+**Scan.** Their stacks publish on the Docker host. RAVEN reaches them at the `docker0` gateway, `172.17.0.1`; `make lab-up LAB=reference` prints it and warns if it differs. In RAVEN, add `172.17.0.1` once in **Targets**, then start a run of the seeded profile **Default** (or **Aggressive**, admin-only to change). Default's port list covers all their published ports.
 
 Neither seeded profile has include rules, and a profile without include rules scans every target: the run scans every other target in Targets too. Default's port list also contains RAVEN's `8000` and Dojo's TLS `8443`, so a scan of `172.17.0.1` also probes RAVEN and Dojo on the host. To scan only their stacks, use a profile with an include for `172.17.0.1`. It works the same from the `raven` container on the default compose network (no `lab/raven.compose.yml` needed) and from `make dev`.
 
@@ -123,7 +123,7 @@ To reproduce against the lab:
 
 ## ZAP (aggressive)
 
-The `zap` service always starts with the deployment (`RAVEN_ZAP_URL=http://zap:8080`; set it empty in `.env` to disable the stage). Attach both `raven` and `zap` to `raven_lab`. Both `zap-internal` and `raven_lab` are internal Docker bridges (`internal: true`), so ZAP can reach only `raven` and the lab targets with no internet egress and no published ports. ZAP can't reach the organizers' stacks on `172.17.0.1` (LB3).
+The `zap` service always starts with the deployment (`RAVEN_ZAP_URL=http://zap:8080`; set it empty in `.env` to disable the stage). Attach both `raven` and `zap` to `raven_lab`. Both `zap-internal` and `raven_lab` are internal Docker bridges (`internal: true`), so ZAP can reach only `raven` and the lab targets with no internet egress and no published ports. ZAP can't reach the reference stacks on `172.17.0.1` (LB3).
 
 ```sh
 test -f .env || scripts/gen-env.sh

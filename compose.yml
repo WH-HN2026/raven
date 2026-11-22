@@ -41,8 +41,8 @@ services:
     networks:
       - default
       - zap-internal
-    # Our lab: attach to raven_lab with `-f lab/raven.compose.yml`. The organizers'
-    # stacks (lab/organizers) are reached from here at the docker0 gateway 172.17.0.1
+    # Our lab: attach to raven_lab with `-f lab/raven.compose.yml`. The reference
+    # stacks (lab/reference) are reached from here at the docker0 gateway 172.17.0.1
     # (target 172.17.0.1, Default or Aggressive profile); no extra network is needed (docs/development/lab.md).
 
   zap:
