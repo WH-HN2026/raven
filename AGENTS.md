@@ -1,6 +1,6 @@
 # AGENTS.md — RAVEN (Recon of Assets, Versions, Exposures & Networks)
 
-Hackathon prototype for AGH CBI: a web app that runs safe, recurring discovery scans of large networks (nmap + nuclei), fingerprints services and web technologies, tracks changes between runs, and uses **DefectDojo 3.5 (API v2)** as its dedup and finding-lifecycle engine. Go backend, React SPA, Postgres 18.
+Hackathon prototype for AGH: a web app that runs safe, recurring discovery scans of large networks (nmap + nuclei), fingerprints services and web technologies, tracks changes between runs, and uses **DefectDojo 3.5 (API v2)** as its dedup and finding-lifecycle engine. Go backend, React SPA, Postgres 18.
 
 Read before working:
 - [`docs/development/architecture.md`](docs/development/architecture.md): decisions D1–D10, data flow, Dojo mapping, schema, RBAC, safety rules.

@@ -117,7 +117,7 @@ export function Footer() {
         </div>
       </div>
       <div className="mx-auto flex max-w-[1440px] flex-wrap justify-between gap-x-6 gap-y-2 px-10 pt-2 pb-5 text-[13px] font-light text-on-dark">
-        <span>Centrum Bezpieczeństwa Informacji AGH · RAVEN</span>
+        <span>AGH · RAVEN</span>
       </div>
     </footer>
   )

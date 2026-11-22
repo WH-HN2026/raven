@@ -243,7 +243,7 @@ Mentorzy:
 
 ```
 
-## Notes from talking to the organizers (AGH CBI)
+## Notes from talking to the organizers (AGH)
 
 Translated and summarised from the team's notes. These take precedence over our own assumptions.
 
