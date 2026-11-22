@@ -19,6 +19,7 @@ import (
 	"github.com/WH-HN2026/raven/internal/auth"
 	"github.com/WH-HN2026/raven/internal/db/gen"
 	"github.com/WH-HN2026/raven/internal/dbtest"
+	"github.com/WH-HN2026/raven/internal/dojo"
 	"github.com/WH-HN2026/raven/internal/targets"
 )
 
@@ -191,3 +192,157 @@ func (fakeResolver) LookupNetIP(_ context.Context, _, host string) ([]netip.Addr
 }
 
 func itoa(n int64) string { return strconv.FormatInt(n, 10) }
+
+func TestImportDojoTargetsAPI(t *testing.T) {
+	pool := dbtest.Fresh(t)
+	ctx := context.Background()
+	q := gen.New(pool)
+	svc := auth.NewService(q, time.Hour)
+	if err := svc.EnsureBootstrapAdmin(ctx, "admin", "admin-pw"); err != nil {
+		t.Fatal(err)
+	}
+	for _, u := range []struct{ name, role string }{
+		{"viewer", "viewer"},
+		{"operator", "operator"},
+		{"editor", "editor"},
+	} {
+		hash, _ := auth.HashPassword(u.name + "-pw")
+		if _, err := q.CreateUser(ctx, gen.CreateUserParams{Username: u.name, PasswordHash: hash, Role: u.role}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	lazy := &dojo.Lazy{}
+	srv := httptest.NewServer(NewRouter(Deps{Pool: pool, Queries: q, Auth: svc, Dojo: lazy}))
+	defer srv.Close()
+
+	login := func(user string) string {
+		t.Helper()
+		req, _ := http.NewRequest("POST", srv.URL+"/api/auth/login", strings.NewReader(`{"username":"`+user+`","password":"`+user+`-pw"}`))
+		req.Header.Set(auth.CSRFHeader, "1")
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil || resp.StatusCode != 200 {
+			t.Fatalf("login %s: %v %v", user, err, resp)
+		}
+		defer resp.Body.Close()
+		for _, c := range resp.Cookies() {
+			if c.Name == auth.CookieName {
+				return c.Value
+			}
+		}
+		t.Fatal("no cookie")
+		return ""
+	}
+	postImport := func(cookie string) (int, string) {
+		t.Helper()
+		req, _ := http.NewRequest("POST", srv.URL+"/api/targets/import-dojo", nil)
+		req.Header.Set(auth.CSRFHeader, "1")
+		req.AddCookie(&http.Cookie{Name: auth.CookieName, Value: cookie})
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		b, _ := io.ReadAll(resp.Body)
+		return resp.StatusCode, string(b)
+	}
+
+	admin, editor, operator, viewer := login("admin"), login("editor"), login("operator"), login("viewer")
+
+	// RBAC: viewer and operator rejected with 403 even before Dojo check.
+	for name, cookie := range map[string]string{"viewer": viewer, "operator": operator} {
+		code, body := postImport(cookie)
+		if code != http.StatusForbidden {
+			t.Fatalf("%s POST /api/targets/import-dojo = %d %s, want 403", name, code, body)
+		}
+	}
+
+	// Unconnected Dojo → 503 service_unavailable.
+	code, body := postImport(admin)
+	if code != http.StatusServiceUnavailable || !strings.Contains(body, `"code":"service_unavailable"`) || !strings.Contains(body, "DefectDojo is not connected") {
+		t.Fatalf("unconnected Dojo = %d %s, want 503 service_unavailable", code, body)
+	}
+
+	// Wire a stub DefectDojo HTTP server.
+	var emptyMode bool
+	dojoMux := http.NewServeMux()
+	dojoMux.HandleFunc("GET /api/v2/assets/", func(w http.ResponseWriter, r *http.Request) {
+		if emptyMode {
+			_, _ = w.Write([]byte(`{"count":1,"results":[{"id":1,"name":"RAVEN Planning","tags":["raven"]}]}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"count":4,"results":[` +
+			`{"id":1,"name":"RAVEN Planning","tags":["raven"]},` +
+			`{"id":2,"name":"Web Portal","tags":["corp"]},` +
+			`{"id":3,"name":"10.0.0.1","tags":["raven","dmz"]},` +
+			`{"id":4,"name":"10.1.2.5/24","tags":["lab"]}` +
+			`]}`))
+	})
+	dojoMux.HandleFunc("GET /api/v2/url/", func(w http.ResponseWriter, r *http.Request) {
+		if emptyMode {
+			_, _ = w.Write([]byte(`{"count":0,"results":[]}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"count":3,"results":[` +
+			`{"id":10,"host":"10.0.0.1","tags":["http"]},` +
+			`{"id":11,"host":"APP.EXAMPLE.COM","tags":["web"]},` +
+			`{"id":12,"host":"not valid host!","tags":[]}` +
+			`]}`))
+	})
+	dojoSrv := httptest.NewServer(dojoMux)
+	defer dojoSrv.Close()
+	lazy.Set(dojo.NewHTTPClient(dojoSrv.URL, "tok"))
+
+	// Editor imports targets → 200, 3 valid imported, 3 skipped.
+	code, body = postImport(editor)
+	if code != http.StatusOK {
+		t.Fatalf("editor import = %d %s, want 200", code, body)
+	}
+	var res struct {
+		Imported int          `json:"imported"`
+		Skipped  int          `json:"skipped"`
+		Items    []gen.Target `json:"items"`
+	}
+	if err := json.Unmarshal([]byte(body), &res); err != nil {
+		t.Fatalf("unmarshal %s: %v", body, err)
+	}
+	if res.Imported != 3 || res.Skipped != 3 || len(res.Items) != 3 {
+		t.Fatalf("res = %+v", res)
+	}
+	for _, it := range res.Items {
+		if it.Source != "dojo" {
+			t.Fatalf("target %s source = %q, want dojo", it.Value, it.Source)
+		}
+	}
+
+	// Admin re-importing is idempotent (upserts cleanly) and writes audit_log.
+	code, body = postImport(admin)
+	if code != http.StatusOK || !strings.Contains(body, `"imported":3`) {
+		t.Fatalf("admin re-import = %d %s", code, body)
+	}
+
+	// Verify DB rows have source='dojo' and normalized values.
+	var count int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM targets WHERE source = 'dojo'`).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count != 3 {
+		t.Fatalf("db targets with source='dojo' = %d, want 3", count)
+	}
+
+	// Verify audit_log has targets.add with source=dojo.
+	var auditCount int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM audit_log WHERE action = 'targets.add' AND diff->>'source' = 'dojo'`).Scan(&auditCount); err != nil {
+		t.Fatal(err)
+	}
+	if auditCount != 2 {
+		t.Fatalf("audit_log dojo target imports = %d, want 2", auditCount)
+	}
+
+	// Empty Dojo (only non-target asset) → 200 with imported=0, skipped=1, items=[].
+	emptyMode = true
+	code, body = postImport(admin)
+	if code != http.StatusOK || !strings.Contains(body, `"imported":0`) || !strings.Contains(body, `"skipped":1`) || !strings.Contains(body, `"items":[]`) {
+		t.Fatalf("empty dojo import = %d %s", code, body)
+	}
+}

@@ -37,12 +37,15 @@ const UserTagPrefix = "user:"
 // MaxNoteLen bounds a finding note (bytes).
 const MaxNoteLen = 20000
 
-// WriteClient is the part of Dojo that user edits need.
+// WriteClient is the part of Dojo that interactive API calls need (write-through
+// finding/host edits and on-demand target import).
 type WriteClient interface {
 	PatchFinding(ctx context.Context, id int64, p FindingPatch) (*Finding, error)
 	AddFindingNote(ctx context.Context, findingID int64, text string) error
 	GetAsset(ctx context.Context, id int64) (*Asset, error)
 	UpdateAsset(ctx context.Context, id int64, u AssetUpdate) (*Asset, error)
+	ListAssets(ctx context.Context, q AssetQuery) (*Page[Asset], error)
+	ListURLs(ctx context.Context, q URLQuery) (*Page[URL], error)
 }
 
 var _ WriteClient = (*HTTPClient)(nil)

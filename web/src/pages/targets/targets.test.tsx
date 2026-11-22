@@ -158,3 +158,72 @@ describe('TargetsPage permissions', () => {
     expect(screen.queryByRole('group', { name: 'Add targets' })).not.toBeInTheDocument()
   })
 })
+
+describe('Import from Dojo', () => {
+  it('posts to /api/targets/import-dojo, refreshes the table, and shows imported count', async () => {
+    let imported = false
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = String(input)
+      if (url === '/api/targets/import-dojo' && init?.method === 'POST') {
+        imported = true
+        return json({
+          imported: 2,
+          skipped: 1,
+          items: [
+            { id: 10, kind: 'ip', value: '10.0.0.5', source: 'dojo', tags: ['dmz'], note: '' },
+            { id: 11, kind: 'domain', value: 'app.lab', source: 'dojo', tags: [], note: '' },
+          ],
+        })
+      }
+      if (url.startsWith('/api/scope')) return json({ items: [], total: 0 })
+      return imported
+        ? json({
+            items: [
+              { id: 10, kind: 'ip', value: '10.0.0.5', source: 'dojo', tags: ['dmz'], note: '' },
+              { id: 11, kind: 'domain', value: 'app.lab', source: 'dojo', tags: [], note: '' },
+            ],
+            total: 2,
+          })
+        : json({ items: [], total: 0 })
+    })
+
+    wrap(<TargetsPage />)
+    expect(await screen.findByText('No targets')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Import from Dojo' }))
+    expect(await screen.findByRole('status')).toHaveTextContent('Imported 2 targets (1 skipped)')
+    expect(await screen.findByText('10.0.0.5')).toBeInTheDocument()
+    expect(screen.getByText('app.lab')).toBeInTheDocument()
+
+    const postCall = fetchMock.mock.calls.find(([u, i]) => u === '/api/targets/import-dojo' && i?.method === 'POST')
+    expect(postCall).toBeDefined()
+    expect((postCall![1]?.headers as Record<string, string>)['X-RAVEN-CSRF']).toBe('1')
+  })
+
+  it('shows empty and error states', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = String(input)
+      if (url === '/api/targets/import-dojo' && init?.method === 'POST') {
+        return json({ imported: 0, skipped: 1, items: [] })
+      }
+      if (url.startsWith('/api/scope')) return json({ items: [], total: 0 })
+      return json({ items: [], total: 0 })
+    })
+
+    wrap(<TargetsPage />)
+    fireEvent.click(screen.getByRole('button', { name: 'Import from Dojo' }))
+    expect(await screen.findByRole('status')).toHaveTextContent('No targets in Dojo (1 skipped)')
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = String(input)
+      if (url === '/api/targets/import-dojo' && init?.method === 'POST') {
+        return json({ error: { code: 'service_unavailable', message: 'DefectDojo is not connected' } }, 503)
+      }
+      if (url.startsWith('/api/scope')) return json({ items: [], total: 0 })
+      return json({ items: [], total: 0 })
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Import from Dojo' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('DefectDojo is not connected')
+  })
+})

@@ -10,11 +10,11 @@ afterEach(() => {
 })
 
 // What each role may do on /targets: targets:write / import (editor+), scope:write+scope:global (admin).
-const expected: Record<Role, { addTargets: boolean; upload: boolean; deleteTarget: boolean; scope: boolean }> = {
-  viewer: { addTargets: false, upload: false, deleteTarget: false, scope: false },
-  operator: { addTargets: false, upload: false, deleteTarget: false, scope: false },
-  editor: { addTargets: true, upload: true, deleteTarget: true, scope: false },
-  admin: { addTargets: true, upload: true, deleteTarget: true, scope: true },
+const expected: Record<Role, { addTargets: boolean; upload: boolean; importDojo: boolean; deleteTarget: boolean; scope: boolean }> = {
+  viewer: { addTargets: false, upload: false, importDojo: false, deleteTarget: false, scope: false },
+  operator: { addTargets: false, upload: false, importDojo: false, deleteTarget: false, scope: false },
+  editor: { addTargets: true, upload: true, importDojo: true, deleteTarget: true, scope: false },
+  admin: { addTargets: true, upload: true, importDojo: true, deleteTarget: true, scope: true },
 }
 
 describe('TargetsPage controls per role', () => {
@@ -32,6 +32,7 @@ describe('TargetsPage controls per role', () => {
 
     expect(has('Add targets')).toBe(e.addTargets)
     expect(has('Upload CSV / JSON') || screen.queryByLabelText('File') !== null).toBe(e.upload)
+    expect(has('Import from Dojo')).toBe(e.importDojo)
     expect(has('Delete 10.0.0.7')).toBe(e.deleteTarget)
     expect(has(/Delete 10\.9\.0\.0\/16/)).toBe(e.scope)
     expect(has('Add exclusion')).toBe(e.scope)

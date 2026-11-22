@@ -143,6 +143,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/targets/import-dojo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Imports valid targets (IPs, CIDRs, domains) from DefectDojo Assets and URL Locations
+         *     (`/api/v2/url/`) into targets with `source: "dojo"` (permission `import`).
+         *     Returns 503 if DefectDojo is not connected.
+         */
+        post: operations["importDojoTargets"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/targets/{id}": {
         parameters: {
             query?: never;
@@ -987,6 +1008,11 @@ export interface components {
             value: string;
             tags: string[];
             note?: string;
+        };
+        DojoTargetImportResult: {
+            imported: number;
+            skipped: number;
+            items: components["schemas"]["Target"][];
         };
         ScopeEntryInput: {
             /** @description optional; auto-detected */
@@ -1900,6 +1926,32 @@ export interface operations {
                     "application/json": components["schemas"]["TargetUploadResult"];
                 };
             };
+            default: components["responses"]["Error"];
+        };
+    };
+    importDojoTargets: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Must be "1" on every unsafe request. The client in web/src/api/client.ts sends it. */
+                "X-RAVEN-CSRF": components["parameters"]["CSRF"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Import result. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DojoTargetImportResult"];
+                };
+            };
+            /** @description DefectDojo is not connected. */
+            503: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };

@@ -29,6 +29,7 @@ type Client interface {
 	AddFindingNote(ctx context.Context, findingID int64, text string) error
 
 	ListAssets(ctx context.Context, q AssetQuery) (*Page[Asset], error)
+	ListURLs(ctx context.Context, q URLQuery) (*Page[URL], error)
 	ListEngagements(ctx context.Context, q EngagementQuery) (*Page[Engagement], error)
 	SetEngagementStatus(ctx context.Context, id int64, status string) error
 	SetAssetTags(ctx context.Context, assetID int64, tags []string) error
@@ -67,6 +68,18 @@ type AssetQuery struct {
 	OrganizationID int64    // only assets of this organization
 	Limit          int
 	Offset         int
+}
+
+// URL is a DefectDojo 3.5 Location URL (/api/v2/url/).
+type URL struct {
+	ID   int64    `json:"id"`
+	Host string   `json:"host"`
+	Tags []string `json:"tags"`
+}
+
+type URLQuery struct {
+	Limit  int
+	Offset int
 }
 
 // Engagement statuses we use (Dojo ENGAGEMENT_STATUS_CHOICES).

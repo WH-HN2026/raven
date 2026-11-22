@@ -425,6 +425,16 @@ func (c *HTTPClient) ListAssets(ctx context.Context, q AssetQuery) (*Page[Asset]
 	return &page, nil
 }
 
+func (c *HTTPClient) ListURLs(ctx context.Context, q URLQuery) (*Page[URL], error) {
+	v := pageQuery(q.Limit, q.Offset)
+	v.Set("o", "id") // stable order for paging
+	var page Page[URL]
+	if err := c.do(ctx, http.MethodGet, "/api/v2/url/", v, nil, &page); err != nil {
+		return nil, fmt.Errorf("dojo list urls: %w", err)
+	}
+	return &page, nil
+}
+
 func (c *HTTPClient) ListEngagements(ctx context.Context, q EngagementQuery) (*Page[Engagement], error) {
 	v := pageQuery(q.Limit, q.Offset)
 	if q.AssetID != 0 {
