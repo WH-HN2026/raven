@@ -138,7 +138,7 @@ func TestNiktoStageIntegration(t *testing.T) {
 		RETURNING id`).Scan(&aggID); err != nil {
 		t.Fatal(err)
 	}
-	r2, err := s.StartRun(ctx, nil, aggID, WithConfirmAggressive(true))
+	r2, err := s.StartRun(ctx, nil, aggID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -170,7 +170,7 @@ func TestNiktoStageIntegration(t *testing.T) {
 	fn.mu.Lock()
 	fn.failURL = "http://172.30.0.19:80"
 	fn.mu.Unlock()
-	r3, err := s.StartRun(ctx, nil, aggID, WithConfirmAggressive(true))
+	r3, err := s.StartRun(ctx, nil, aggID)
 	if err != nil {
 		t.Fatal(err)
 	}

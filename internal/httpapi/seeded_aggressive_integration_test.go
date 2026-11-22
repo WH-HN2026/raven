@@ -115,13 +115,8 @@ func TestSeededAggressiveProfile(t *testing.T) {
 		Warnings []string `json:"warnings"`
 	}
 
-	// Start needs confirmation.
-	body := request(400, admin, http.MethodPost, "/runs", fmt.Sprintf(`{"profile_id":%d}`, agg.ID))
-	if !strings.Contains(string(body), "confirmation_required") {
-		t.Fatalf("start without confirmation: %s", body)
-	}
 	var aggRun pipeline.Run
-	parse(request(201, admin, http.MethodPost, "/runs", fmt.Sprintf(`{"profile_id":%d,"confirm_aggressive":true}`, agg.ID)), &aggRun)
+	parse(request(201, admin, http.MethodPost, "/runs", fmt.Sprintf(`{"profile_id":%d}`, agg.ID)), &aggRun)
 	parse(aggRun.Stats, &stats)
 	if aggRun.Status != "running" || !aggRun.Aggressive || !slices.Equal(aggRun.Stages, pipeline.SeededAggressiveStages()) || len(stats.Warnings) != 0 {
 		t.Fatalf("seeded Aggressive run = %+v warnings %v", aggRun, stats.Warnings)
@@ -140,7 +135,7 @@ func TestSeededAggressiveProfile(t *testing.T) {
 	pipeline.SetStageAvailable(pipeline.StageZAP, false)
 
 	var run pipeline.Run
-	parse(request(201, admin, http.MethodPost, "/runs", fmt.Sprintf(`{"profile_id":%d,"confirm_aggressive":true}`, zapProf.ID)), &run)
+	parse(request(201, admin, http.MethodPost, "/runs", fmt.Sprintf(`{"profile_id":%d}`, zapProf.ID)), &run)
 	wantStages := []string{pipeline.StageNmap, pipeline.StageHTTPX, pipeline.StageNuclei,
 		pipeline.StageNucleiActive, pipeline.StageNikto, pipeline.StageWPScan}
 	if run.Status != "running" || run.HostsTotal != 1 || !run.Aggressive || !slices.Equal(run.Stages, wantStages) {

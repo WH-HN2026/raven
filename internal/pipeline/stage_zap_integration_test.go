@@ -154,7 +154,7 @@ func TestZAPStageIntegration(t *testing.T) {
 	if err := pool.QueryRow(ctx, `INSERT INTO profiles (name, ports, stages) VALUES ('agg-zap', '22,80,443', ARRAY['nmap', 'httpx', 'nuclei', 'zap']) RETURNING id`).Scan(&zapProfID); err != nil {
 		t.Fatal(err)
 	}
-	r2, err := s.StartRun(ctx, nil, zapProfID, WithConfirmAggressive(true))
+	r2, err := s.StartRun(ctx, nil, zapProfID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -174,7 +174,7 @@ func TestZAPStageIntegration(t *testing.T) {
 
 	// 3. Per-URL error does not fail the batch and records zap_errors in runs.stats.
 	fakeZAP.errCount = 1
-	r3, err := s.StartRun(ctx, nil, zapProfID, WithConfirmAggressive(true))
+	r3, err := s.StartRun(ctx, nil, zapProfID)
 	if err != nil {
 		t.Fatal(err)
 	}

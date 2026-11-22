@@ -127,8 +127,7 @@ type ListRunsInput struct {
 
 // StartScanInput starts a scan run for a profile.
 type StartScanInput struct {
-	ProfileID         int64 `json:"profile_id" jsonschema:"Profile ID to scan"`
-	ConfirmAggressive bool  `json:"confirm_aggressive,omitempty" jsonschema:"Must be true to start a profile that has any aggressive stage"`
+	ProfileID int64 `json:"profile_id" jsonschema:"Profile ID to scan"`
 }
 
 // TargetInput is one target entry for add_targets.
@@ -352,7 +351,7 @@ func registerTools(s *sdkmcp.Server, d Deps) {
 	// 6. start_scan (editor+)
 	sdkmcp.AddTool(s, &sdkmcp.Tool{
 		Name:        "start_scan",
-		Description: "Start a scan run for a profile (requires runs:control). Aggressive profiles require confirm_aggressive: true.",
+		Description: "Start a scan run for a profile (requires runs:control).",
 		Annotations: writeAnnotations,
 	}, func(ctx context.Context, req *sdkmcp.CallToolRequest, in StartScanInput) (*sdkmcp.CallToolResult, any, error) {
 		u, err := requirePerm(ctx, req, auth.PermRunsControl)
@@ -365,7 +364,7 @@ func registerTools(s *sdkmcp.Server, d Deps) {
 		if in.ProfileID < 1 {
 			return nil, nil, errors.New("profile_id must be a positive integer")
 		}
-		run, err := d.Pipeline.StartRun(ctx, u, in.ProfileID, pipeline.WithConfirmAggressive(in.ConfirmAggressive))
+		run, err := d.Pipeline.StartRun(ctx, u, in.ProfileID)
 		if err != nil {
 			return nil, nil, fmt.Errorf("start scan: %w", err)
 		}

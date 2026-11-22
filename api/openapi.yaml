@@ -302,8 +302,7 @@ paths:
       description: |
         Start a run for a profile (runs:control). Builds the scan list (targets + scope), splits it into
         fixed-size batches and enqueues one job per batch. An empty scan list gives a run that is `done`
-        immediately, with `stats.reason`. Starting an aggressive profile requires `confirm_aggressive: true`
-        (otherwise 400 `confirmation_required`). 409 if the profile already has a pending or running run;
+        immediately, with `stats.reason`. 409 if the profile already has a pending or running run;
         400 for an unknown or disabled profile.
       parameters: [{ $ref: "#/components/parameters/CSRF" }]
       requestBody:
@@ -315,7 +314,6 @@ paths:
               required: [profile_id]
               properties:
                 profile_id: { type: integer, format: int64 }
-                confirm_aggressive: { type: boolean, description: "Required (true) when starting an aggressive profile; ignored for non-aggressive profiles." }
       responses:
         "201":
           description: Created run.
@@ -1931,10 +1929,6 @@ components:
             timestamp for the end of an overnight window. Dojo uses the absolute timestamp.
         timezone: { type: string, default: Europe/Warsaw }
         enabled: { type: boolean }
-        confirm_aggressive:
-          type: boolean
-          writeOnly: true
-          description: Required (true) when creating or updating a schedule for an aggressive profile (also requires scan:aggressive).
     Schedule:
       allOf:
         - $ref: "#/components/schemas/ScheduleInput"

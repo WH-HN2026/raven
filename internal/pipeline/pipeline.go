@@ -31,10 +31,9 @@ import (
 )
 
 var (
-	ErrNotFound        = errors.New("not found")
-	ErrConflict        = errors.New("conflict")
-	ErrInvalid         = errors.New("invalid input")
-	ErrConfirmRequired = errors.New("confirmation required")
+	ErrNotFound = errors.New("not found")
+	ErrConflict = errors.New("conflict")
+	ErrInvalid  = errors.New("invalid input")
 )
 
 const (
@@ -235,35 +234,15 @@ func (s *Service) ListBatches(ctx context.Context, runID int64) ([]Batch, error)
 	return out, nil
 }
 
-// StartOption configures StartRun.
-type StartOption func(*startOptions)
-
-type startOptions struct {
-	confirmAggressive bool
-}
-
-// WithConfirmAggressive records explicit operator confirmation to start an
-// aggressive profile (architecture §9). Ignored for non-aggressive profiles.
-func WithConfirmAggressive(confirm bool) StartOption {
-	return func(o *startOptions) { o.confirmAggressive = confirm }
-}
-
 // StartRun builds the profile's scan list, splits it into batches and
 // enqueues one job per batch, all in one transaction. A profile has at most
-// one pending/running run (ErrConflict). Starting an aggressive profile
-// requires WithConfirmAggressive(true) (ErrConfirmRequired). An empty scan
-// list gives a run that is done immediately, with the reason in stats.
-func (s *Service) StartRun(ctx context.Context, u *auth.User, profileID int64, opts ...StartOption) (Run, error) {
-	var o startOptions
-	for _, fn := range opts {
-		if fn != nil {
-			fn(&o)
-		}
-	}
-	return s.startRun(ctx, u, profileID, nil, o.confirmAggressive)
+// one pending/running run (ErrConflict). An empty scan list gives a run that
+// is done immediately, with the reason in stats.
+func (s *Service) StartRun(ctx context.Context, u *auth.User, profileID int64) (Run, error) {
+	return s.startRun(ctx, u, profileID, nil)
 }
 
-func (s *Service) startRun(ctx context.Context, u *auth.User, profileID int64, scheduleID *int64, confirmAggressive bool) (Run, error) {
+func (s *Service) startRun(ctx context.Context, u *auth.User, profileID int64, scheduleID *int64) (Run, error) {
 	q := gen.New(s.pool)
 	prof, err := q.GetProfile(ctx, profileID)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -280,9 +259,6 @@ func (s *Service) startRun(ctx context.Context, u *auth.User, profileID int64, s
 			return Run{}, fmt.Errorf("%w: profile %q is disabled", ErrConflict, prof.Name)
 		}
 		return Run{}, fmt.Errorf("%w: profile %q is disabled", ErrInvalid, prof.Name)
-	}
-	if scheduleID == nil && IsAggressive(EffectiveStages(prof.Stages)) && !confirmAggressive {
-		return Run{}, fmt.Errorf("%w: aggressive profile %q requires confirm_aggressive: true", ErrConfirmRequired, prof.Name)
 	}
 	// Resolve outside the transaction: DNS can be slow.
 	sl, err := (&targets.Store{Pool: s.pool}).ScanList(ctx, profileID, s.cfg.Resolver, targets.Limits{})
@@ -328,8 +304,6 @@ func (s *Service) startRun(ctx context.Context, u *auth.User, profileID int64, s
 			if err != nil {
 				return err
 			}
-		} else if aggressive && !confirmAggressive {
-			return fmt.Errorf("%w: aggressive profile %q requires confirm_aggressive: true", ErrConfirmRequired, lockedProfile.Name)
 		}
 		n, err := q.CountActiveRuns(ctx, profileID)
 		if err != nil {

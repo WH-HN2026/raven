@@ -15,11 +15,10 @@ import (
 )
 
 var (
-	ErrInvalid         = errors.New("invalid input")
-	ErrNotFound        = errors.New("not found")
-	ErrConflict        = errors.New("conflict")
-	ErrForbidden       = errors.New("forbidden")
-	ErrConfirmRequired = errors.New("confirmation required")
+	ErrInvalid   = errors.New("invalid input")
+	ErrNotFound  = errors.New("not found")
+	ErrConflict  = errors.New("conflict")
+	ErrForbidden = errors.New("forbidden")
 )
 
 type ConfigStore struct {

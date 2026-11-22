@@ -20,14 +20,13 @@ type scheduleAudit struct {
 }
 
 type ScheduleInput struct {
-	Name              *string    `json:"name"`
-	ProfileID         int64      `json:"profile_id"`
-	Cron              *string    `json:"cron"`
-	WindowStart       *time.Time `json:"window_start"`
-	WindowEnd         *time.Time `json:"window_end"`
-	Timezone          *string    `json:"timezone"`
-	Enabled           *bool      `json:"enabled"`
-	ConfirmAggressive bool       `json:"confirm_aggressive"`
+	Name        *string    `json:"name"`
+	ProfileID   int64      `json:"profile_id"`
+	Cron        *string    `json:"cron"`
+	WindowStart *time.Time `json:"window_start"`
+	WindowEnd   *time.Time `json:"window_end"`
+	Timezone    *string    `json:"timezone"`
+	Enabled     *bool      `json:"enabled"`
 }
 
 func (in ScheduleInput) apply(s gen.Schedule) (gen.Schedule, error) {
@@ -70,13 +69,8 @@ func (s ConfigStore) CreateSchedule(ctx context.Context, u *auth.User, in Schedu
 			return err
 		}
 		aggressive := s.isAggressive(prof.Stages)
-		if aggressive {
-			if !canAggressive(u) {
-				return fmt.Errorf("%w: scheduling an aggressive profile needs %s", ErrForbidden, auth.PermScanAggressive)
-			}
-			if !in.ConfirmAggressive {
-				return fmt.Errorf("%w: scheduling an aggressive profile requires confirm_aggressive: true", ErrConfirmRequired)
-			}
+		if aggressive && !canAggressive(u) {
+			return fmt.Errorf("%w: scheduling an aggressive profile needs %s", ErrForbidden, auth.PermScanAggressive)
 		}
 		schedule, err = q.CreateSchedule(ctx, gen.CreateScheduleParams{
 			Name: schedule.Name, ProfileID: schedule.ProfileID, Cron: schedule.Cron, WindowStart: schedule.WindowStart,
@@ -119,9 +113,6 @@ func (s ConfigStore) UpdateSchedule(ctx context.Context, u *auth.User, id int64,
 		}
 		if (priorAgg || targetAgg) && !canAggressive(u) {
 			return fmt.Errorf("%w: scheduling an aggressive profile needs %s", ErrForbidden, auth.PermScanAggressive)
-		}
-		if targetAgg && !in.ConfirmAggressive {
-			return fmt.Errorf("%w: scheduling an aggressive profile requires confirm_aggressive: true", ErrConfirmRequired)
 		}
 		if prior.ProfileID != schedule.ProfileID {
 			if err := requireIdleSchedule(ctx, q, id); err != nil {

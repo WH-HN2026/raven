@@ -237,8 +237,7 @@ export interface paths {
         /**
          * @description Start a run for a profile (runs:control). Builds the scan list (targets + scope), splits it into
          *     fixed-size batches and enqueues one job per batch. An empty scan list gives a run that is `done`
-         *     immediately, with `stats.reason`. Starting an aggressive profile requires `confirm_aggressive: true`
-         *     (otherwise 400 `confirmation_required`). 409 if the profile already has a pending or running run;
+         *     immediately, with `stats.reason`. 409 if the profile already has a pending or running run;
          *     400 for an unknown or disabled profile.
          */
         post: operations["startRun"];
@@ -1571,8 +1570,6 @@ export interface components {
             /** @default Europe/Warsaw */
             timezone: string;
             enabled?: boolean;
-            /** @description Required (true) when creating or updating a schedule for an aggressive profile (also requires scan:aggressive). */
-            confirm_aggressive?: boolean;
         };
         Schedule: components["schemas"]["ScheduleInput"] & {
             /** Format: int64 */
@@ -2101,8 +2098,6 @@ export interface operations {
                 "application/json": {
                     /** Format: int64 */
                     profile_id: number;
-                    /** @description Required (true) when starting an aggressive profile; ignored for non-aggressive profiles. */
-                    confirm_aggressive?: boolean;
                 };
             };
         };

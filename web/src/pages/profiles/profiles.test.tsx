@@ -151,16 +151,20 @@ describe('ProfilesPage', () => {
     expect(calls.some((c) => c.method === 'POST')).toBe(false)
   })
 
-  it('shows the Aggressive badge on aggressive profiles', async () => {
-    mockApi((c) => (c.url.startsWith('/api/profiles') ? json({ items: [profile, aggressiveProfile], total: 2 }) : undefined))
+  it('does not show an Aggressive badge on aggressive profiles or schedules', async () => {
+    const aggSchedule = { ...uiSchedule, id: 11, name: 'Nightly agg', profile_id: aggressiveProfile.id }
+    mockApi((c) => {
+      if (c.url.startsWith('/api/profiles')) return json({ items: [profile, aggressiveProfile], total: 2 })
+      if (c.url.startsWith('/api/schedules')) return json({ items: [uiSchedule, aggSchedule], total: 2 })
+    })
     renderAs('admin', <ProfilesPage />, { path: '/profiles' })
     const aggLink = await screen.findByRole('link', { name: 'lab-aggressive' })
-    expect(within(aggLink.closest('tr')!).getByText('Aggressive')).toBeInTheDocument()
-    const normalLink = screen.getByRole('link', { name: 'lab-quick' })
-    expect(within(normalLink.closest('tr')!).queryByText('Aggressive')).toBeNull()
+    expect(within(aggLink.closest('tr')!).queryByText('Aggressive')).toBeNull()
+    const aggSchedRow = (await screen.findByText('Nightly agg')).closest('tr')!
+    expect(within(aggSchedRow).queryByText('Aggressive')).toBeNull()
   })
 
-  it('requires confirmation to create an aggressive schedule as admin', async () => {
+  it('creates an aggressive schedule directly as admin without confirmation checkbox', async () => {
     const calls = mockApi((c) => {
       if (c.url.startsWith('/api/profiles')) return json({ items: [profile, aggressiveProfile], total: 2 })
       if (c.method === 'POST') return json({ ...(c.body as object), id: 10, source: 'ui', dojo_url: '' }, 201)
@@ -170,13 +174,20 @@ describe('ProfilesPage', () => {
     const form = screen.getByRole('form', { name: 'New schedule' })
     await within(form).findByRole('option', { name: 'lab-aggressive' })
     fireEvent.change(within(form).getByLabelText('Profile'), { target: { value: '4' } })
-    fireEvent.click(within(form).getByRole('button', { name: 'Create schedule' }))
-    expect(await within(form).findByRole('alert')).toHaveTextContent('Confirm aggressive schedule')
-    expect(calls.some((c) => c.method === 'POST')).toBe(false)
-    fireEvent.click(within(form).getByLabelText(/Confirm aggressive schedule/))
+    expect(within(form).queryByLabelText(/Confirm aggressive schedule/)).toBeNull()
+    expect(within(form).queryByText('Aggressive')).toBeNull()
     fireEvent.click(within(form).getByRole('button', { name: 'Create schedule' }))
     await waitFor(() => expect(calls.some((c) => c.method === 'POST')).toBe(true))
-    expect(calls.find((c) => c.method === 'POST')!.body).toMatchObject({ profile_id: 4, confirm_aggressive: true })
+    const body = calls.find((c) => c.method === 'POST')!.body as Record<string, unknown>
+    expect(body).toEqual({
+      name: '',
+      profile_id: 4,
+      cron: '0 * * * *',
+      window_start: null,
+      window_end: null,
+      timezone: 'Europe/Warsaw',
+      enabled: true,
+    })
   })
 })
 
