@@ -51,7 +51,7 @@ export function Brand() {
 }
 
 /** The black top bar (docs/development/design/canvas/Nav.dc.html). */
-function TopBar({
+export function TopBar({
   items,
   user,
   onLogout,
@@ -62,25 +62,10 @@ function TopBar({
 }) {
   return (
     <header className="bg-black text-white">
-      <div className="mx-auto flex min-h-20 max-w-[1440px] flex-wrap items-stretch gap-x-7 px-10">
+      <div className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-x-6 px-10">
         <NavLink to="/" className="flex text-white no-underline hover:text-white">
           <Brand />
         </NavLink>
-        <nav aria-label="Main" className="flex flex-[1_1_560px] flex-wrap items-stretch">
-          {items.map((r) => (
-            <NavLink
-              key={r.path}
-              to={r.path}
-              end={r.path === '/'}
-              className={({ isActive }) =>
-                'flex min-h-20 items-center border-y-4 border-t-transparent px-[13px] text-[15px] text-white no-underline hover:text-white ' +
-                (isActive ? 'border-b-red font-medium' : 'border-b-transparent hover:border-b-on-dark-rule')
-              }
-            >
-              {r.nav?.label}
-            </NavLink>
-          ))}
-        </nav>
         <div className="flex flex-wrap items-center gap-3.5 py-3">
           <NavLink to="/account" title="Profile" className="text-sm text-white no-underline hover:text-on-dark-muted">
             {user.username}
@@ -95,6 +80,25 @@ function TopBar({
           >
             Log out
           </button>
+        </div>
+      </div>
+      <div className="border-t border-on-dark-rule">
+        <div className="mx-auto max-w-[1440px] px-10">
+          <nav aria-label="Main" className="-mx-3 flex flex-nowrap items-stretch overflow-x-auto">
+            {items.map((r) => (
+              <NavLink
+                key={r.path}
+                to={r.path}
+                end={r.path === '/'}
+                className={({ isActive }) =>
+                  'flex h-12 shrink-0 items-center whitespace-nowrap border-y-4 border-t-transparent px-3 text-[15px] text-white no-underline hover:text-white ' +
+                  (isActive ? 'border-b-red font-medium' : 'border-b-transparent hover:border-b-on-dark-rule')
+                }
+              >
+                {r.nav?.label}
+              </NavLink>
+            ))}
+          </nav>
         </div>
       </div>
     </header>
