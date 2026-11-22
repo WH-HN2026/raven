@@ -110,12 +110,7 @@ export function Schedules() {
                   <span className="text-xl leading-none font-light">#{s.id}</span>
                 )}
               </Td>
-              <Td>
-                <span className="inline-flex flex-wrap items-center gap-2">
-                  {profilesById.get(s.profile_id)?.name ?? `profile ${s.profile_id}`}
-                  {profilesById.get(s.profile_id)?.aggressive && <Badge tone="red">Aggressive</Badge>}
-                </span>
-              </Td>
+              <Td>{profilesById.get(s.profile_id)?.name ?? `profile ${s.profile_id}`}</Td>
               <Td>
                 <SourceBadge s={s} />
               </Td>
@@ -211,9 +206,7 @@ function ScheduleForm({ schedule, onDone }: { schedule: Schedule | null; onDone:
   const [winEnd, setWinEnd] = useState(schedule?.window_end ? clockIn(schedule.window_end, tz0) : '')
   const [timezone, setTimezone] = useState(tz0)
   const [enabled, setEnabled] = useState(schedule?.enabled ?? true)
-  const [confirmAggressive, setConfirmAggressive] = useState(false)
   const [clientErr, setClientErr] = useState<string | null>(null)
-  const selectedProfile = selectableProfiles.find((p) => p.id === profileId)
 
   const save = useMutation({
     mutationFn: () => {
@@ -232,7 +225,6 @@ function ScheduleForm({ schedule, onDone }: { schedule: Schedule | null; onDone:
         window_end: win?.window_end ?? null,
         timezone,
         enabled,
-        ...(selectedProfile?.aggressive ? { confirm_aggressive: confirmAggressive } : {}),
       }
       return schedule
         ? api.put('/schedules/{id}', { params: { id: schedule.id }, body })
@@ -253,7 +245,6 @@ function ScheduleForm({ schedule, onDone }: { schedule: Schedule | null; onDone:
     else if (kind === 'daily' && !time) err = 'Pick a time'
     else if (!winStart !== !winEnd) err = 'Set both window start and end, or neither'
     else if (winStart && winStart === winEnd) err = 'Window start and end must differ'
-    else if (selectedProfile?.aggressive && !confirmAggressive) err = 'Confirm aggressive schedule'
     setClientErr(err)
     if (!err) save.mutate()
   }
@@ -283,10 +274,7 @@ function ScheduleForm({ schedule, onDone }: { schedule: Schedule | null; onDone:
           <select
             className={inputClass}
             value={profileId}
-            onChange={(e) => {
-              setProfileId(e.target.value ? Number(e.target.value) : '')
-              setConfirmAggressive(false)
-            }}
+            onChange={(e) => setProfileId(e.target.value ? Number(e.target.value) : '')}
           >
             <option value="">Select…</option>
             {selectableProfiles.map((p) => (
@@ -342,13 +330,6 @@ function ScheduleForm({ schedule, onDone }: { schedule: Schedule | null; onDone:
           Enabled
         </label>
       </div>
-      {selectedProfile?.aggressive && (
-        <label className="flex items-center gap-2 text-sm font-medium">
-          <input type="checkbox" checked={confirmAggressive} onChange={(e) => setConfirmAggressive(e.target.checked)} />
-          Confirm aggressive schedule
-          <Badge tone="red">Aggressive</Badge>
-        </label>
-      )}
       {(clientErr || serverMsg) && <Alert>{clientErr ?? serverMsg}</Alert>}
       <div className="flex gap-2">
         <Button type="submit" variant="primary" disabled={save.isPending}>

@@ -62,7 +62,7 @@ describe('ProfileEditorPage controls per role', () => {
     })
     renderAs(role, <ProfileEditorPage />, { path: '/profiles/4', route: '/profiles/:id' })
     const header = (await screen.findByRole('heading', { level: 1, name: 'lab-aggressive' })).parentElement!
-    expect(header).toHaveTextContent('Aggressive')
+    expect(header).not.toHaveTextContent('Aggressive')
     expect(await screen.findByText('172.30.0.99')).toBeInTheDocument()
     const isAdmin = role === 'admin'
     await waitFor(() => expect(screen.getByLabelText('Ports')).toHaveValue('22,80,443,8000-8100'))

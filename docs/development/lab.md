@@ -80,7 +80,7 @@ The organizers' lab files are in [`lab/organizers/`](../../lab/organizers/README
 
 `quickstart.sh` is run with `bash` (it is committed without the executable bit). For latency on `modern-proxy`, set `ENABLE_LATENCY=true` and `LATENCY_MS=500` in `lab/organizers/.env` (gitignored), then `make lab-down` and `make lab-up` with `STACK=modern-proxy`.
 
-**Scan.** Their stacks publish on the Docker host. RAVEN reaches them at the `docker0` gateway, `172.17.0.1`; `make lab-up LAB=organizers` prints it and warns if it differs. In RAVEN, add `172.17.0.1` once in **Targets**, then start a run of the seeded profile **Default** (or **Aggressive**, admin-only to change, start needs confirmation). Default's port list covers all their published ports.
+**Scan.** Their stacks publish on the Docker host. RAVEN reaches them at the `docker0` gateway, `172.17.0.1`; `make lab-up LAB=organizers` prints it and warns if it differs. In RAVEN, add `172.17.0.1` once in **Targets**, then start a run of the seeded profile **Default** (or **Aggressive**, admin-only to change). Default's port list covers all their published ports.
 
 Neither seeded profile has include rules, and a profile without include rules scans every target: the run scans every other target in Targets too. Default's port list also contains RAVEN's `8000` and Dojo's TLS `8443`, so a scan of `172.17.0.1` also probes RAVEN and Dojo on the host. To scan only their stacks, use a profile with an include for `172.17.0.1`. It works the same from the `raven` container on the default compose network (no `lab/raven.compose.yml` needed) and from `make dev`.
 
@@ -97,7 +97,7 @@ Reproduce the `nuclei_active` lab test against the three web fixtures (`172.30.0
 1. Start the lab (`make lab-up`) and run the RAVEN image attached to `raven_lab` (and the shared Postgres/DefectDojo network).
 2. As `admin`, create an aggressive profile with ports `80,8080`, `nuclei_rate: 150`, and stages `["nmap", "httpx", "nuclei", "nuclei_active"]`.
 3. Add profile-level `include` scope entries for `172.30.0.17/32`, `172.30.0.21/32`, and `172.30.0.25/32`, and add those three IPs as targets.
-4. Start the run with explicit confirmation (`POST /api/runs` with `{"profile_id": <id>, "confirm_aggressive": true}`).
+4. Start the run (`POST /api/runs` with `{"profile_id": <id>}`).
 5. Verify:
    - the run finishes with `status: "done"`, `aggressive: true`, and `stats.nuclei_active_errors: 0`;
    - an encrypted artifact with `scanner = 'nuclei_active'` is stored in `artifacts`;
@@ -113,7 +113,7 @@ To reproduce against the lab:
 1. Start the lab (`make lab-up`) and attach RAVEN to `raven_lab`.
 2. Add `172.30.0.17` (WordPress) and `172.30.0.18` (Joomla) to Targets.
 3. As an `admin` user (`scan:aggressive`), create an aggressive profile with stages `["nmap","httpx","nuclei","wpscan"]`, ports `80`, and include scope `172.30.0.17/32` and `172.30.0.18/32`.
-4. Start a run with `"confirm_aggressive": true` (`POST /api/runs`).
+4. Start a run (`POST /api/runs` with `{"profile_id": <id>}`).
 5. Verify:
    - Run stats show `"wpscan": "ok"`, `"wpscan_urls": 1`, `"wpscan_errors": 0`.
    - `artifacts` contains a `wpscan` artifact covering only `172.30.0.17`; `172.30.0.18` (Joomla) is skipped.
@@ -130,7 +130,7 @@ test -f .env || scripts/gen-env.sh
 docker compose -f compose.yml -f lab/raven.compose.yml up -d --build
 ```
 
-Create an admin-only aggressive profile scoped strictly to `172.30.0.19/32` (nginx `/admin`) and `172.30.0.20/32` (staging app) with stages `nmap, httpx, nuclei, zap`, then start a run with explicit confirmation (`confirm_aggressive: true`). The seeded **Aggressive** profile has no `zap` stage; add it in the workflow builder. Without `RAVEN_ZAP_URL` (and in `make dev`), the `zap` stage is "Not available", and runs of a profile that has it skip it with the run warning `stage zap skipped: not available`.
+Create an admin-only aggressive profile scoped strictly to `172.30.0.19/32` (nginx `/admin`) and `172.30.0.20/32` (staging app) with stages `nmap, httpx, nuclei, zap`, then start a run (`POST /api/runs` with `{"profile_id": <id>}`). The seeded **Aggressive** profile has no `zap` stage; add it in the workflow builder. Without `RAVEN_ZAP_URL` (and in `make dev`), the `zap` stage is "Not available", and runs of a profile that has it skip it with the run warning `stage zap skipped: not available`.
 
 Before `make lab-down`, detach both `raven` and `zap` from `raven_lab` by recreating them without the lab file:
 
@@ -146,7 +146,7 @@ To reproduce the lab test against the nginx `/admin`, staging, and Tomcat fixtur
 
 1. Log in as an `admin` user and add `172.30.0.19`, `172.30.0.20`, and `172.30.0.21` in **Targets**.
 2. Create an aggressive profile (e.g. `ag3-nikto-lab`) with ports `80,8080`, stages `nmap`, `httpx`, `nuclei`, `nikto`, and include scope entries `172.30.0.19/32`, `172.30.0.20/32`, `172.30.0.21/32`.
-3. Start a run with explicit confirmation (`confirm_aggressive: true`).
+3. Start a run (`POST /api/runs` with `{"profile_id": <id>}`).
 4. Verify:
    - `runs.stats` records `nikto_urls: 3` and `nikto_errors: 0`, and `artifacts` contains an encrypted `scanner = 'nikto'` JSON report.
    - DefectDojo creates a `"RAVEN: nikto"` (`Nikto Scan`) Test per responding IP under engagement `RAVEN: <profile>` with tagged findings (`raven`).

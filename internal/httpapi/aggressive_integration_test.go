@@ -75,19 +75,6 @@ func TestAggressiveGatingIntegration(t *testing.T) {
 			t.Fatalf("decode %s: %v", data, err)
 		}
 	}
-	assertErrCode := func(body []byte, wantCode string) {
-		t.Helper()
-		var e struct {
-			Error struct {
-				Code    string `json:"code"`
-				Message string `json:"message"`
-			} `json:"error"`
-		}
-		parse(body, &e)
-		if e.Error.Code != wantCode {
-			t.Fatalf("error code = %q (body=%s), want %q", e.Error.Code, body, wantCode)
-		}
-	}
 	assertAuditAggressive := func(action, objectID string) {
 		t.Helper()
 		var raw []byte
@@ -213,15 +200,12 @@ func TestAggressiveGatingIntegration(t *testing.T) {
 	request(204, admin, http.MethodDelete, fmt.Sprintf("/scope/%d", aggScope.ID), "")
 	assertAuditAggressive("scope.delete", fmt.Sprint(aggScope.ID))
 
-	// 4. Starting runs: confirmation_required for aggressive profiles; editors allowed with confirmation.
-	assertErrCode(request(400, editor, http.MethodPost, "/runs", fmt.Sprintf(`{"profile_id":%d}`, aggProf.ID)), "confirmation_required")
-	assertErrCode(request(400, editor, http.MethodPost, "/runs", fmt.Sprintf(`{"profile_id":%d,"confirm_aggressive":false}`, aggProf.ID)), "confirmation_required")
-	assertErrCode(request(400, admin, http.MethodPost, "/runs", fmt.Sprintf(`{"profile_id":%d}`, aggProf.ID)), "confirmation_required")
-	request(403, viewer, http.MethodPost, "/runs", fmt.Sprintf(`{"profile_id":%d,"confirm_aggressive":true}`, aggProf.ID))
+	// 4. Starting runs: viewer gets 403; editor and admin can start an existing aggressive profile directly.
+	request(403, viewer, http.MethodPost, "/runs", fmt.Sprintf(`{"profile_id":%d}`, aggProf.ID))
 
 	// Empty targets => run finishes immediately (status=done), allowing another run right after.
 	var editorRun pipeline.Run
-	parse(request(201, editor, http.MethodPost, "/runs", fmt.Sprintf(`{"profile_id":%d,"confirm_aggressive":true}`, aggProf.ID)), &editorRun)
+	parse(request(201, editor, http.MethodPost, "/runs", fmt.Sprintf(`{"profile_id":%d}`, aggProf.ID)), &editorRun)
 	if !editorRun.Aggressive || editorRun.Status != "done" {
 		t.Fatalf("editor aggressive run = %+v", editorRun)
 	}
@@ -234,13 +218,12 @@ func TestAggressiveGatingIntegration(t *testing.T) {
 	}
 
 	var adminRun pipeline.Run
-	parse(request(201, admin, http.MethodPost, "/runs", fmt.Sprintf(`{"profile_id":%d,"confirm_aggressive":true}`, aggProf.ID)), &adminRun)
+	parse(request(201, admin, http.MethodPost, "/runs", fmt.Sprintf(`{"profile_id":%d}`, aggProf.ID)), &adminRun)
 	if !adminRun.Aggressive {
 		t.Fatalf("admin aggressive run = %+v", adminRun)
 	}
 	assertAuditAggressive("runs.start", fmt.Sprint(adminRun.ID))
 
-	// Non-aggressive profile ignores confirm_aggressive.
 	var normalRun pipeline.Run
 	parse(request(201, editor, http.MethodPost, "/runs", fmt.Sprintf(`{"profile_id":%d}`, normalProf.ID)), &normalRun)
 	if normalRun.Aggressive {
@@ -262,28 +245,25 @@ func TestAggressiveGatingIntegration(t *testing.T) {
 		t.Fatalf("GET /runs aggressive flags mismatch: seenAgg=%v seenNormal=%v", seenAggRun, seenNormalRun)
 	}
 
-	// 5. Schedules for aggressive profile: scan:aggressive + confirm_aggressive:true.
-	schedUnconfirmed := fmt.Sprintf(`{"name":"Agg nightly","profile_id":%d,"cron":"* * * * *"}`, aggProf.ID)
-	schedConfirmed := fmt.Sprintf(`{"name":"Agg nightly","profile_id":%d,"cron":"* * * * *","confirm_aggressive":true}`, aggProf.ID)
-	request(403, editor, http.MethodPost, "/schedules", schedConfirmed)
-	request(403, viewer, http.MethodPost, "/schedules", schedConfirmed)
-	assertErrCode(request(400, admin, http.MethodPost, "/schedules", schedUnconfirmed), "confirmation_required")
+	// 5. Schedules for aggressive profile: admin-only (scan:aggressive).
+	schedPayload := fmt.Sprintf(`{"name":"Agg nightly","profile_id":%d,"cron":"* * * * *"}`, aggProf.ID)
+	request(403, editor, http.MethodPost, "/schedules", schedPayload)
+	request(403, viewer, http.MethodPost, "/schedules", schedPayload)
 
 	var aggSched scheduleView
-	parse(request(201, admin, http.MethodPost, "/schedules", schedConfirmed), &aggSched)
+	parse(request(201, admin, http.MethodPost, "/schedules", schedPayload), &aggSched)
 	assertAuditAggressive("schedules.create", fmt.Sprint(aggSched.ID))
 
 	aggSchedPath := fmt.Sprintf("/schedules/%d", aggSched.ID)
-	request(403, editor, http.MethodPut, aggSchedPath, schedConfirmed)
+	request(403, editor, http.MethodPut, aggSchedPath, schedPayload)
 	request(403, editor, http.MethodDelete, aggSchedPath, "")
-	assertErrCode(request(400, admin, http.MethodPut, aggSchedPath, schedUnconfirmed), "confirmation_required")
-	parse(request(200, admin, http.MethodPut, aggSchedPath, schedConfirmed), &aggSched)
+	parse(request(200, admin, http.MethodPut, aggSchedPath, schedPayload), &aggSched)
 	assertAuditAggressive("schedules.update", fmt.Sprint(aggSched.ID))
 
 	// Editor cannot retarget a normal schedule onto an aggressive profile.
 	var normalSched scheduleView
 	parse(request(201, editor, http.MethodPost, "/schedules", fmt.Sprintf(`{"name":"Normal","profile_id":%d,"cron":"0 * * * *"}`, normalProf.ID)), &normalSched)
-	request(403, editor, http.MethodPut, fmt.Sprintf("/schedules/%d", normalSched.ID), schedConfirmed)
+	request(403, editor, http.MethodPut, fmt.Sprintf("/schedules/%d", normalSched.ID), schedPayload)
 
 	// Backdate created_at so the "* * * * *" cron schedule is immediately due,
 	// then verify the scheduler dispatches it without per-run confirmation.

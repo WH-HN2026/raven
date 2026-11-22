@@ -176,7 +176,7 @@ describe('RunsPage', () => {
     expect(JSON.parse(post[1]?.body as string)).toEqual({ profile_id: 1 })
   })
 
-  it('shows Aggressive badge and requires confirmation dialog when starting an aggressive profile', async () => {
+  it('starts an aggressive profile directly without confirmation dialog or Aggressive badge', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
       const url = String(input)
       if (url.startsWith('/api/profiles')) return json(mixedProfiles)
@@ -188,30 +188,18 @@ describe('RunsPage', () => {
     wrap(<RunsPage />)
     const table = await screen.findByRole('table')
     expect(await within(table).findByText('#8')).toBeInTheDocument()
-    expect(within(table).getByText('Aggressive')).toBeInTheDocument()
+    expect(within(table).queryByText('Aggressive')).toBeNull()
 
     const select = screen.getByLabelText('Profile')
     fireEvent.change(select, { target: { value: '2' } })
+    expect(screen.queryByText('Aggressive')).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Start run' }))
 
-    const dialog = screen.getByRole('dialog', { name: 'Start aggressive run?' })
-    expect(dialog).toHaveTextContent('Start aggressive run?')
-    expect(dialog).toHaveTextContent('agg-lab')
-    expect(fetchMock.mock.calls.some(([, i]) => i?.method === 'POST')).toBe(false)
-
-    // Cancel closes the dialog without starting.
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    expect(fetchMock.mock.calls.some(([, i]) => i?.method === 'POST')).toBe(false)
-
-    // Re-open and confirm Start -> sends confirm_aggressive: true.
-    fireEvent.click(screen.getByRole('button', { name: 'Start run' }))
-    const dialog2 = screen.getByRole('dialog', { name: 'Start aggressive run?' })
-    fireEvent.click(within(dialog2).getByRole('button', { name: 'Start' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
     await waitFor(() => expect(fetchMock.mock.calls.some(([, i]) => i?.method === 'POST')).toBe(true))
     const post = fetchMock.mock.calls.find(([, i]) => i?.method === 'POST')!
     expect(post[0]).toBe('/api/runs')
-    expect(JSON.parse(post[1]?.body as string)).toEqual({ profile_id: 2, confirm_aggressive: true })
+    expect(JSON.parse(post[1]?.body as string)).toEqual({ profile_id: 2 })
   })
 })
 
@@ -302,7 +290,7 @@ describe('RunDetailPage', () => {
     expect(screen.queryByRole('button', { name: /Stop/ })).not.toBeInTheDocument()
   })
 
-  it('shows the Aggressive badge in run detail header for an aggressive run', async () => {
+  it('does not show an Aggressive badge in run detail header for an aggressive run', async () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
       const url = String(input)
       if (url.startsWith('/api/profiles')) return json(mixedProfiles)
@@ -310,6 +298,7 @@ describe('RunDetailPage', () => {
       return json(run({ profile_id: 2, aggressive: true }))
     })
     wrap(<RunsPage />, VIEWER, '/runs/7')
-    expect(await screen.findByText('Aggressive')).toBeInTheDocument()
+    expect(await screen.findByText('agg-lab')).toBeInTheDocument()
+    expect(screen.queryByText('Aggressive')).toBeNull()
   })
 })

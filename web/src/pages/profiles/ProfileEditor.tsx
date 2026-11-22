@@ -4,7 +4,7 @@ import { useNavigate, useParams } from 'react-router'
 import { ApiError, api, type Schemas } from '../../api/client'
 import { useCan } from '../../auth/hooks'
 import { PageHeader } from '../../components/PageHeader'
-import { AdminOnly, Alert, Badge, Button, ErrorText, Field, Section, SectionHeading, inputClass } from '../../components/ui'
+import { AdminOnly, Alert, Button, ErrorText, Field, Section, SectionHeading, inputClass } from '../../components/ui'
 import { ScopeList } from '../targets/ScopeEditor'
 import { NUCLEI_TAGS, PROFILE_DEFAULTS, batchMinutes, checkPorts, profileScopeKey, profilesKey, useProfiles, type Profile, type StageName } from './ui'
 import { WorkflowBuilder } from './WorkflowBuilder'
@@ -24,7 +24,6 @@ export function ProfileEditorPage() {
       <PageHeader
         title={title}
         crumbs={[{ label: 'Profiles', to: '/profiles' }, { label: title }]}
-        badges={profile?.aggressive && <Badge tone="red">Aggressive</Badge>}
       />
       {profiles.error && (
         <Section>

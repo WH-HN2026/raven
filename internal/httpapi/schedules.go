@@ -46,8 +46,6 @@ func (a *api) scheduleView(s gen.Schedule) scheduleView {
 
 func scanConfigError(w http.ResponseWriter, op string, err error) {
 	switch {
-	case errors.Is(err, scheduler.ErrConfirmRequired):
-		httpx.Error(w, http.StatusBadRequest, "confirmation_required", err.Error())
 	case errors.Is(err, scheduler.ErrForbidden):
 		httpx.Error(w, http.StatusForbidden, "forbidden", err.Error())
 	case errors.Is(err, scheduler.ErrInvalid):

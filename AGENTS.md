@@ -53,7 +53,7 @@ The coordinator's checkout stays on `main` and only runs `git pull`. It never ed
   - every new route has `auth.Require`, and mutations write `audit_log`;
   - sensitive fields use `_enc`;
   - scanner flags come from the allowlists;
-  - aggressive stages stay gated (`scan:aggressive`, start confirmation, badge, `audit_log`; never default), see architecture §9;
+  - aggressive stages stay gated (`scan:aggressive`, `audit_log`, Default/Aggressive separation in profile creation; never default), see architecture §9;
   - scans only write scan-owned columns;
   - deploy files (`compose.yml`, `deploy/Dockerfile`, `.env.example`) are updated if the task needs it;
   - the task is marked `[x]` in the roadmap.

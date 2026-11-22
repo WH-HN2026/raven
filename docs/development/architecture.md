@@ -244,7 +244,7 @@ The roles come straight from requirement 13:
 | `operator` | modify + read: edit findings and hosts (triage, notes, tags), no create/delete |
 | `viewer` | read everything, export |
 
-Permission `scan:aggressive` (**admin only**): create an aggressive profile, add aggressive stages to a profile, or change an aggressive profile (including its scope entries). Editors may still start and stop runs of an existing aggressive profile (`runs:control`), after the explicit confirmation (§9).
+Permission `scan:aggressive` (**admin only**): create an aggressive profile, add aggressive stages to a profile, or change an aggressive profile (including its scope entries). Editors may still start and stop runs of an existing aggressive profile (`runs:control`).
 
 - One file, `internal/auth/rbac.go`, defines the `Permission` constants and the `role → permissions` map.
 - Each handler declares its permission with `auth.Require(perm)`, and the frontend hides what the role can't do.
@@ -369,11 +369,9 @@ Allowed **in addition**, only in an aggressive profile (§3.11), and still under
 Gating:
 
 - **Admins only** (`scan:aggressive`, §6) can save a profile with aggressive stages or change an aggressive profile. Editors may still start runs of an existing aggressive profile.
-- Starting an aggressive run requires an **explicit confirmation**.
-- Aggressive profiles and runs carry a visible **"Aggressive"** badge.
 - Every create, change and start of an aggressive profile or run writes `audit_log`.
 - The profile's own scope entries are the aggressive scope; there is no separate list.
-- The seeded profiles are **Default** (Default workflow) and **Aggressive** (Default + `nuclei_active, nikto, wpscan`; `zap` off by default in the profile, added by an admin in the workflow builder; never the default; not scheduled; starting it needs the confirmation; admin-only to change). New profiles start with the Default workflow.
+- The seeded profiles are **Default** (Default workflow) and **Aggressive** (Default + `nuclei_active, nikto, wpscan`; `zap` off by default in the profile, added by an admin in the workflow builder; never the default; not scheduled; admin-only to change). New profiles start with the Default workflow.
 - Saving a profile through the API rejects unavailable stages. A stage that becomes unavailable later (e.g. `zap` in a profile, then `RAVEN_ZAP_URL` removed) is skipped at run start with a run warning, and is not in `runs.stages`.
 
 ## 10. Deployment (Docker Compose) and configuration

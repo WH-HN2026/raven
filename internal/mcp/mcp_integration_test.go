@@ -380,15 +380,9 @@ func TestMCPEndToEnd(t *testing.T) {
 		t.Fatalf("start_scan default = %+v", startedDef)
 	}
 
-	// Tool 6: start_scan on aggressive profile WITHOUT confirm_aggressive is rejected.
-	callExpectError(t, editorSess, "start_scan", map[string]any{
-		"profile_id": aggProf.ID,
-	}, "confirm_aggressive")
-
-	// Tool 6: start_scan on aggressive profile WITH confirm_aggressive: true succeeds.
+	// Tool 6: start_scan on aggressive profile succeeds directly and writes aggressive:true to audit_log.
 	startedAgg := callJSON[pipeline.Run](t, editorSess, "start_scan", map[string]any{
-		"profile_id":         aggProf.ID,
-		"confirm_aggressive": true,
+		"profile_id": aggProf.ID,
 	})
 	if startedAgg.ProfileID != aggProf.ID || !startedAgg.Aggressive {
 		t.Fatalf("start_scan aggressive = %+v", startedAgg)

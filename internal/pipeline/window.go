@@ -52,7 +52,7 @@ func (s *Service) DispatchSchedule(ctx context.Context, id int64) error {
 			err = s.pauseScheduledRun(ctx, latest)
 		}
 	case calendar.Due(now, lastStart(latest)):
-		_, err = s.startRun(ctx, nil, schedule.ProfileID, &id, true)
+		_, err = s.startRun(ctx, nil, schedule.ProfileID, &id)
 		if errors.Is(err, errDojoAggressive) {
 			slog.Warn("scheduler: skipping Dojo schedule for aggressive profile",
 				"schedule_id", id, "profile_id", schedule.ProfileID)
