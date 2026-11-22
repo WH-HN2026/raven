@@ -35,6 +35,7 @@ shadows are disabled.
 - `Chip`: tags/ports/technologies; `outline` (default), `filled` (rose tag), `light` (on black).
 - `SeverityLabel`: colour square + text, never colour alone.
 - `EmptyState`: muted text under a black rule, for empty areas outside tables.
+- `CollapsibleText`: long raw strings (banners) cut at `COLLAPSE_AT` (80) chars with an ellipsis; click toggles the full text.
 
 ## Messages
 
