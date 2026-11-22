@@ -9,7 +9,7 @@ export interface Crumb {
 }
 
 /**
- * The black page header (docs/design/canvas/*.dc.html, top section): breadcrumb,
+ * The black page header (docs/development/design/canvas/*.dc.html, top section): breadcrumb,
  * 64px light title, optional badges next to the title, a meta line with a red
  * left rule, actions, and the squares band on the right. Every page starts with it.
  */

@@ -1,6 +1,6 @@
 # Shared UI components
 
-Building blocks for every page, after [`docs/design/README.md`](../../../docs/design/README.md). Use these instead of
+Building blocks for every page, after [`docs/development/design/README.md`](../../../docs/development/design/README.md). Use these instead of
 hand-rolled class strings so pages stay consistent. Colours only through the tokens in `src/theme.css`
 (`bg-red`, `text-muted`, `border-line`, `bg-band`, `bg-sev-high`, …); Tailwind's default palette, radii and
 shadows are disabled.

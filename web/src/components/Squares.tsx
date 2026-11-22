@@ -2,7 +2,7 @@ import full from '../assets/agh-squares.svg'
 import masthead from '../assets/agh-squares-masthead.svg'
 
 /**
- * The AGH squares band (docs/design/canvas/Squares.dc.html).
+ * The AGH squares band (docs/development/design/canvas/Squares.dc.html).
  * masthead: right half of the decor, beside the page title on black.
  * footer: the whole decor mirrored, straddling the white/black edge.
  */

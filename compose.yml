@@ -43,7 +43,7 @@ services:
       - zap-internal
     # Our lab: attach to raven_lab with `-f lab/raven.compose.yml`. The organizers'
     # stacks (lab/organizers) are reached from here at the docker0 gateway 172.17.0.1
-    # (target 172.17.0.1, Default or Aggressive profile); no extra network is needed (docs/lab.md).
+    # (target 172.17.0.1, Default or Aggressive profile); no extra network is needed (docs/development/lab.md).
 
   zap:
     image: ghcr.io/zaproxy/zaproxy:2.17.0@sha256:9624669db72f54d86c4b46a7064518bd9bf79d8c61a4c31befa9923489f328af

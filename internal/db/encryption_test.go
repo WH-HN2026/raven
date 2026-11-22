@@ -12,7 +12,7 @@ import (
 var sensitiveName = regexp.MustCompile(`(^|_)(notes?|banner|headers?|cookies?|cert|certificate|content|body|password|token|secret|key)(_|$)`)
 
 // plaintextAllowed are sensitive-looking columns that are deliberately not
-// encrypted; docs/architecture.md §5 "Encryption" lists the reasons.
+// encrypted; docs/development/architecture.md §5 "Encryption" lists the reasons.
 var plaintextAllowed = map[string]string{
 	"users.password_hash":   "argon2id hash, not the password",
 	"sessions.token_hash":   "SHA-256 of the session token, used as lookup key",

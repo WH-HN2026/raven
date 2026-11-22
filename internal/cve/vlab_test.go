@@ -3,7 +3,7 @@ package cve
 import "testing"
 
 // TestEmbeddedDataVulnLab logs what the versions in the organizers' lab
-// (lab/organizers/, docs/lab.md) match in the committed dataset, and checks
+// (lab/organizers/, docs/development/lab.md) match in the committed dataset, and checks
 // the CPEs our scanners emit for them (nmap's vsftpd:vsftpd alias, signature
 // metadata) are tracked.
 func TestEmbeddedDataVulnLab(t *testing.T) {

@@ -1,6 +1,6 @@
 # RAVEN — Roadmap
 
-Each task is sized for **one worktree / one agent session**. Pick any task whose dependencies are `done`. The architecture is in [`architecture.md`](architecture.md); the workflow rules are in [`../AGENTS.md`](../AGENTS.md).
+Each task is sized for **one worktree / one agent session**. Pick any task whose dependencies are `done`. The architecture is in [`architecture.md`](architecture.md); the workflow rules are in [`../AGENTS.md`](../../AGENTS.md).
 
 **Status:** `[ ]` todo · `[x]` done (flipped in the task's PR before merging). In progress = an open PR titled `<ID>: …` exists.
 **Claiming a task:** open a draft PR titled `<ID>: …` (see AGENTS.md). `gh pr list` is the live view of who is working on what; this file is updated as PRs merge.
@@ -48,7 +48,7 @@ M0 is sequential and blocking. Do it in **one** worktree, as fast as possible, t
   - `web/src/routes.tsx` concatenating page modules.
 - [x] **F4 Auth & app shell.**
   - Login/logout, sessions, bootstrap admin from env, `auth.Require` middleware, CSRF header.
-  - SPA shell per [`docs/design/`](design/README.md): theme tokens in `web/src/theme.css`, self-hosted Roboto, the page frame (top bar with logo and role-filtered nav, black page header with the squares band, footer), login page.
+  - SPA shell per [`docs/development/design/`](design/README.md): theme tokens in `web/src/theme.css`, self-hosted Roboto, the page frame (top bar with logo and role-filtered nav, black page header with the squares band, footer), login page.
   - Worktree helper `scripts/wt-env.sh` (see AGENTS.md "Parallel worktrees").
 
 ## M1 — Walking skeleton (parallel tracks; each needs M0)
@@ -115,9 +115,9 @@ M0 is sequential and blocking. Do it in **one** worktree, as fast as possible, t
 - [x] **W8 Signatures page.** YAML editor, validate button with errors, enable/disable, test against one URL in the lab.
 - [x] **W9 Users page + role-aware UI.** User admin; every action button hidden/disabled per role.
 - [x] **W10 Host edit.** Edit user-owned fields + overrides; show "edited by user" markers; verify edits survive the next run.
-- [x] **W11 Restyle to the design.** (best after W2, W3) Bring the shell and existing pages in line with [`docs/design/`](design/README.md):
+- [x] **W11 Restyle to the design.** (best after W2, W3) Bring the shell and existing pages in line with [`docs/development/design/`](design/README.md):
   - replace the guessed palette in `web/src/theme.css` with the design tokens (red `#C10D14` primary, black frame) and self-host Roboto / Roboto Mono;
-  - replace the sidebar with the black top bar, the black page header with the squares band, and the footer (assets in `docs/design/assets/`);
+  - replace the sidebar with the black top bar, the black page header with the squares band, and the footer (assets in `docs/development/design/assets/`);
   - square corners everywhere, and restyle the merged pages (Targets, Runs, Hosts) to their mockups;
   - remove explanatory copy.
 - [x] **W12 Import/Export page.** UI for P3: upload scan results (RAVEN JSON/CSV, nmap XML, nuclei JSONL, .nessus) with the import result; export buttons (JSON/CSV with the current filters) on Hosts, Findings, Changes and Targets.
@@ -136,7 +136,7 @@ M0 is sequential and blocking. Do it in **one** worktree, as fast as possible, t
 - [x] **Q2 Scale test.** Fake-scanner load test of run planning, batching, ingest, Dojo push and the dashboard/hosts APIs at 10k and 65k hosts; bottlenecks fixed; numbers in docs.
 - [x] **Q4 Services & technologies page + API follow-ups.** GET /api/services, Services/Technologies page; severity and tags in the signatures API; more findings status filters; "last edited by" on hosts.
 - [x] **Q3 Fingerprinting loose ends.** httpx/nuclei technologies get CVE matches via cve.CPEForTech; POST /api/signatures/{id}/test runs the template against one in-scope URL; schedules API has a name and a DefectDojo link.
-- [x] **Q1 Acceptance pass + image build in CI.** Fresh-clone deploy, lab attached, two runs with a lab change, all 12 jury test points walked; docs/acceptance.md with results; CI builds the Docker image.
+- [x] **Q1 Acceptance pass + image build in CI.** Fresh-clone deploy, lab attached, two runs with a lab change, all 12 jury test points walked; docs/development/acceptance.md with results; CI builds the Docker image.
 - [x] **U3 Findings layout + active findings counts.** Finding detail opens next to (wide) or under (narrow) the clicked row; active findings on the dashboard, hosts list and host detail.
 - [x] **U4 Behaviour fixes.** One Dojo finding per matched CVE; adding an existing target shows "Target already exists"; run comparison only older → newer.
 - [x] **U2 Naming & navigation fixes.** User profile page, flat breadcrumbs, clearer labels (intermittent hosts, exclude, signature status, type, profile enabled, batch duration).
@@ -162,7 +162,7 @@ M0 is sequential and blocking. Do it in **one** worktree, as fast as possible, t
 - [x] **V1 RAVEN-safe vuln lab.** All four organizers' stacks together on the internal `raven_vlab` network: `compose.vlab.yml` with static IPs, no published ports, pinned images, healthchecks and an init job; `lab/vuln/` attach override, `targets.csv`, `ports.txt`; `scripts/lib/raven-api.sh`; `make vlab-pull/vlab-up/vlab-down/vlab-ps`. (needs V0) — *reverted in LB1*
 - [x] **V2 Scenario driver.** `scripts/vlab-scenario.sh` with every scenario step (service gone/back, upgrade, new device, host off/on, Toxiproxy toxics, signature, edits, import/export, roles, time window, Dojo planned engagement, `walk`), idempotent, printing what to check. (needs V1) — *reverted in LB1*
 - [x] **V3 Fingerprint coverage for the vuln lab.** Built-in signatures with recorded fixtures for NPM, Traefik, Toxiproxy, RabbitMQ, Adminer, phpMyAdmin at `/`, DVWA and the Gitea version; CVE aliases (`vsftpd:vsftpd`, …) and `CPEForTech` synonyms; migration adding the lab ports to the default profile. (needs V1)
-- [x] **V4 Scale layer + real-scan measurements.** One multi-address container serving up to 4,096 persona hosts in `10.77.64.0/18`, deterministic churn with expected counts, `scripts/vlab-scale.sh`; real two-run scans at 256 and 1,024 hosts measured into `docs/scale.md`. (needs V1) — *reverted in LB1*
+- [x] **V4 Scale layer + real-scan measurements.** One multi-address container serving up to 4,096 persona hosts in `10.77.64.0/18`, deterministic churn with expected counts, `scripts/vlab-scale.sh`; real two-run scans at 256 and 1,024 hosts measured into `docs/development/scale.md`. (needs V1) — *reverted in LB1*
 - [x] **V5 One-command demo.** `make demo` / `scripts/demo.sh`: gen-env if missing, RAVEN + Dojo + vuln lab up and attached, wait for Dojo, seed blacklist/targets/profiles/demo users through the API, Run 1; `make demo-down`, `make demo-reset`; README Demo section. (needs V1; uses V4's script when present) — *reverted in LB1*
 - [ ] **V6 Acceptance pass on the vuln lab.** Fresh clone, `make demo`, every scenario step as the jury would, expected-vs-actual tables in `docs/vuln-lab.md`, follow-ups. (needs V2, V3, V4, V5) — *superseded by LB2*
 - [x] **V7 Response time and slow hosts.** httpx response time stored per HTTP observation and shown; "slow" and "HTTP unresponsive" services in run stats and Changes (organizers' Toxiproxy scenario). (needs V1)
@@ -171,11 +171,15 @@ M0 is sequential and blocking. Do it in **one** worktree, as fast as possible, t
 **Track LB — Lab scenarios** (supersedes Track V)
 - [x] **LB0 Guardrails + docs for the two lab scenarios.**
 - [x] **LB1 Revert vuln_lab + two scenarios via make.** Revert V0/V1/V2/V4/V5 infra, `lab/organizers/` verbatim + `SHA256SUMS`, `make lab-up/lab-down/lab-change/lab-verify LAB=… STACK=…`, Dojo default port 18080, seeded "Organizers' lab" profile, real scan of each organizers' stack. (needs LB0 for docs only)
-- [ ] **LB2 Acceptance on the organizers' scenarios.** Their README steps exactly (quickstart up → change → up: 8787 gone/back in Changes; modern-proxy with `ENABLE_LATENCY=true LATENCY_MS=500`: slow host; vulnerable stack: WordPress 4.7, vsftpd, DVWA, Adminer fingerprints + CVEs; modern stack), expected-vs-actual table in `docs/acceptance.md`. (needs LB1)
+- [ ] **LB2 Acceptance on the organizers' scenarios.** Their README steps exactly (quickstart up → change → up: 8787 gone/back in Changes; modern-proxy with `ENABLE_LATENCY=true LATENCY_MS=500`: slow host; vulnerable stack: WordPress 4.7, vsftpd, DVWA, Adminer fingerprints + CVEs; modern stack), expected-vs-actual table in `docs/development/acceptance.md`. (needs LB1)
 - [ ] **LB3 Aggressive on the organizers' vulnerable stack.** The seeded Aggressive profile (or a copy) limited to 172.17.0.1 ports 8088 (WordPress 4.7) and 8090 (DVWA); nuclei_active/nikto/wpscan/ZAP results documented. Open issue: ZAP is on internal-only networks and may not reach 172.17.0.1. (needs LB1, AG2–AG5)
 - [x] **LB4 No special-address target checks.** internal/targets no longer rejects loopback/link-local/multicast/unspecified/broadcast addresses; only IPv4-only and the CIDR size cap, now /8, remain. Which networks may be scanned is an operating rule (§9).
 - [x] **LB5 LB1 follow-ups.** `modern` stack scanned; §10 wording of the Organizers' lab profile (include + target added by hand).
 - [x] **LB6 Seeded profiles Default + Aggressive.** No "Organizers' lab" profile; seeded Default (renamed) and Aggressive (Default + nuclei_active, nikto, wpscan; gated as AG1); zap off by default in the profile (ZAP service runs; add the zap stage in the workflow builder); unavailable stages skipped at run start with a warning. ZAP service on by default: the `zap` compose service always starts and `RAVEN_ZAP_URL` defaults to `http://zap:8080` (empty disables it; empty in dev).
+
+**Track DOC — Documentation**
+- [x] **DOC1 Developer docs in docs/development.** All developer docs moved; docs/ holds the user manual.
+- [ ] **DOC2 User manual (PL).** Short Polish technical user manual in LaTeX (docs/manual/), rendered with tectonic to docs/RAVEN-instrukcja.pdf; screenshots of the real app.
 
 ## M4 — MCP (last)
 

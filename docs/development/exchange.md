@@ -48,7 +48,7 @@ Every import creates a completed run (`runs.stats.source = "import"`, `runs.stat
 
 ### 2.1 RAVEN Results JSON (`results-json`)
 
-Example fixture: [`internal/exchange/testdata/sample_results.json`](../internal/exchange/testdata/sample_results.json).
+Example fixture: [`internal/exchange/testdata/sample_results.json`](../../internal/exchange/testdata/sample_results.json).
 
 ```json
 {
@@ -112,7 +112,7 @@ Design notes:
 
 ### 2.2 RAVEN Results CSV (`results-csv`)
 
-Example fixture: [`internal/exchange/testdata/sample_results.csv`](../internal/exchange/testdata/sample_results.csv).
+Example fixture: [`internal/exchange/testdata/sample_results.csv`](../../internal/exchange/testdata/sample_results.csv).
 
 Columns are matched case-insensitively by header name (`ip` is required; all other columns are optional; list columns use `;` or `|`):
 
@@ -132,7 +132,7 @@ Multiple rows for the same IP merge into one host; multiple rows for the same `(
 
 ### 2.4 Nessus Reports (`nessus`)
 
-Example fixture: [`internal/exchange/testdata/sample.nessus`](../internal/exchange/testdata/sample.nessus).
+Example fixture: [`internal/exchange/testdata/sample.nessus`](../../internal/exchange/testdata/sample.nessus).
 
 - Parses `NessusClientData_v2` XML, extracting each `<ReportHost>`'s IP (from `<HostProperties><tag name="host-ip">` or `<ReportHost name="...">`), hostnames, and open ports/services from `<ReportItem>`.
 - Filters hosts through the profile's scope and global blacklist, ingests discovered hosts/services into our DB (partial import), stores the raw `.nessus` encrypted in `artifacts(scanner='nessus')`.

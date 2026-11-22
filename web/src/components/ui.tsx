@@ -1,4 +1,4 @@
-// Shared UI building blocks for every page (docs/design/README.md "Rules").
+// Shared UI building blocks for every page (docs/development/design/README.md "Rules").
 // See components/README.md for when to use which. Theme tokens only.
 import type { ButtonHTMLAttributes, ReactNode, TdHTMLAttributes, ThHTMLAttributes } from 'react'
 

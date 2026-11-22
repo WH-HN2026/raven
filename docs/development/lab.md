@@ -6,7 +6,7 @@ The fixtures run on `raven_lab`, an internal Docker bridge with subnet `172.30.0
 
 ## Targets and expected observations
 
-Paste or upload [`lab/targets.txt`](../lab/targets.txt) in Targets. Use `172.30.0.16/28` as the profile's include scope. The default profile covers TCP ports `22,80,443,3306,8080`. Include those ports when using a custom profile and keep the configured scan rate limits in effect.
+Paste or upload [`lab/targets.txt`](../../lab/targets.txt) in Targets. Use `172.30.0.16/28` as the profile's include scope. The default profile covers TCP ports `22,80,443,3306,8080`. Include those ports when using a custom profile and keep the configured scan rate limits in effect.
 
 | Address | TCP port | Service | Expected evidence or finding |
 | --- | ---: | --- | --- |
@@ -66,7 +66,7 @@ docker run --rm --network raven_lab raven-lab-tools:local nmap -n -sS -sV \
 
 ## Organizers' scenario
 
-The organizers' lab files are in [`lab/organizers/`](../lab/organizers/README.md), byte for byte as they gave them. Never edit them: `make lab-verify` checks them against `lab/organizers/SHA256SUMS`. Make only `cd`s into that directory and runs their own commands. Run **one stack at a time** (their README), and stop our lab first.
+The organizers' lab files are in [`lab/organizers/`](../../lab/organizers/README.md), byte for byte as they gave them. Never edit them: `make lab-verify` checks them against `lab/organizers/SHA256SUMS`. Make only `cd`s into that directory and runs their own commands. Run **one stack at a time** (their README), and stop our lab first.
 
 | Command | Runs (in `lab/organizers/`) | Published ports |
 |---|---|---|

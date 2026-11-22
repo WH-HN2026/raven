@@ -23,7 +23,7 @@ Ports taken? Set `RAVEN_PORT`, `DD_PORT`, `DD_TLS_PORT` and `RAVEN_DB_PORT` in `
 
 ## Scan a lab
 
-Two lab scenarios, one at a time ([`docs/lab.md`](docs/lab.md)).
+Two lab scenarios, one at a time ([`docs/development/lab.md`](docs/development/lab.md)).
 
 **Ours** (13 fixtures on the internal network `172.30.0.0/24`):
 
@@ -32,7 +32,7 @@ make lab-up                                                       # = docker com
 docker compose -f compose.yml -f lab/raven.compose.yml up -d      # attach RAVEN to the lab network
 ```
 
-In RAVEN: **Targets** → add `172.30.0.16/28` as a target and as an include → **Runs** → **Start run**. Expected results per host: [`docs/lab.md`](docs/lab.md). Toggle the unstable host with `scripts/lab-flap.sh off|on`.
+In RAVEN: **Targets** → add `172.30.0.16/28` as a target and as an include → **Runs** → **Start run**. Expected results per host: [`docs/development/lab.md`](docs/development/lab.md). Toggle the unstable host with `scripts/lab-flap.sh off|on`.
 
 **The organizers'** (their files in `lab/organizers/`, run as-is):
 
@@ -42,7 +42,7 @@ make lab-change                                # their ./quickstart.sh change
 make lab-down LAB=organizers                   # same STACK= as lab-up
 ```
 
-In RAVEN: **Targets** → add `172.17.0.1` (once) → **Runs** → **Start run** with the profile **Default** (or **Aggressive**: Default + nuclei_active, nikto, wpscan; add zap in the workflow builder). Both scan every target and Default's port list, which also has RAVEN's 8000 and Dojo's 8443 ([`docs/lab.md`](docs/lab.md)).
+In RAVEN: **Targets** → add `172.17.0.1` (once) → **Runs** → **Start run** with the profile **Default** (or **Aggressive**: Default + nuclei_active, nikto, wpscan; add zap in the workflow builder). Both scan every target and Default's port list, which also has RAVEN's 8000 and Dojo's 8443 ([`docs/development/lab.md`](docs/development/lab.md)).
 
 Add more users with the roles `admin`, `editor`, `operator` and `viewer` on the **Users** page.
 
@@ -61,4 +61,4 @@ docker compose down                # keep data; add -v to delete all data
 
 ## Docs
 
-[Architecture](docs/architecture.md) · [Import/export formats](docs/exchange.md) · [Labs](docs/lab.md) · [Scale test](docs/scale.md) · [Acceptance pass](docs/acceptance.md) · [Roadmap](docs/roadmap.md)
+[Architecture](docs/development/architecture.md) · [Import/export formats](docs/development/exchange.md) · [Labs](docs/development/lab.md) · [Scale test](docs/development/scale.md) · [Acceptance pass](docs/development/acceptance.md) · [Roadmap](docs/development/roadmap.md)

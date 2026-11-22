@@ -1,6 +1,6 @@
 # Challenge brief (extracted from the PDF)
 
-Source: `docs/AGH - Pełna treść zadania konkursowego.pdf`. Text extracted verbatim (Polish). See the end of this file for notes from our conversation with the organizers.
+Source: `docs/development/AGH - Pełna treść zadania konkursowego.pdf`. Text extracted verbatim (Polish). See the end of this file for notes from our conversation with the organizers.
 
 ```text
                           Attack Surface Intelligence
